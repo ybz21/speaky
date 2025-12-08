@@ -122,13 +122,26 @@ class GeneralPage(SettingsPage):
         self.add_card(t("recognition_lang"), self.lang_combo)
 
         self.ui_lang_combo = ComboBox()
-        for lang_code in ["auto", "en", "zh", "zh_TW", "ja", "ko", "de", "fr", "es", "pt", "ru"]:
+        self._ui_lang_codes = ["auto", "en", "zh", "zh_TW", "ja", "ko", "de", "fr", "es", "pt", "ru"]
+        for lang_code in self._ui_lang_codes:
             display_name = i18n.get_language_name(lang_code)
-            self.ui_lang_combo.addItem(display_name, lang_code)
+            self.ui_lang_combo.addItem(display_name)
         self.ui_lang_combo.setMinimumWidth(150)
         self.add_card(t("ui_lang"), self.ui_lang_combo)
 
         self.add_save_button()
+
+    def get_ui_lang_code(self) -> str:
+        """Get selected UI language code"""
+        idx = self.ui_lang_combo.currentIndex()
+        if 0 <= idx < len(self._ui_lang_codes):
+            return self._ui_lang_codes[idx]
+        return "auto"
+
+    def set_ui_lang_code(self, code: str):
+        """Set UI language by code"""
+        if code in self._ui_lang_codes:
+            self.ui_lang_combo.setCurrentIndex(self._ui_lang_codes.index(code))
 
 
 class EnginePage(SettingsPage):
@@ -336,10 +349,7 @@ class SettingsDialog(FluentWindow):
         self._general_page.lang_combo.setCurrentText(self._config.get("language", "zh"))
 
         ui_lang = self._config.get("ui_language", "auto")
-        for i in range(self._general_page.ui_lang_combo.count()):
-            if self._general_page.ui_lang_combo.itemData(i) == ui_lang:
-                self._general_page.ui_lang_combo.setCurrentIndex(i)
-                break
+        self._general_page.set_ui_lang_code(ui_lang)
 
         # Engine page
         engine = self._config.get("engine", "whisper")
@@ -381,7 +391,7 @@ class SettingsDialog(FluentWindow):
         self._config.set("hotkey", self._general_page.hotkey_combo.currentText())
         self._config.set("hotkey_hold_time", self._general_page.hold_time_spin.value())
         self._config.set("language", self._general_page.lang_combo.currentText())
-        self._config.set("ui_language", self._general_page.ui_lang_combo.currentData())
+        self._config.set("ui_language", self._general_page.get_ui_lang_code())
 
         # Engine settings
         self._config.set("engine", self._engine_page.engine_combo.currentText())
@@ -416,7 +426,7 @@ class SettingsDialog(FluentWindow):
         self._config.save()
 
         # Update i18n language
-        i18n.set_language(self._general_page.ui_lang_combo.currentData())
+        i18n.set_language(self._general_page.get_ui_lang_code())
 
         # Apply theme
         apply_theme(theme)
