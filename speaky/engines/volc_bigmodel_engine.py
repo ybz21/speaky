@@ -194,9 +194,9 @@ class VolcBigModelEngine(BaseEngine):
             "X-Api-App-Key": self._app_key,
         }
 
-        # Note: Both endpoints support partial results
-        # bigmodel endpoint requires streaming ASR access, bigmodel_nostream works for most cases
-        # Use nostream endpoint for better compatibility, it still returns intermediate results
+        # Note: bigmodel endpoint requires special streaming ASR access (returns 400 if not granted)
+        # bigmodel_nostream works for most accounts but only returns final result
+        # For now, always use nostream endpoint for compatibility
         ws_url = self._ws_url_nostream
         logger.info(f"Connecting to {ws_url} (streaming={streaming})")
 
