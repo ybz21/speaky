@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect, QScrollArea, QSizePolicy
 )
 from PySide6.QtCore import Qt, Signal, QTimer, QPointF
-from PySide6.QtGui import QPainter, QColor, QPainterPath, QRadialGradient, QPen, QFont
+from PySide6.QtGui import QPainter, QColor, QPainterPath, QRadialGradient, QPen, QFont, QKeyEvent
 
 from ..i18n import t
 
@@ -17,7 +17,7 @@ class WaveOrbWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(120, 120)
+        self.setFixedSize(60, 60)
         self._audio_level = 0.0
         self._target_level = 0.0
         self._phase = 0.0
@@ -100,9 +100,9 @@ class WaveOrbWidget(QWidget):
         secondary = self._current_secondary
 
         # Simple glow (just 2 layers instead of 5)
-        base_r = 30 + self._audio_level * 12
+        base_r = 15 + self._audio_level * 6
         for i in range(2):
-            r = base_r + i * 15
+            r = base_r + i * 8
             alpha = int(50 * (1 - i * 0.5))
             gradient = QRadialGradient(cx, cy, r)
             gradient.setColorAt(0, QColor(primary.red(), primary.green(), primary.blue(), alpha))
@@ -114,12 +114,12 @@ class WaveOrbWidget(QWidget):
         # Main orb with simple wave deformation (fewer points)
         path = QPainterPath()
         num_points = 24  # Reduced from 64
-        orb_r = 24 + self._audio_level * 14
+        orb_r = 12 + self._audio_level * 7
 
         for i in range(num_points + 1):
             angle = (i / num_points) * 6.283
             # Simpler wave calculation
-            wave = math.sin(angle * 3 + self._phase) * (2 + self._audio_level * 6)
+            wave = math.sin(angle * 3 + self._phase) * (1 + self._audio_level * 3)
             r = orb_r + wave
             x = cx + r * math.cos(angle)
             y = cy + r * math.sin(angle)
@@ -139,16 +139,16 @@ class WaveOrbWidget(QWidget):
 
         # Simple bars (only 12 instead of 32)
         num_bars = 12
-        bar_r = orb_r + 8 + self._audio_level * 5
+        bar_r = orb_r + 4 + self._audio_level * 2
         pen = QPen(primary)
-        pen.setWidth(2)
+        pen.setWidth(1)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         painter.setPen(pen)
 
         for i in range(num_bars):
             angle = (i / num_bars) * 6.283 - 1.57  # -pi/2
             h_factor = abs(math.sin(angle * 2 + self._phase))
-            bar_h = 4 + h_factor * (8 + self._audio_level * 12)
+            bar_h = 2 + h_factor * (4 + self._audio_level * 6)
 
             x1 = cx + bar_r * math.cos(angle)
             y1 = cy + bar_r * math.sin(angle)
@@ -161,9 +161,9 @@ class FloatingWindow(QWidget):
     """Floating window with layout: [animation + status] | [text]"""
     closed = Signal()
 
-    # Fixed size
-    WINDOW_WIDTH = 1260
-    WINDOW_HEIGHT = 180
+    # Fixed size (reduced to 1/2)
+    WINDOW_WIDTH = 630
+    WINDOW_HEIGHT = 90
 
     def __init__(self):
         super().__init__()
@@ -182,7 +182,7 @@ class FloatingWindow(QWidget):
 
         # Main layout
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(0)
 
         # Container with glassmorphism
@@ -191,28 +191,28 @@ class FloatingWindow(QWidget):
         container.setStyleSheet("""
             QWidget#container {
                 background-color: rgba(25, 25, 30, 240);
-                border-radius: 20px;
+                border-radius: 10px;
                 border: 1px solid rgba(255, 255, 255, 0.08);
             }
         """)
 
         shadow = QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(30)
+        shadow.setBlurRadius(15)
         shadow.setColor(QColor(0, 0, 0, 80))
-        shadow.setOffset(0, 6)
+        shadow.setOffset(0, 3)
         container.setGraphicsEffect(shadow)
 
         # Horizontal layout: [left: animation+status] [right: text]
         h_layout = QHBoxLayout(container)
-        h_layout.setContentsMargins(20, 15, 20, 15)
-        h_layout.setSpacing(20)
+        h_layout.setContentsMargins(10, 8, 10, 8)
+        h_layout.setSpacing(10)
 
         # Left panel: animation on top, status below
         left_panel = QWidget()
-        left_panel.setFixedWidth(140)
+        left_panel.setFixedWidth(70)
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(8)
+        left_layout.setSpacing(2)
         left_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Wave orb
@@ -222,7 +222,7 @@ class FloatingWindow(QWidget):
         # Status label below animation
         self._status_label = QLabel(t("listening"))
         status_font = self._status_label.font()
-        status_font.setPointSize(12)
+        status_font.setPointSize(9)
         status_font.setWeight(QFont.Weight.Medium)
         self._status_label.setFont(status_font)
         self._status_label.setStyleSheet("color: #00D4FF; background: transparent;")
@@ -259,7 +259,7 @@ class FloatingWindow(QWidget):
         # Text label inside scroll area
         self._text_label = QLabel("")
         text_font = self._text_label.font()
-        text_font.setPointSize(14)
+        text_font.setPointSize(11)
         self._text_label.setFont(text_font)
         self._text_label.setStyleSheet("""
             color: rgba(255, 255, 255, 0.85);
@@ -360,8 +360,15 @@ class FloatingWindow(QWidget):
         from PySide6.QtWidgets import QApplication
         screen = QApplication.primaryScreen().geometry()
         x = (screen.width() - self.width()) // 2
-        y = screen.height() - self.height() - 80
+        y = screen.height() - self.height() - 40
         self.move(x, y)
+
+    def keyPressEvent(self, event: QKeyEvent):
+        """Handle ESC key to close window"""
+        if event.key() == Qt.Key.Key_Escape:
+            self.hide()
+        else:
+            super().keyPressEvent(event)
 
     def hideEvent(self, event):
         logger.info("FloatingWindow hiding")
