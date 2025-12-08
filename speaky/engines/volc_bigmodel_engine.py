@@ -124,8 +124,12 @@ class VolcBigModelEngine(BaseEngine):
         self._access_key = access_key
         self._model = model  # bigmodel, bigmodel_async, bigmodel_nostream
         self._segment_duration = segment_duration
-        # 流式端点和非流式端点
+        # 三种端点模式:
+        # bigmodel - 双向流式模式，每包返回一包，尽快返回识别结果
+        # bigmodel_async - 双向流式优化版，结果变化时返回，性能更优
+        # bigmodel_nostream - 流式输入模式，15s后或最后一包返回，准确率更高
         self._ws_url_streaming = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel"
+        self._ws_url_async = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async"
         self._ws_url_nostream = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream"
         logger.info(f"VolcBigModel initialized: model={model}, app_key={app_key[:4] if app_key else 'None'}..., access_key={access_key[:4] if access_key else 'None'}...")
 
@@ -194,10 +198,13 @@ class VolcBigModelEngine(BaseEngine):
             "X-Api-App-Key": self._app_key,
         }
 
-        # Note: bigmodel endpoint requires special streaming ASR access (returns 400 if not granted)
-        # bigmodel_nostream works for most accounts but only returns final result
-        # For now, always use nostream endpoint for compatibility
-        ws_url = self._ws_url_nostream
+        # 选择端点:
+        # - 流式模式使用 bigmodel_async (双向流式优化版)，结果变化时返回
+        # - 非流式模式使用 bigmodel_nostream，准确率更高
+        if streaming:
+            ws_url = self._ws_url_async
+        else:
+            ws_url = self._ws_url_nostream
         logger.info(f"Connecting to {ws_url} (streaming={streaming})")
 
         result_text = ""
