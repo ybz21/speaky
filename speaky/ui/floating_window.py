@@ -17,7 +17,7 @@ class WaveOrbWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(150, 150)  # Adjusted for 1.5x height
+        self.setFixedSize(120, 120)
         self._audio_level = 0.0
         self._target_level = 0.0
         self._phase = 0.0
@@ -100,9 +100,9 @@ class WaveOrbWidget(QWidget):
         secondary = self._current_secondary
 
         # Simple glow (just 2 layers instead of 5)
-        base_r = 38 + self._audio_level * 15  # Scaled for 1.5x
+        base_r = 30 + self._audio_level * 12
         for i in range(2):
-            r = base_r + i * 18  # Scaled for 1.5x
+            r = base_r + i * 15
             alpha = int(50 * (1 - i * 0.5))
             gradient = QRadialGradient(cx, cy, r)
             gradient.setColorAt(0, QColor(primary.red(), primary.green(), primary.blue(), alpha))
@@ -114,7 +114,7 @@ class WaveOrbWidget(QWidget):
         # Main orb with simple wave deformation (fewer points)
         path = QPainterPath()
         num_points = 24  # Reduced from 64
-        orb_r = 30 + self._audio_level * 18  # Scaled for 1.5x
+        orb_r = 24 + self._audio_level * 14
 
         for i in range(num_points + 1):
             angle = (i / num_points) * 6.283
@@ -158,15 +158,16 @@ class WaveOrbWidget(QWidget):
 
 
 class FloatingWindow(QWidget):
-    """Floating window with horizontal layout: animation left, text right"""
+    """Floating window with layout: [animation + status] | [text]"""
     closed = pyqtSignal()
 
-    # Fixed size - enlarged: width 3x (420*3=1260), height 1.5x (120*1.5=180)
+    # Fixed size
     WINDOW_WIDTH = 1260
     WINDOW_HEIGHT = 180
 
     def __init__(self):
         super().__init__()
+        self._hide_timer = None  # Track hide timer
         self._setup_ui()
 
     def _setup_ui(self):
@@ -201,32 +202,36 @@ class FloatingWindow(QWidget):
         shadow.setOffset(0, 6)
         container.setGraphicsEffect(shadow)
 
-        # Horizontal layout: [orb] [text area]
+        # Horizontal layout: [left: animation+status] [right: text]
         h_layout = QHBoxLayout(container)
-        h_layout.setContentsMargins(15, 12, 15, 12)
-        h_layout.setSpacing(15)
+        h_layout.setContentsMargins(20, 15, 20, 15)
+        h_layout.setSpacing(20)
 
-        # Left: Wave orb
+        # Left panel: animation on top, status below
+        left_panel = QWidget()
+        left_panel.setFixedWidth(140)
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(8)
+        left_layout.setAlignment(Qt.AlignCenter)
+
+        # Wave orb
         self._wave_widget = WaveOrbWidget()
-        h_layout.addWidget(self._wave_widget)
+        left_layout.addWidget(self._wave_widget, 0, Qt.AlignCenter)
 
-        # Right: Status + scrollable text
-        right_panel = QWidget()
-        right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(4)
-
-        # Status label - use system default font
+        # Status label below animation
         self._status_label = QLabel(t("listening"))
         status_font = self._status_label.font()
-        status_font.setPointSize(14)  # Larger font
+        status_font.setPointSize(12)
         status_font.setWeight(QFont.Medium)
         self._status_label.setFont(status_font)
         self._status_label.setStyleSheet("color: #00D4FF; background: transparent;")
-        self._status_label.setFixedHeight(28)  # Taller for larger font
-        right_layout.addWidget(self._status_label)
+        self._status_label.setAlignment(Qt.AlignCenter)
+        left_layout.addWidget(self._status_label)
 
-        # Scrollable text area
+        h_layout.addWidget(left_panel)
+
+        # Right panel: scrollable text area (vertically centered)
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -251,10 +256,10 @@ class FloatingWindow(QWidget):
             }
         """)
 
-        # Text label inside scroll area - use system default font
+        # Text label inside scroll area
         self._text_label = QLabel("")
         text_font = self._text_label.font()
-        text_font.setPointSize(11)
+        text_font.setPointSize(14)
         self._text_label.setFont(text_font)
         self._text_label.setStyleSheet("""
             color: rgba(255, 255, 255, 0.85);
@@ -262,15 +267,13 @@ class FloatingWindow(QWidget):
             padding: 2px 0;
         """)
         self._text_label.setWordWrap(True)
-        # Center vertically when text is short, align top when long
         self._text_label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
         self._text_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         scroll_area.setWidget(self._text_label)
-        scroll_area.setAlignment(Qt.AlignVCenter)  # Center content vertically
-        right_layout.addWidget(scroll_area, 1)
+        scroll_area.setAlignment(Qt.AlignVCenter)
+        h_layout.addWidget(scroll_area, 1)
 
-        h_layout.addWidget(right_panel, 1)
         layout.addWidget(container)
 
         # Store scroll area reference for auto-scroll
@@ -281,7 +284,14 @@ class FloatingWindow(QWidget):
         scrollbar = self._scroll_area.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
 
+    def _cancel_hide_timer(self):
+        """Cancel any pending hide timer"""
+        if self._hide_timer is not None:
+            self._hide_timer.stop()
+            self._hide_timer = None
+
     def show_recording(self):
+        self._cancel_hide_timer()
         self._status_label.setText(t("listening"))
         self._status_label.setStyleSheet("color: #00D4FF; background: transparent;")
         self._text_label.setText("")
@@ -292,6 +302,7 @@ class FloatingWindow(QWidget):
         self.raise_()
 
     def show_recognizing(self):
+        self._cancel_hide_timer()
         self._status_label.setText(t("recognizing"))
         self._status_label.setStyleSheet("color: #FFB347; background: transparent;")
         self._wave_widget.set_mode("recognizing")
@@ -307,6 +318,8 @@ class FloatingWindow(QWidget):
             QTimer.singleShot(10, self._scroll_to_bottom)
 
     def show_result(self, text: str):
+        self._cancel_hide_timer()
+        logger.info(f"FloatingWindow.show_result called: {text[:50]}...")
         self._status_label.setText(t("done"))
         self._status_label.setStyleSheet("color: #00E676; background: transparent;")
         self._text_label.setText(text)
@@ -318,11 +331,16 @@ class FloatingWindow(QWidget):
         QTimer.singleShot(10, self._scroll_to_bottom)
         # Stop animation after brief transition to show "done" color
         QTimer.singleShot(500, self._wave_widget.stop_animation)
-        # Display time based on text length
+        # Display time based on text length, then hide
         display_time = max(1500, min(3500, 1200 + len(text) * 15))
-        QTimer.singleShot(display_time, self.hide)
+        self._hide_timer = QTimer()
+        self._hide_timer.setSingleShot(True)
+        self._hide_timer.timeout.connect(self.hide)
+        self._hide_timer.start(display_time)
 
     def show_error(self, error: str):
+        self._cancel_hide_timer()
+        logger.info(f"FloatingWindow.show_error called: {error}")
         self._status_label.setText(t("error"))
         self._status_label.setStyleSheet("color: #FF5252; background: transparent;")
         self._text_label.setText(error)
@@ -330,7 +348,10 @@ class FloatingWindow(QWidget):
         self._wave_widget.set_mode("error")
         # Stop animation after brief transition to show "error" color
         QTimer.singleShot(500, self._wave_widget.stop_animation)
-        QTimer.singleShot(2500, self.hide)
+        self._hide_timer = QTimer()
+        self._hide_timer.setSingleShot(True)
+        self._hide_timer.timeout.connect(self.hide)
+        self._hide_timer.start(2500)
 
     def update_audio_level(self, level: float):
         self._wave_widget.set_audio_level(level * 3)
@@ -343,5 +364,7 @@ class FloatingWindow(QWidget):
         self.move(x, y)
 
     def hideEvent(self, event):
+        logger.info("FloatingWindow hiding")
         self._wave_widget.stop_animation()
+        self._cancel_hide_timer()
         super().hideEvent(event)

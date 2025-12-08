@@ -156,11 +156,19 @@ class SpeakyApp:
 
         if use_realtime:
             logger.info("Using real-time streaming ASR")
+            # Track if final result was received via callback
+            self._realtime_final_received = False
+
+            def on_final_callback(text):
+                self._realtime_final_received = True
+                logger.info(f"on_final callback: {text}")
+                self._signals.recognition_done.emit(text)
+
             # Create and start real-time session
             self._realtime_session = self._engine.create_realtime_session(
                 language=config.language,
                 on_partial=lambda text: self._signals.partial_result.emit(text),
-                on_final=lambda text: self._signals.recognition_done.emit(text),
+                on_final=on_final_callback,
                 on_error=lambda err: self._signals.recognition_error.emit(err),
             )
             self._realtime_session.start()
@@ -197,7 +205,8 @@ class SpeakyApp:
                 try:
                     if sess is None:
                         logger.warning("Real-time session is None")
-                        self._signals.recognition_error.emit(t("empty_result"))
+                        if not self._realtime_final_received:
+                            self._signals.recognition_error.emit(t("empty_result"))
                         return
 
                     # Add timeout wrapper for finish
@@ -209,19 +218,24 @@ class SpeakyApp:
                         except concurrent.futures.TimeoutError:
                             logger.error("Real-time finish timed out")
                             sess.cancel()
-                            self._signals.recognition_error.emit("识别超时")
+                            if not self._realtime_final_received:
+                                self._signals.recognition_error.emit("识别超时")
                             return
 
-                    if result:
-                        logger.info(f"Real-time result: {result}")
-                        # Emit recognition_done to ensure window hides
-                        self._signals.recognition_done.emit(result)
+                    # Only emit if on_final callback wasn't called
+                    if not self._realtime_final_received:
+                        if result:
+                            logger.info(f"Real-time result from finish: {result}")
+                            self._signals.recognition_done.emit(result)
+                        else:
+                            logger.warning("Real-time result is empty")
+                            self._signals.recognition_error.emit(t("empty_result"))
                     else:
-                        logger.warning("Real-time result is empty")
-                        self._signals.recognition_error.emit(t("empty_result"))
+                        logger.info("Final result already received via callback")
                 except Exception as e:
                     logger.error(f"Real-time finish error: {e}", exc_info=True)
-                    self._signals.recognition_error.emit(str(e))
+                    if not self._realtime_final_received:
+                        self._signals.recognition_error.emit(str(e))
 
             threading.Thread(target=finish_realtime, args=(session,), daemon=True).start()
             return
