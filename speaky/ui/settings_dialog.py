@@ -94,8 +94,8 @@ class CorePage(SettingsPage):
         self._setup_ui()
 
     def _setup_ui(self):
-        # Hotkey settings
-        self.add_group_label(t("hotkey_group"))
+        # Voice input key settings (merged hotkey + language)
+        self.add_group_label(t("voice_input_group"))
 
         self.hotkey_combo = EditableComboBox()
         self.hotkey_combo.addItems([
@@ -113,9 +113,6 @@ class CorePage(SettingsPage):
         self.hold_time_spin.setDecimals(1)
         self.hold_time_spin.setMinimumWidth(120)
         self.add_card(t("hold_time_label"), self.hold_time_spin)
-
-        # Language settings
-        self.add_group_label(t("language_group"))
 
         self.lang_combo = ComboBox()
         self.lang_combo.addItems(["zh", "en", "ja", "ko"])
