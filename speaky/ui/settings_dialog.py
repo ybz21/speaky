@@ -6,13 +6,10 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon
 
 from qfluentwidgets import (
-    ComboBox, LineEdit, PasswordLineEdit, PushButton, PrimaryPushButton,
+    ComboBox, EditableComboBox, LineEdit, PasswordLineEdit, PushButton, PrimaryPushButton,
     SwitchButton, Slider, DoubleSpinBox, BodyLabel, SubtitleLabel,
-    CardWidget, ExpandGroupSettingCard, FluentIcon, MessageBox,
-    NavigationInterface, NavigationItemPosition, qrouter,
-    SettingCardGroup, OptionsSettingCard, ComboBoxSettingCard,
-    SwitchSettingCard, RangeSettingCard, PushSettingCard,
-    setTheme, Theme, isDarkTheme
+    CardWidget, FluentIcon, MessageBox,
+    NavigationItemPosition
 )
 from qfluentwidgets import FluentWindow
 
@@ -76,14 +73,13 @@ class GeneralPage(SettingsPage):
         # Hotkey settings
         self.add_group_label(t("hotkey_group"))
 
-        self.hotkey_combo = ComboBox()
+        self.hotkey_combo = EditableComboBox()
         self.hotkey_combo.addItems([
             "ctrl", "alt", "shift", "cmd",
             "ctrl_l", "ctrl_r", "alt_l", "alt_r", "shift_l", "shift_r",
             "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
             "space", "tab", "caps_lock",
         ])
-        self.hotkey_combo.setEditable(True)
         self.hotkey_combo.setMinimumWidth(150)
         self.add_card(t("hotkey_label"), self.hotkey_combo)
 
