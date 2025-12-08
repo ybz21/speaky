@@ -25,6 +25,7 @@ tip: "ヒント"
 # 一般タブ
 hotkey_group: "ホットキー"
 hotkey_label: "長押しキー:"
+hotkey_tooltip: "対応キー: ctrl, alt, shift, cmd, f1-f12, space, tab, caps_lock など"
 hold_time_label: "長押し遅延:"
 hold_time_tooltip: "録音開始までの長押し時間、0は即時開始"
 seconds: " 秒"
@@ -57,6 +58,8 @@ secret_id: "Secret ID:"
 ui_group: "インターフェース設定"
 show_waveform: "波形を表示"
 window_opacity: "ウィンドウ透明度:"
+streaming_mode: "ストリーミングモード"
+streaming_tooltip: "録音中にリアルタイムで認識結果を表示"
 
 # 言語名
 lang_name_auto: "自動 (システム)"

@@ -51,8 +51,15 @@ class SettingsDialog(QDialog):
         hotkey_layout = QFormLayout(hotkey_group)
 
         self._hotkey_combo = QComboBox()
-        self._hotkey_combo.addItems(["ctrl", "alt", "shift", "ctrl_l", "ctrl_r"])
+        # Common modifier keys
+        self._hotkey_combo.addItems([
+            "ctrl", "alt", "shift", "cmd",
+            "ctrl_l", "ctrl_r", "alt_l", "alt_r", "shift_l", "shift_r",
+            "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
+            "space", "tab", "caps_lock",
+        ])
         self._hotkey_combo.setEditable(True)
+        self._hotkey_combo.setToolTip(t("hotkey_tooltip"))
         hotkey_layout.addRow(t("hotkey_label"), self._hotkey_combo)
 
         self._hold_time_spin = QDoubleSpinBox()
@@ -187,6 +194,10 @@ class SettingsDialog(QDialog):
         self._show_waveform = QCheckBox(t("show_waveform"))
         ui_layout.addRow(self._show_waveform)
 
+        self._streaming_mode = QCheckBox(t("streaming_mode"))
+        self._streaming_mode.setToolTip(t("streaming_tooltip"))
+        ui_layout.addRow(self._streaming_mode)
+
         self._opacity_slider = QSlider(Qt.Horizontal)
         self._opacity_slider.setRange(50, 100)
         self._opacity_slider.setValue(90)
@@ -236,6 +247,7 @@ class SettingsDialog(QDialog):
         self._aliyun_token.setText(self._config.get("aliyun.access_token", ""))
 
         self._show_waveform.setChecked(self._config.get("ui.show_waveform", True))
+        self._streaming_mode.setChecked(self._config.get("ui.streaming_mode", True))
         self._opacity_slider.setValue(int(self._config.get("ui.window_opacity", 0.9) * 100))
 
         self._on_engine_changed(self._engine_combo.currentText())
@@ -265,6 +277,7 @@ class SettingsDialog(QDialog):
         self._config.set("aliyun.access_token", self._aliyun_token.text())
 
         self._config.set("ui.show_waveform", self._show_waveform.isChecked())
+        self._config.set("ui.streaming_mode", self._streaming_mode.isChecked())
         self._config.set("ui.window_opacity", self._opacity_slider.value() / 100)
 
         self._config.save()

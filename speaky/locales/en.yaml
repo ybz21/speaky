@@ -25,6 +25,7 @@ tip: "Tip"
 # General tab
 hotkey_group: "Hotkey"
 hotkey_label: "Hold key:"
+hotkey_tooltip: "Supported keys: ctrl, alt, shift, cmd, f1-f12, space, tab, caps_lock, etc."
 hold_time_label: "Hold delay:"
 hold_time_tooltip: "How long to hold before recording starts, 0 means immediate"
 seconds: " sec"
@@ -57,6 +58,8 @@ secret_id: "Secret ID:"
 ui_group: "Interface Settings"
 show_waveform: "Show waveform"
 window_opacity: "Window opacity:"
+streaming_mode: "Streaming mode"
+streaming_tooltip: "Show recognition results in real-time during recording"
 
 # Language names
 lang_name_auto: "Auto (System)"

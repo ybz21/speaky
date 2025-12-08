@@ -4,7 +4,7 @@ import json
 import logging
 import struct
 import uuid
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Callable
 
 import aiohttp
 from .base import BaseEngine
@@ -124,8 +124,9 @@ class VolcBigModelEngine(BaseEngine):
         self._access_key = access_key
         self._model = model  # bigmodel, bigmodel_async, bigmodel_nostream
         self._segment_duration = segment_duration
-        # 对于 seedasr 2.0，需要使用 bigmodel_nostream 端点
-        self._ws_url = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream"
+        # 流式端点和非流式端点
+        self._ws_url_streaming = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel"
+        self._ws_url_nostream = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream"
         logger.info(f"VolcBigModel initialized: model={model}, app_key={app_key[:4] if app_key else 'None'}..., access_key={access_key[:4] if access_key else 'None'}...")
 
     def transcribe(self, audio_data: bytes, language: str = "zh") -> str:
@@ -133,12 +134,36 @@ class VolcBigModelEngine(BaseEngine):
         asyncio.set_event_loop(loop)
         try:
             return loop.run_until_complete(
-                self._transcribe_async(audio_data, language)
+                self._transcribe_async(audio_data, language, streaming=False)
             )
         finally:
             loop.close()
 
-    async def _transcribe_async(self, audio_data: bytes, language: str) -> str:
+    def supports_streaming(self) -> bool:
+        return True
+
+    def transcribe_streaming(
+        self,
+        audio_data: bytes,
+        language: str = "zh",
+        on_partial: Optional[Callable[[str], None]] = None,
+    ) -> str:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(
+                self._transcribe_async(audio_data, language, streaming=True, on_partial=on_partial)
+            )
+        finally:
+            loop.close()
+
+    async def _transcribe_async(
+        self,
+        audio_data: bytes,
+        language: str,
+        streaming: bool = False,
+        on_partial: Optional[Callable[[str], None]] = None,
+    ) -> str:
         request_id = str(uuid.uuid4())
         logger.info(f"Starting BigModel transcription, request_id={request_id}")
 
@@ -168,15 +193,20 @@ class VolcBigModelEngine(BaseEngine):
             "X-Api-Access-Key": self._access_key,
             "X-Api-App-Key": self._app_key,
         }
-        logger.info(f"Connecting to {self._ws_url} with app_key={self._app_key[:4] if self._app_key else 'EMPTY'}..., access_key={self._access_key[:4] if self._access_key else 'EMPTY'}...")
+
+        # Note: Both endpoints support partial results
+        # bigmodel endpoint requires streaming ASR access, bigmodel_nostream works for most cases
+        # Use nostream endpoint for better compatibility, it still returns intermediate results
+        ws_url = self._ws_url_nostream
+        logger.info(f"Connecting to {ws_url} (streaming={streaming})")
 
         result_text = ""
         seq = 1
 
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.ws_connect(self._ws_url, headers=headers) as ws:
-                    logger.info(f"Connected to {self._ws_url}")
+                async with session.ws_connect(ws_url, headers=headers) as ws:
+                    logger.info(f"Connected to {ws_url}")
 
                     # Send full client request
                     full_request = self._build_full_request(seq, framerate, sampwidth, nchannels)
@@ -232,6 +262,10 @@ class VolcBigModelEngine(BaseEngine):
                                         elif isinstance(res, dict):
                                             result_text = res.get("text", "")
                                         logger.debug(f"Current text: {result_text}")
+
+                                        # Call streaming callback for partial results
+                                        if streaming and on_partial and result_text:
+                                            on_partial(result_text)
 
                                 if resp["is_last"]:
                                     logger.info("Received last package")

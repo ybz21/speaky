@@ -178,6 +178,13 @@ class FloatingWindow(QWidget):
         self._wave_widget.set_mode("recognizing")
         self._wave_widget.set_audio_level(0.5)
 
+    def update_partial_result(self, text: str):
+        """Update with partial/intermediate recognition result"""
+        if text:
+            display_text = text[:50] + "..." if len(text) > 50 else text
+            self._text_label.setText(display_text)
+            self._text_label.setStyleSheet("color: #FFC107; font-size: 12px;")
+
     def show_result(self, text: str):
         logger.info(f"Showing result: {text}")
         self._status_label.setText(t("done"))

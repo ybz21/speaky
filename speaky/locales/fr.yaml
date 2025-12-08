@@ -25,6 +25,7 @@ tip: "Conseil"
 # Onglet Général
 hotkey_group: "Raccourci clavier"
 hotkey_label: "Touche à maintenir:"
+hotkey_tooltip: "Touches prises en charge: ctrl, alt, shift, cmd, f1-f12, space, tab, caps_lock, etc."
 hold_time_label: "Délai de maintien:"
 hold_time_tooltip: "Durée de maintien avant le début de l'enregistrement, 0 signifie immédiat"
 seconds: " sec"
@@ -57,6 +58,8 @@ secret_id: "ID secret:"
 ui_group: "Paramètres d'interface"
 show_waveform: "Afficher la forme d'onde"
 window_opacity: "Opacité de la fenêtre:"
+streaming_mode: "Mode streaming"
+streaming_tooltip: "Afficher les résultats de reconnaissance en temps réel pendant l'enregistrement"
 
 # Noms des langues
 lang_name_auto: "Auto (Système)"

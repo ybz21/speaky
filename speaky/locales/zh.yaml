@@ -25,6 +25,7 @@ tip: "提示"
 # 常规标签页
 hotkey_group: "快捷键"
 hotkey_label: "长按唤醒键:"
+hotkey_tooltip: "支持的按键: ctrl, alt, shift, cmd, f1-f12, space, tab, caps_lock 等"
 hold_time_label: "长按延迟:"
 hold_time_tooltip: "长按多少秒后开始录音，0 表示立即开始"
 seconds: " 秒"
@@ -57,6 +58,8 @@ secret_id: "Secret ID:"
 ui_group: "界面设置"
 show_waveform: "显示波形"
 window_opacity: "窗口透明度:"
+streaming_mode: "流式识别"
+streaming_tooltip: "在录音过程中实时显示识别结果"
 
 # 语言名称
 lang_name_auto: "自动 (跟随系统)"

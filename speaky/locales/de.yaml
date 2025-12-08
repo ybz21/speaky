@@ -25,6 +25,7 @@ tip: "Tipp"
 # Allgemein-Tab
 hotkey_group: "Tastenkürzel"
 hotkey_label: "Haltetaste:"
+hotkey_tooltip: "Unterstützte Tasten: ctrl, alt, shift, cmd, f1-f12, space, tab, caps_lock usw."
 hold_time_label: "Halteverzögerung:"
 hold_time_tooltip: "Wie lange halten vor Aufnahmestart, 0 bedeutet sofort"
 seconds: " Sek"
@@ -57,6 +58,8 @@ secret_id: "Secret ID:"
 ui_group: "Oberflächeneinstellungen"
 show_waveform: "Wellenform anzeigen"
 window_opacity: "Fenstertransparenz:"
+streaming_mode: "Streaming-Modus"
+streaming_tooltip: "Erkennungsergebnisse während der Aufnahme in Echtzeit anzeigen"
 
 # Sprachnamen
 lang_name_auto: "Auto (System)"

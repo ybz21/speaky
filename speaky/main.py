@@ -30,6 +30,7 @@ class SignalBridge(QObject):
     audio_level = pyqtSignal(float)
     recognition_done = pyqtSignal(str)
     recognition_error = pyqtSignal(str)
+    partial_result = pyqtSignal(str)  # For streaming ASR
 
 
 class SpeakyApp:
@@ -106,6 +107,7 @@ class SpeakyApp:
         self._signals.audio_level.connect(self._floating_window.update_audio_level)
         self._signals.recognition_done.connect(self._on_recognition_done)
         self._signals.recognition_error.connect(self._on_recognition_error)
+        self._signals.partial_result.connect(self._floating_window.update_partial_result)
 
     def _setup_tray(self):
         self._tray.settings_clicked.connect(self._show_settings)
@@ -143,8 +145,21 @@ class SpeakyApp:
                     logger.error("No recognition engine configured")
                     self._signals.recognition_error.emit(t("no_engine"))
                     return
-                logger.info(f"Transcribing with engine: {self._engine.name}")
-                text = self._engine.transcribe(audio_data, config.language)
+
+                streaming_enabled = config.get("ui.streaming_mode", True)
+                logger.info(f"Transcribing with engine: {self._engine.name}, streaming={streaming_enabled}")
+
+                # Use streaming API if engine supports it and streaming is enabled
+                if streaming_enabled and self._engine.supports_streaming():
+                    def on_partial(partial_text: str):
+                        self._signals.partial_result.emit(partial_text)
+
+                    text = self._engine.transcribe_streaming(
+                        audio_data, config.language, on_partial=on_partial
+                    )
+                else:
+                    text = self._engine.transcribe(audio_data, config.language)
+
                 if text:
                     logger.info(f"Recognition result: {text}")
                     self._signals.recognition_done.emit(text)

@@ -25,6 +25,7 @@ tip: "Consejo"
 # Pestaña General
 hotkey_group: "Tecla de acceso rápido"
 hotkey_label: "Tecla a mantener:"
+hotkey_tooltip: "Teclas soportadas: ctrl, alt, shift, cmd, f1-f12, space, tab, caps_lock, etc."
 hold_time_label: "Retraso de mantener:"
 hold_time_tooltip: "Cuánto tiempo mantener antes de empezar a grabar, 0 significa inmediato"
 seconds: " seg"
@@ -57,6 +58,8 @@ secret_id: "ID secreto:"
 ui_group: "Configuración de interfaz"
 show_waveform: "Mostrar forma de onda"
 window_opacity: "Opacidad de ventana:"
+streaming_mode: "Modo streaming"
+streaming_tooltip: "Mostrar resultados de reconocimiento en tiempo real durante la grabación"
 
 # Nombres de idiomas
 lang_name_auto: "Auto (Sistema)"

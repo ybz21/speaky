@@ -25,6 +25,7 @@ tip: "Dica"
 # Aba Geral
 hotkey_group: "Tecla de atalho"
 hotkey_label: "Tecla para segurar:"
+hotkey_tooltip: "Teclas suportadas: ctrl, alt, shift, cmd, f1-f12, space, tab, caps_lock, etc."
 hold_time_label: "Atraso ao segurar:"
 hold_time_tooltip: "Quanto tempo segurar antes de começar a gravar, 0 significa imediato"
 seconds: " seg"
@@ -57,6 +58,8 @@ secret_id: "ID secreto:"
 ui_group: "Configurações de interface"
 show_waveform: "Mostrar forma de onda"
 window_opacity: "Opacidade da janela:"
+streaming_mode: "Modo streaming"
+streaming_tooltip: "Mostrar resultados de reconhecimento em tempo real durante a gravação"
 
 # Nomes dos idiomas
 lang_name_auto: "Auto (Sistema)"

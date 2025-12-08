@@ -34,6 +34,7 @@ DEFAULT_CONFIG = {
     "ui": {
         "show_waveform": True,
         "window_opacity": 0.9,
+        "streaming_mode": True,  # Show real-time recognition results
     },
 }
 

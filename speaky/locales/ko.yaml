@@ -25,6 +25,7 @@ tip: "팁"
 # 일반 탭
 hotkey_group: "단축키"
 hotkey_label: "길게 누를 키:"
+hotkey_tooltip: "지원 키: ctrl, alt, shift, cmd, f1-f12, space, tab, caps_lock 등"
 hold_time_label: "길게 누름 지연:"
 hold_time_tooltip: "녹음 시작 전 길게 누를 시간, 0은 즉시 시작"
 seconds: " 초"
@@ -57,6 +58,8 @@ secret_id: "Secret ID:"
 ui_group: "인터페이스 설정"
 show_waveform: "파형 표시"
 window_opacity: "창 투명도:"
+streaming_mode: "스트리밍 모드"
+streaming_tooltip: "녹음 중 실시간으로 인식 결과 표시"
 
 # 언어 이름
 lang_name_auto: "자동 (시스템)"

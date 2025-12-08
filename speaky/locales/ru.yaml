@@ -25,6 +25,7 @@ tip: "Подсказка"
 # Вкладка Общие
 hotkey_group: "Горячая клавиша"
 hotkey_label: "Клавиша удержания:"
+hotkey_tooltip: "Поддерживаемые клавиши: ctrl, alt, shift, cmd, f1-f12, space, tab, caps_lock и др."
 hold_time_label: "Задержка удержания:"
 hold_time_tooltip: "Как долго удерживать перед началом записи, 0 означает немедленно"
 seconds: " сек"
@@ -57,6 +58,8 @@ secret_id: "Секретный ID:"
 ui_group: "Настройки интерфейса"
 show_waveform: "Показать волну"
 window_opacity: "Прозрачность окна:"
+streaming_mode: "Режим потоковой передачи"
+streaming_tooltip: "Показывать результаты распознавания в реальном времени во время записи"
 
 # Названия языков
 lang_name_auto: "Авто (Система)"
