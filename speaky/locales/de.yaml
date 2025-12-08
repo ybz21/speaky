@@ -37,6 +37,13 @@ ui_lang: "Oberflächensprache:"
 auto: "Auto (System)"
 system_group: "System"
 
+# AI-Taste
+ai_group: "AI-Taste"
+ai_enabled: "AI-Taste aktivieren"
+ai_hotkey_label: "AI-Hotkey:"
+ai_hold_time_label: "Halteverzögerung:"
+ai_url_label: "AI-Website-URL:"
+
 # Engine-Tab
 engine_group: "Erkennungsengine"
 engine_label: "Engine:"

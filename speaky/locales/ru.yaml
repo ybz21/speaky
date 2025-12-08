@@ -37,6 +37,13 @@ ui_lang: "Язык интерфейса:"
 auto: "Авто (Система)"
 system_group: "Система"
 
+# Клавиша AI
+ai_group: "Клавиша AI"
+ai_enabled: "Включить клавишу AI"
+ai_hotkey_label: "Горячая клавиша AI:"
+ai_hold_time_label: "Задержка удержания:"
+ai_url_label: "URL сайта AI:"
+
 # Вкладка Движок
 engine_group: "Движок распознавания"
 engine_label: "Движок:"

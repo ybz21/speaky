@@ -37,6 +37,13 @@ ui_lang: "Interface language:"
 auto: "Auto (System)"
 system_group: "System"
 
+# AI key
+ai_group: "AI Key"
+ai_enabled: "Enable AI key"
+ai_hotkey_label: "AI hotkey:"
+ai_hold_time_label: "Hold delay:"
+ai_url_label: "AI website URL:"
+
 # Engine tab
 engine_group: "Recognition Engine"
 engine_label: "Engine:"

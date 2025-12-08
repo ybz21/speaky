@@ -122,6 +122,34 @@ class CorePage(SettingsPage):
         self.lang_combo.setMinimumWidth(150)
         self.add_card(t("recognition_lang"), self.lang_combo)
 
+        # AI key settings
+        self.add_group_label(t("ai_group"))
+
+        self.ai_enabled = SwitchButton()
+        self.add_card(t("ai_enabled"), self.ai_enabled)
+
+        self.ai_hotkey_combo = EditableComboBox()
+        self.ai_hotkey_combo.addItems([
+            "shift", "ctrl", "alt", "cmd",
+            "ctrl_l", "ctrl_r", "alt_l", "alt_r", "shift_l", "shift_r",
+            "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
+            "space", "tab", "caps_lock",
+        ])
+        self.ai_hotkey_combo.setMinimumWidth(150)
+        self.add_card(t("ai_hotkey_label"), self.ai_hotkey_combo)
+
+        self.ai_hold_time_spin = DoubleSpinBox()
+        self.ai_hold_time_spin.setRange(0.0, 5.0)
+        self.ai_hold_time_spin.setSingleStep(0.1)
+        self.ai_hold_time_spin.setDecimals(1)
+        self.ai_hold_time_spin.setMinimumWidth(120)
+        self.add_card(t("ai_hold_time_label"), self.ai_hold_time_spin)
+
+        self.ai_url_input = LineEdit()
+        self.ai_url_input.setPlaceholderText("https://chatgpt.com")
+        self.ai_url_input.setMinimumWidth(250)
+        self.add_card(t("ai_url_label"), self.ai_url_input)
+
         # System settings
         self.add_group_label(t("system_group"))
 
@@ -365,6 +393,12 @@ class SettingsDialog(FluentWindow):
         self._core_page.auto_start.setChecked(is_autostart_enabled())
         self._core_page.streaming_mode.setChecked(self._config.get("ui.streaming_mode", True))
 
+        # AI settings
+        self._core_page.ai_enabled.setChecked(self._config.get("ai_enabled", True))
+        self._core_page.ai_hotkey_combo.setCurrentText(self._config.get("ai_hotkey", "shift"))
+        self._core_page.ai_hold_time_spin.setValue(self._config.get("ai_hotkey_hold_time", 1.0))
+        self._core_page.ai_url_input.setText(self._config.get("ai_url", "https://chatgpt.com"))
+
         # Engine page
         engine = self._config.get("engine", "whisper")
         self._engine_page.engine_combo.setCurrentText(engine)
@@ -406,6 +440,12 @@ class SettingsDialog(FluentWindow):
         self._config.set("hotkey_hold_time", self._core_page.hold_time_spin.value())
         self._config.set("language", self._core_page.lang_combo.currentText())
         self._config.set("ui.streaming_mode", self._core_page.streaming_mode.isChecked())
+
+        # AI settings
+        self._config.set("ai_enabled", self._core_page.ai_enabled.isChecked())
+        self._config.set("ai_hotkey", self._core_page.ai_hotkey_combo.currentText())
+        self._config.set("ai_hotkey_hold_time", self._core_page.ai_hold_time_spin.value())
+        self._config.set("ai_url", self._core_page.ai_url_input.text() or "https://chatgpt.com")
 
         # Set auto-start
         set_autostart(self._core_page.auto_start.isChecked())

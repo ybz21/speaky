@@ -37,6 +37,13 @@ ui_lang: "介面語言:"
 auto: "自動 (跟隨系統)"
 system_group: "系統"
 
+# AI 鍵
+ai_group: "AI 鍵"
+ai_enabled: "啟用 AI 鍵"
+ai_hotkey_label: "AI 熱鍵:"
+ai_hold_time_label: "長按延遲:"
+ai_url_label: "AI 網站網址:"
+
 # 引擎標籤頁
 engine_group: "辨識引擎"
 engine_label: "引擎:"

@@ -43,6 +43,10 @@ class SignalBridge(QObject):
     recognition_done = Signal(str)
     recognition_error = Signal(str)
     partial_result = Signal(str)  # For streaming ASR
+    # AI key signals
+    ai_start_recording = Signal()
+    ai_stop_recording = Signal()
+    ai_recognition_done = Signal(str)
 
 
 class SpeakyApp:
@@ -67,8 +71,10 @@ class SpeakyApp:
         self._settings_dialog: Optional[SettingsDialog] = None
         self._realtime_session = None  # For real-time streaming ASR
 
+        self._ai_mode = False  # Track if we're in AI mode
         self._setup_engine()
         self._setup_hotkey()
+        self._setup_ai_hotkey()
         self._setup_signals()
         self._setup_tray()
 
@@ -123,6 +129,18 @@ class SpeakyApp:
             lambda level: self._signals.audio_level.emit(level)
         )
 
+    def _setup_ai_hotkey(self):
+        """Setup AI hotkey listener"""
+        if not config.get("ai_enabled", True):
+            self._ai_hotkey_listener = None
+            return
+        self._ai_hotkey_listener = HotkeyListener(
+            hotkey=config.get("ai_hotkey", "shift"),
+            on_press=self._on_ai_hotkey_press,
+            on_release=self._on_ai_hotkey_release,
+            hold_time=config.get("ai_hotkey_hold_time", 1.0),
+        )
+
     def _setup_signals(self):
         self._signals.start_recording.connect(self._on_start_recording)
         self._signals.stop_recording.connect(self._on_stop_recording)
@@ -130,6 +148,10 @@ class SpeakyApp:
         self._signals.recognition_done.connect(self._on_recognition_done)
         self._signals.recognition_error.connect(self._on_recognition_error)
         self._signals.partial_result.connect(self._floating_window.update_partial_result)
+        # AI key signals
+        self._signals.ai_start_recording.connect(self._on_ai_start_recording)
+        self._signals.ai_stop_recording.connect(self._on_ai_stop_recording)
+        self._signals.ai_recognition_done.connect(self._on_ai_recognition_done)
 
     def _setup_tray(self):
         self._tray.settings_clicked.connect(self._show_settings)
@@ -287,10 +309,49 @@ class SpeakyApp:
 
     def _on_recognition_done(self, text: str):
         self._floating_window.show_result(text)
-        QTimer.singleShot(100, lambda: input_method.type_text(text))
+        # Check if we're in AI mode
+        if self._ai_mode:
+            self._ai_mode = False
+            self._signals.ai_recognition_done.emit(text)
+        else:
+            QTimer.singleShot(100, lambda: input_method.type_text(text))
 
     def _on_recognition_error(self, error: str):
         self._floating_window.show_error(error)
+        self._ai_mode = False  # Reset AI mode on error
+
+    # AI key handlers
+    def _on_ai_hotkey_press(self):
+        logger.info("AI hotkey pressed - starting recording for AI")
+        self._ai_mode = True
+        self._signals.ai_start_recording.emit()
+
+    def _on_ai_hotkey_release(self):
+        logger.info("AI hotkey released - stopping recording")
+        self._signals.ai_stop_recording.emit()
+
+    def _on_ai_start_recording(self):
+        """Start recording for AI mode - same as normal recording"""
+        logger.info("AI mode: Starting recording")
+        input_method.save_focus()
+        self._on_start_recording()
+
+    def _on_ai_stop_recording(self):
+        """Stop recording for AI mode - same as normal stop"""
+        self._on_stop_recording()
+
+    def _on_ai_recognition_done(self, text: str):
+        """Handle recognition result in AI mode - open URL and type text"""
+        import webbrowser
+        ai_url = config.get("ai_url", "https://chatgpt.com")
+        logger.info(f"AI mode: Opening {ai_url} and typing: {text}")
+
+        # Open AI website
+        webbrowser.open(ai_url)
+
+        # Wait for browser to open and focus on input, then type
+        # Longer delay to allow page to load
+        QTimer.singleShot(1500, lambda: input_method.type_text(text))
 
     def _show_settings(self):
         if self._settings_dialog is None:
@@ -303,17 +364,25 @@ class SpeakyApp:
         self._setup_engine()
         self._hotkey_listener.update_hotkey(config.hotkey)
         self._hotkey_listener.update_hold_time(config.get("hotkey_hold_time", 1.0))
+        # Update AI hotkey settings
+        if self._ai_hotkey_listener:
+            self._ai_hotkey_listener.update_hotkey(config.get("ai_hotkey", "shift"))
+            self._ai_hotkey_listener.update_hold_time(config.get("ai_hotkey_hold_time", 1.0))
         # Reset settings dialog so it recreates with new language
         self._settings_dialog = None
 
     def _quit(self):
         self._hotkey_listener.stop()
+        if self._ai_hotkey_listener:
+            self._ai_hotkey_listener.stop()
         self._recorder.close()
         self._tray.hide()
         self._app.quit()
 
     def run(self):
         logger.info(f"Speaky starting with hotkey: {config.hotkey}")
+        if config.get("ai_enabled", True):
+            logger.info(f"AI hotkey: {config.get('ai_hotkey', 'shift')}, URL: {config.get('ai_url', 'https://chatgpt.com')}")
         logger.info(f"Engine: {config.engine}, Language: {config.language}")
         self._tray.show()
         self._tray.show_message(
@@ -321,6 +390,9 @@ class SpeakyApp:
             t("started_message", hotkey=config.hotkey.upper())
         )
         self._hotkey_listener.start()
+        if self._ai_hotkey_listener:
+            self._ai_hotkey_listener.start()
+            logger.info("AI hotkey listener started")
         logger.info("Hotkey listener started")
         return self._app.exec()
 

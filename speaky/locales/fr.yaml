@@ -37,6 +37,13 @@ ui_lang: "Langue de l'interface:"
 auto: "Auto (Système)"
 system_group: "Système"
 
+# Touche AI
+ai_group: "Touche AI"
+ai_enabled: "Activer la touche AI"
+ai_hotkey_label: "Raccourci AI:"
+ai_hold_time_label: "Délai de maintien:"
+ai_url_label: "URL du site AI:"
+
 # Onglet Moteur
 engine_group: "Moteur de reconnaissance"
 engine_label: "Moteur:"

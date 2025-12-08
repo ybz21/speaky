@@ -37,6 +37,13 @@ ui_lang: "Idioma da interface:"
 auto: "Auto (Sistema)"
 system_group: "Sistema"
 
+# Tecla AI
+ai_group: "Tecla AI"
+ai_enabled: "Ativar tecla AI"
+ai_hotkey_label: "Tecla AI:"
+ai_hold_time_label: "Atraso ao segurar:"
+ai_url_label: "URL do site AI:"
+
 # Aba Motor
 engine_group: "Motor de reconhecimento"
 engine_label: "Motor:"

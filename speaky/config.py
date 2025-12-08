@@ -5,6 +5,10 @@ import yaml
 DEFAULT_CONFIG = {
     "hotkey": "ctrl",
     "hotkey_hold_time": 1.0,  # seconds to hold before recording starts
+    "ai_hotkey": "shift",  # AI key: open AI website and input voice
+    "ai_hotkey_hold_time": 1.0,
+    "ai_url": "https://chatgpt.com",  # AI website URL
+    "ai_enabled": True,  # Enable AI key feature
     "engine": "volcengine",
     "language": "zh",  # recognition language
     "ui_language": "auto",  # UI language: auto, en, zh, ja, ko

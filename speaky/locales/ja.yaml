@@ -37,6 +37,13 @@ ui_lang: "インターフェース言語:"
 auto: "自動 (システム)"
 system_group: "システム"
 
+# AIキー
+ai_group: "AIキー"
+ai_enabled: "AIキーを有効化"
+ai_hotkey_label: "AIホットキー:"
+ai_hold_time_label: "長押し遅延:"
+ai_url_label: "AIウェブサイトURL:"
+
 # エンジンタブ
 engine_group: "認識エンジン"
 engine_label: "エンジン:"
