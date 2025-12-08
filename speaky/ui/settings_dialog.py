@@ -1,15 +1,274 @@
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QLineEdit, QComboBox, QPushButton,
-    QTabWidget, QWidget, QGroupBox, QCheckBox,
-    QSlider, QMessageBox, QDoubleSpinBox
+    QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget,
+    QLabel, QScrollArea, QFrame
 )
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QIcon
+
+from qfluentwidgets import (
+    ComboBox, LineEdit, PasswordLineEdit, PushButton, PrimaryPushButton,
+    SwitchButton, Slider, DoubleSpinBox, BodyLabel, SubtitleLabel,
+    CardWidget, ExpandGroupSettingCard, FluentIcon, MessageBox,
+    NavigationInterface, NavigationItemPosition, qrouter,
+    SettingCardGroup, OptionsSettingCard, ComboBoxSettingCard,
+    SwitchSettingCard, RangeSettingCard, PushSettingCard,
+    setTheme, Theme, isDarkTheme
+)
+from qfluentwidgets import FluentWindow
 
 from ..i18n import t, i18n
 
 
-class SettingsDialog(QDialog):
+class SettingCard(CardWidget):
+    """Custom setting card with label and widget"""
+
+    def __init__(self, title: str, widget: QWidget, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(60)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(20, 0, 20, 0)
+
+        self._label = BodyLabel(title, self)
+        layout.addWidget(self._label)
+        layout.addStretch()
+        layout.addWidget(widget)
+
+
+class SettingsPage(QScrollArea):
+    """Base class for settings pages"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWidgetResizable(True)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setStyleSheet("background: transparent;")
+
+        self._container = QWidget()
+        self._layout = QVBoxLayout(self._container)
+        self._layout.setContentsMargins(20, 20, 20, 20)
+        self._layout.setSpacing(12)
+        self.setWidget(self._container)
+
+    def add_group_label(self, text: str):
+        label = SubtitleLabel(text, self._container)
+        label.setContentsMargins(0, 10, 0, 5)
+        self._layout.addWidget(label)
+
+    def add_card(self, title: str, widget: QWidget):
+        card = SettingCard(title, widget, self._container)
+        self._layout.addWidget(card)
+        return card
+
+    def add_stretch(self):
+        self._layout.addStretch()
+
+
+class GeneralPage(SettingsPage):
+    """General settings page"""
+
+    def __init__(self, config, parent=None):
+        super().__init__(parent)
+        self._config = config
+        self._setup_ui()
+
+    def _setup_ui(self):
+        # Hotkey settings
+        self.add_group_label(t("hotkey_group"))
+
+        self.hotkey_combo = ComboBox()
+        self.hotkey_combo.addItems([
+            "ctrl", "alt", "shift", "cmd",
+            "ctrl_l", "ctrl_r", "alt_l", "alt_r", "shift_l", "shift_r",
+            "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
+            "space", "tab", "caps_lock",
+        ])
+        self.hotkey_combo.setEditable(True)
+        self.hotkey_combo.setMinimumWidth(150)
+        self.add_card(t("hotkey_label"), self.hotkey_combo)
+
+        self.hold_time_spin = DoubleSpinBox()
+        self.hold_time_spin.setRange(0.0, 5.0)
+        self.hold_time_spin.setSingleStep(0.1)
+        self.hold_time_spin.setDecimals(1)
+        self.hold_time_spin.setMinimumWidth(120)
+        self.add_card(t("hold_time_label"), self.hold_time_spin)
+
+        # Language settings
+        self.add_group_label(t("language_group"))
+
+        self.lang_combo = ComboBox()
+        self.lang_combo.addItems(["zh", "en", "ja", "ko"])
+        self.lang_combo.setMinimumWidth(150)
+        self.add_card(t("recognition_lang"), self.lang_combo)
+
+        self.ui_lang_combo = ComboBox()
+        for lang_code in ["auto", "en", "zh", "zh_TW", "ja", "ko", "de", "fr", "es", "pt", "ru"]:
+            display_name = i18n.get_language_name(lang_code)
+            self.ui_lang_combo.addItem(display_name, lang_code)
+        self.ui_lang_combo.setMinimumWidth(150)
+        self.add_card(t("ui_lang"), self.ui_lang_combo)
+
+        self.add_stretch()
+
+
+class EnginePage(SettingsPage):
+    """Engine settings page"""
+
+    def __init__(self, config, parent=None):
+        super().__init__(parent)
+        self._config = config
+        self._setup_ui()
+
+    def _setup_ui(self):
+        # Engine selection
+        self.add_group_label(t("engine_group"))
+
+        self.engine_combo = ComboBox()
+        self.engine_combo.addItems([
+            "whisper", "openai", "volcengine", "volc_bigmodel", "aliyun"
+        ])
+        self.engine_combo.setMinimumWidth(180)
+        self.engine_combo.currentTextChanged.connect(self._on_engine_changed)
+        self.add_card(t("engine_label"), self.engine_combo)
+
+        # Whisper settings
+        self._whisper_label = SubtitleLabel(t("whisper_settings"), self._container)
+        self._whisper_label.setContentsMargins(0, 10, 0, 5)
+        self._layout.addWidget(self._whisper_label)
+
+        self.whisper_model = ComboBox()
+        self.whisper_model.addItems(["tiny", "base", "small", "medium", "large"])
+        self.whisper_model.setMinimumWidth(150)
+        self._whisper_model_card = self.add_card(t("model"), self.whisper_model)
+
+        self.whisper_device = ComboBox()
+        self.whisper_device.addItems(["auto", "cpu", "cuda"])
+        self.whisper_device.setMinimumWidth(150)
+        self._whisper_device_card = self.add_card(t("device"), self.whisper_device)
+
+        # OpenAI settings
+        self._openai_label = SubtitleLabel(t("openai_settings"), self._container)
+        self._openai_label.setContentsMargins(0, 10, 0, 5)
+        self._layout.addWidget(self._openai_label)
+
+        self.openai_key = PasswordLineEdit()
+        self.openai_key.setMinimumWidth(250)
+        self._openai_key_card = self.add_card(t("api_key"), self.openai_key)
+
+        self.openai_url = LineEdit()
+        self.openai_url.setPlaceholderText("https://api.openai.com/v1")
+        self.openai_url.setMinimumWidth(250)
+        self._openai_url_card = self.add_card(t("base_url"), self.openai_url)
+
+        # Volcengine settings
+        self._volc_label = SubtitleLabel(t("volc_settings"), self._container)
+        self._volc_label.setContentsMargins(0, 10, 0, 5)
+        self._layout.addWidget(self._volc_label)
+
+        self.volc_appid = LineEdit()
+        self.volc_appid.setMinimumWidth(250)
+        self._volc_appid_card = self.add_card(t("app_id"), self.volc_appid)
+
+        self.volc_ak = PasswordLineEdit()
+        self.volc_ak.setMinimumWidth(250)
+        self._volc_ak_card = self.add_card(t("access_key"), self.volc_ak)
+
+        self.volc_sk = PasswordLineEdit()
+        self.volc_sk.setMinimumWidth(250)
+        self._volc_sk_card = self.add_card(t("secret_key"), self.volc_sk)
+
+        # Volcengine BigModel settings
+        self._volc_bigmodel_label = SubtitleLabel(t("volc_bigmodel_settings"), self._container)
+        self._volc_bigmodel_label.setContentsMargins(0, 10, 0, 5)
+        self._layout.addWidget(self._volc_bigmodel_label)
+
+        self.volc_bigmodel_appkey = LineEdit()
+        self.volc_bigmodel_appkey.setMinimumWidth(250)
+        self._volc_bigmodel_appkey_card = self.add_card(t("app_key"), self.volc_bigmodel_appkey)
+
+        self.volc_bigmodel_ak = PasswordLineEdit()
+        self.volc_bigmodel_ak.setMinimumWidth(250)
+        self._volc_bigmodel_ak_card = self.add_card(t("access_key"), self.volc_bigmodel_ak)
+
+        self.volc_bigmodel_model = ComboBox()
+        self.volc_bigmodel_model.addItems(["bigmodel", "bigmodel_async", "bigmodel_nostream"])
+        self.volc_bigmodel_model.setMinimumWidth(180)
+        self._volc_bigmodel_model_card = self.add_card(t("model"), self.volc_bigmodel_model)
+
+        # Aliyun settings
+        self._aliyun_label = SubtitleLabel(t("aliyun_settings"), self._container)
+        self._aliyun_label.setContentsMargins(0, 10, 0, 5)
+        self._layout.addWidget(self._aliyun_label)
+
+        self.aliyun_appkey = LineEdit()
+        self.aliyun_appkey.setMinimumWidth(250)
+        self._aliyun_appkey_card = self.add_card(t("app_key"), self.aliyun_appkey)
+
+        self.aliyun_token = PasswordLineEdit()
+        self.aliyun_token.setMinimumWidth(250)
+        self._aliyun_token_card = self.add_card(t("access_token"), self.aliyun_token)
+
+        self.add_stretch()
+
+        # Store all engine widgets for visibility control
+        self._whisper_widgets = [self._whisper_label, self._whisper_model_card, self._whisper_device_card]
+        self._openai_widgets = [self._openai_label, self._openai_key_card, self._openai_url_card]
+        self._volc_widgets = [self._volc_label, self._volc_appid_card, self._volc_ak_card, self._volc_sk_card]
+        self._volc_bigmodel_widgets = [self._volc_bigmodel_label, self._volc_bigmodel_appkey_card,
+                                        self._volc_bigmodel_ak_card, self._volc_bigmodel_model_card]
+        self._aliyun_widgets = [self._aliyun_label, self._aliyun_appkey_card, self._aliyun_token_card]
+
+    def _on_engine_changed(self, engine: str):
+        for w in self._whisper_widgets:
+            w.setVisible(engine == "whisper")
+        for w in self._openai_widgets:
+            w.setVisible(engine == "openai")
+        for w in self._volc_widgets:
+            w.setVisible(engine == "volcengine")
+        for w in self._volc_bigmodel_widgets:
+            w.setVisible(engine == "volc_bigmodel")
+        for w in self._aliyun_widgets:
+            w.setVisible(engine == "aliyun")
+
+
+class UIPage(SettingsPage):
+    """UI settings page"""
+
+    def __init__(self, config, parent=None):
+        super().__init__(parent)
+        self._config = config
+        self._setup_ui()
+
+    def _setup_ui(self):
+        self.add_group_label(t("ui_group"))
+
+        self.show_waveform = SwitchButton()
+        self.add_card(t("show_waveform"), self.show_waveform)
+
+        self.streaming_mode = SwitchButton()
+        self.add_card(t("streaming_mode"), self.streaming_mode)
+
+        # Opacity slider with value label
+        opacity_widget = QWidget()
+        opacity_layout = QHBoxLayout(opacity_widget)
+        opacity_layout.setContentsMargins(0, 0, 0, 0)
+        self.opacity_slider = Slider(Qt.Orientation.Horizontal)
+        self.opacity_slider.setRange(50, 100)
+        self.opacity_slider.setMinimumWidth(200)
+        self._opacity_label = BodyLabel("90%")
+        self.opacity_slider.valueChanged.connect(
+            lambda v: self._opacity_label.setText(f"{v}%")
+        )
+        opacity_layout.addWidget(self.opacity_slider)
+        opacity_layout.addWidget(self._opacity_label)
+        self.add_card(t("window_opacity"), opacity_widget)
+
+        self.add_stretch()
+
+
+class SettingsDialog(FluentWindow):
+    """Fluent-style settings window"""
     settings_changed = Signal()
 
     def __init__(self, config, parent=None):
@@ -20,271 +279,116 @@ class SettingsDialog(QDialog):
 
     def _setup_ui(self):
         self.setWindowTitle(t("settings_title"))
-        self.setMinimumSize(450, 400)
+        self.resize(700, 550)
 
-        layout = QVBoxLayout(self)
+        # Create pages
+        self._general_page = GeneralPage(self._config, self)
+        self._engine_page = EnginePage(self._config, self)
+        self._ui_page = UIPage(self._config, self)
 
-        tabs = QTabWidget()
-        tabs.addTab(self._create_general_tab(), t("tab_general"))
-        tabs.addTab(self._create_engine_tab(), t("tab_engine"))
-        tabs.addTab(self._create_ui_tab(), t("tab_ui"))
-        layout.addWidget(tabs)
+        # Add pages to navigation
+        self.addSubInterface(self._general_page, FluentIcon.SETTING, t("tab_general"))
+        self.addSubInterface(self._engine_page, FluentIcon.IOT, t("tab_engine"))
+        self.addSubInterface(self._ui_page, FluentIcon.PALETTE, t("tab_ui"))
 
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
+        # Add save/cancel buttons at bottom
+        self.navigationInterface.addSeparator()
 
-        save_btn = QPushButton(t("save"))
+        # Create a save button card at the bottom
+        save_btn = PrimaryPushButton(t("save"))
         save_btn.clicked.connect(self._save_settings)
-        button_layout.addWidget(save_btn)
 
-        cancel_btn = QPushButton(t("cancel"))
-        cancel_btn.clicked.connect(self.reject)
-        button_layout.addWidget(cancel_btn)
+        cancel_btn = PushButton(t("cancel"))
+        cancel_btn.clicked.connect(self.close)
 
-        layout.addLayout(button_layout)
-
-    def _create_general_tab(self) -> QWidget:
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-
-        hotkey_group = QGroupBox(t("hotkey_group"))
-        hotkey_layout = QFormLayout(hotkey_group)
-
-        self._hotkey_combo = QComboBox()
-        # Common modifier keys
-        self._hotkey_combo.addItems([
-            "ctrl", "alt", "shift", "cmd",
-            "ctrl_l", "ctrl_r", "alt_l", "alt_r", "shift_l", "shift_r",
-            "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
-            "space", "tab", "caps_lock",
-        ])
-        self._hotkey_combo.setEditable(True)
-        self._hotkey_combo.setToolTip(t("hotkey_tooltip"))
-        hotkey_layout.addRow(t("hotkey_label"), self._hotkey_combo)
-
-        self._hold_time_spin = QDoubleSpinBox()
-        self._hold_time_spin.setRange(0.0, 5.0)
-        self._hold_time_spin.setSingleStep(0.1)
-        self._hold_time_spin.setDecimals(1)
-        self._hold_time_spin.setSuffix(t("seconds"))
-        self._hold_time_spin.setToolTip(t("hold_time_tooltip"))
-        hotkey_layout.addRow(t("hold_time_label"), self._hold_time_spin)
-
-        layout.addWidget(hotkey_group)
-
-        lang_group = QGroupBox(t("language_group"))
-        lang_layout = QFormLayout(lang_group)
-
-        self._lang_combo = QComboBox()
-        self._lang_combo.addItems(["zh", "en", "ja", "ko"])
-        lang_layout.addRow(t("recognition_lang"), self._lang_combo)
-
-        self._ui_lang_combo = QComboBox()
-        for lang_code in ["auto", "en", "zh", "zh_TW", "ja", "ko", "de", "fr", "es", "pt", "ru"]:
-            display_name = i18n.get_language_name(lang_code)
-            self._ui_lang_combo.addItem(display_name, lang_code)
-        lang_layout.addRow(t("ui_lang"), self._ui_lang_combo)
-
-        layout.addWidget(lang_group)
-        layout.addStretch()
-
-        return widget
-
-    def _create_engine_tab(self) -> QWidget:
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-
-        engine_group = QGroupBox(t("engine_group"))
-        engine_layout = QFormLayout(engine_group)
-
-        self._engine_combo = QComboBox()
-        self._engine_combo.addItems([
-            "whisper", "openai", "volcengine", "volc_bigmodel", "aliyun"
-        ])
-        self._engine_combo.currentTextChanged.connect(self._on_engine_changed)
-        engine_layout.addRow(t("engine_label"), self._engine_combo)
-
-        layout.addWidget(engine_group)
-
-        # Whisper settings
-        self._whisper_group = QGroupBox(t("whisper_settings"))
-        whisper_layout = QFormLayout(self._whisper_group)
-
-        self._whisper_model = QComboBox()
-        self._whisper_model.addItems(["tiny", "base", "small", "medium", "large"])
-        whisper_layout.addRow(t("model"), self._whisper_model)
-
-        self._whisper_device = QComboBox()
-        self._whisper_device.addItems(["auto", "cpu", "cuda"])
-        whisper_layout.addRow(t("device"), self._whisper_device)
-
-        layout.addWidget(self._whisper_group)
-
-        # OpenAI settings
-        self._openai_group = QGroupBox(t("openai_settings"))
-        openai_layout = QFormLayout(self._openai_group)
-
-        self._openai_key = QLineEdit()
-        self._openai_key.setEchoMode(QLineEdit.EchoMode.Password)
-        openai_layout.addRow(t("api_key"), self._openai_key)
-
-        self._openai_url = QLineEdit()
-        self._openai_url.setPlaceholderText("https://api.openai.com/v1")
-        openai_layout.addRow(t("base_url"), self._openai_url)
-
-        layout.addWidget(self._openai_group)
-
-        # Volcengine settings
-        self._volc_group = QGroupBox(t("volc_settings"))
-        volc_layout = QFormLayout(self._volc_group)
-
-        self._volc_appid = QLineEdit()
-        volc_layout.addRow(t("app_id"), self._volc_appid)
-
-        self._volc_ak = QLineEdit()
-        self._volc_ak.setEchoMode(QLineEdit.EchoMode.Password)
-        volc_layout.addRow(t("access_key"), self._volc_ak)
-
-        self._volc_sk = QLineEdit()
-        self._volc_sk.setEchoMode(QLineEdit.EchoMode.Password)
-        volc_layout.addRow(t("secret_key"), self._volc_sk)
-
-        layout.addWidget(self._volc_group)
-
-        # Volcengine BigModel settings
-        self._volc_bigmodel_group = QGroupBox(t("volc_bigmodel_settings"))
-        volc_bigmodel_layout = QFormLayout(self._volc_bigmodel_group)
-
-        self._volc_bigmodel_appkey = QLineEdit()
-        volc_bigmodel_layout.addRow(t("app_key"), self._volc_bigmodel_appkey)
-
-        self._volc_bigmodel_ak = QLineEdit()
-        self._volc_bigmodel_ak.setEchoMode(QLineEdit.EchoMode.Password)
-        volc_bigmodel_layout.addRow(t("access_key"), self._volc_bigmodel_ak)
-
-        self._volc_bigmodel_model = QComboBox()
-        self._volc_bigmodel_model.addItems(["bigmodel", "bigmodel_async", "bigmodel_nostream"])
-        volc_bigmodel_layout.addRow(t("model"), self._volc_bigmodel_model)
-
-        layout.addWidget(self._volc_bigmodel_group)
-
-        # Aliyun settings
-        self._aliyun_group = QGroupBox(t("aliyun_settings"))
-        aliyun_layout = QFormLayout(self._aliyun_group)
-
-        self._aliyun_appkey = QLineEdit()
-        aliyun_layout.addRow(t("app_key"), self._aliyun_appkey)
-
-        self._aliyun_token = QLineEdit()
-        self._aliyun_token.setEchoMode(QLineEdit.EchoMode.Password)
-        aliyun_layout.addRow(t("access_token"), self._aliyun_token)
-
-        layout.addWidget(self._aliyun_group)
-
-        layout.addStretch()
-        return widget
-
-    def _create_ui_tab(self) -> QWidget:
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-
-        ui_group = QGroupBox(t("ui_group"))
-        ui_layout = QFormLayout(ui_group)
-
-        self._show_waveform = QCheckBox(t("show_waveform"))
-        ui_layout.addRow(self._show_waveform)
-
-        self._streaming_mode = QCheckBox(t("streaming_mode"))
-        self._streaming_mode.setToolTip(t("streaming_tooltip"))
-        ui_layout.addRow(self._streaming_mode)
-
-        self._opacity_slider = QSlider(Qt.Orientation.Horizontal)
-        self._opacity_slider.setRange(50, 100)
-        self._opacity_slider.setValue(90)
-        ui_layout.addRow(t("window_opacity"), self._opacity_slider)
-
-        layout.addWidget(ui_group)
-        layout.addStretch()
-
-        return widget
-
-    def _on_engine_changed(self, engine: str):
-        self._whisper_group.setVisible(engine == "whisper")
-        self._openai_group.setVisible(engine == "openai")
-        self._volc_group.setVisible(engine == "volcengine")
-        self._volc_bigmodel_group.setVisible(engine == "volc_bigmodel")
-        self._aliyun_group.setVisible(engine == "aliyun")
+        # Add to bottom of navigation
+        self.navigationInterface.addWidget(
+            "save_btn",
+            save_btn,
+            lambda: None,
+            NavigationItemPosition.BOTTOM
+        )
 
     def _load_settings(self):
-        self._hotkey_combo.setCurrentText(self._config.get("hotkey", "ctrl"))
-        self._hold_time_spin.setValue(self._config.get("hotkey_hold_time", 1.0))
-        self._lang_combo.setCurrentText(self._config.get("language", "zh"))
+        # General page
+        self._general_page.hotkey_combo.setCurrentText(self._config.get("hotkey", "ctrl"))
+        self._general_page.hold_time_spin.setValue(self._config.get("hotkey_hold_time", 1.0))
+        self._general_page.lang_combo.setCurrentText(self._config.get("language", "zh"))
 
-        # UI language
         ui_lang = self._config.get("ui_language", "auto")
-        for i in range(self._ui_lang_combo.count()):
-            if self._ui_lang_combo.itemData(i) == ui_lang:
-                self._ui_lang_combo.setCurrentIndex(i)
+        for i in range(self._general_page.ui_lang_combo.count()):
+            if self._general_page.ui_lang_combo.itemData(i) == ui_lang:
+                self._general_page.ui_lang_combo.setCurrentIndex(i)
                 break
 
-        self._engine_combo.setCurrentText(self._config.get("engine", "whisper"))
+        # Engine page
+        engine = self._config.get("engine", "whisper")
+        self._engine_page.engine_combo.setCurrentText(engine)
+        self._engine_page._on_engine_changed(engine)
 
-        self._whisper_model.setCurrentText(self._config.get("whisper.model", "base"))
-        self._whisper_device.setCurrentText(self._config.get("whisper.device", "auto"))
+        self._engine_page.whisper_model.setCurrentText(self._config.get("whisper.model", "base"))
+        self._engine_page.whisper_device.setCurrentText(self._config.get("whisper.device", "auto"))
 
-        self._openai_key.setText(self._config.get("openai.api_key", ""))
-        self._openai_url.setText(self._config.get("openai.base_url", ""))
+        self._engine_page.openai_key.setText(self._config.get("openai.api_key", ""))
+        self._engine_page.openai_url.setText(self._config.get("openai.base_url", ""))
 
-        self._volc_appid.setText(self._config.get("volcengine.app_id", ""))
-        self._volc_ak.setText(self._config.get("volcengine.access_key", ""))
-        self._volc_sk.setText(self._config.get("volcengine.secret_key", ""))
+        self._engine_page.volc_appid.setText(self._config.get("volcengine.app_id", ""))
+        self._engine_page.volc_ak.setText(self._config.get("volcengine.access_key", ""))
+        self._engine_page.volc_sk.setText(self._config.get("volcengine.secret_key", ""))
 
-        self._volc_bigmodel_appkey.setText(self._config.get("volc_bigmodel.app_key", ""))
-        self._volc_bigmodel_ak.setText(self._config.get("volc_bigmodel.access_key", ""))
-        self._volc_bigmodel_model.setCurrentText(self._config.get("volc_bigmodel.model", "bigmodel"))
+        self._engine_page.volc_bigmodel_appkey.setText(self._config.get("volc_bigmodel.app_key", ""))
+        self._engine_page.volc_bigmodel_ak.setText(self._config.get("volc_bigmodel.access_key", ""))
+        self._engine_page.volc_bigmodel_model.setCurrentText(self._config.get("volc_bigmodel.model", "bigmodel"))
 
-        self._aliyun_appkey.setText(self._config.get("aliyun.app_key", ""))
-        self._aliyun_token.setText(self._config.get("aliyun.access_token", ""))
+        self._engine_page.aliyun_appkey.setText(self._config.get("aliyun.app_key", ""))
+        self._engine_page.aliyun_token.setText(self._config.get("aliyun.access_token", ""))
 
-        self._show_waveform.setChecked(self._config.get("ui.show_waveform", True))
-        self._streaming_mode.setChecked(self._config.get("ui.streaming_mode", True))
-        self._opacity_slider.setValue(int(self._config.get("ui.window_opacity", 0.9) * 100))
-
-        self._on_engine_changed(self._engine_combo.currentText())
+        # UI page
+        self._ui_page.show_waveform.setChecked(self._config.get("ui.show_waveform", True))
+        self._ui_page.streaming_mode.setChecked(self._config.get("ui.streaming_mode", True))
+        opacity = int(self._config.get("ui.window_opacity", 0.9) * 100)
+        self._ui_page.opacity_slider.setValue(opacity)
+        self._ui_page._opacity_label.setText(f"{opacity}%")
 
     def _save_settings(self):
-        self._config.set("hotkey", self._hotkey_combo.currentText())
-        self._config.set("hotkey_hold_time", self._hold_time_spin.value())
-        self._config.set("language", self._lang_combo.currentText())
-        self._config.set("ui_language", self._ui_lang_combo.currentData())
-        self._config.set("engine", self._engine_combo.currentText())
+        # General settings
+        self._config.set("hotkey", self._general_page.hotkey_combo.currentText())
+        self._config.set("hotkey_hold_time", self._general_page.hold_time_spin.value())
+        self._config.set("language", self._general_page.lang_combo.currentText())
+        self._config.set("ui_language", self._general_page.ui_lang_combo.currentData())
 
-        self._config.set("whisper.model", self._whisper_model.currentText())
-        self._config.set("whisper.device", self._whisper_device.currentText())
+        # Engine settings
+        self._config.set("engine", self._engine_page.engine_combo.currentText())
 
-        self._config.set("openai.api_key", self._openai_key.text())
-        self._config.set("openai.base_url", self._openai_url.text() or "https://api.openai.com/v1")
+        self._config.set("whisper.model", self._engine_page.whisper_model.currentText())
+        self._config.set("whisper.device", self._engine_page.whisper_device.currentText())
 
-        self._config.set("volcengine.app_id", self._volc_appid.text())
-        self._config.set("volcengine.access_key", self._volc_ak.text())
-        self._config.set("volcengine.secret_key", self._volc_sk.text())
+        self._config.set("openai.api_key", self._engine_page.openai_key.text())
+        self._config.set("openai.base_url", self._engine_page.openai_url.text() or "https://api.openai.com/v1")
 
-        self._config.set("volc_bigmodel.app_key", self._volc_bigmodel_appkey.text())
-        self._config.set("volc_bigmodel.access_key", self._volc_bigmodel_ak.text())
-        self._config.set("volc_bigmodel.model", self._volc_bigmodel_model.currentText())
+        self._config.set("volcengine.app_id", self._engine_page.volc_appid.text())
+        self._config.set("volcengine.access_key", self._engine_page.volc_ak.text())
+        self._config.set("volcengine.secret_key", self._engine_page.volc_sk.text())
 
-        self._config.set("aliyun.app_key", self._aliyun_appkey.text())
-        self._config.set("aliyun.access_token", self._aliyun_token.text())
+        self._config.set("volc_bigmodel.app_key", self._engine_page.volc_bigmodel_appkey.text())
+        self._config.set("volc_bigmodel.access_key", self._engine_page.volc_bigmodel_ak.text())
+        self._config.set("volc_bigmodel.model", self._engine_page.volc_bigmodel_model.currentText())
 
-        self._config.set("ui.show_waveform", self._show_waveform.isChecked())
-        self._config.set("ui.streaming_mode", self._streaming_mode.isChecked())
-        self._config.set("ui.window_opacity", self._opacity_slider.value() / 100)
+        self._config.set("aliyun.app_key", self._engine_page.aliyun_appkey.text())
+        self._config.set("aliyun.access_token", self._engine_page.aliyun_token.text())
+
+        # UI settings
+        self._config.set("ui.show_waveform", self._ui_page.show_waveform.isChecked())
+        self._config.set("ui.streaming_mode", self._ui_page.streaming_mode.isChecked())
+        self._config.set("ui.window_opacity", self._ui_page.opacity_slider.value() / 100)
 
         self._config.save()
 
         # Update i18n language
-        i18n.set_language(self._ui_lang_combo.currentData())
+        i18n.set_language(self._general_page.ui_lang_combo.currentData())
 
         self.settings_changed.emit()
-        self.accept()
-        QMessageBox.information(self, t("tip"), t("saved_message"))
+
+        # Show success message
+        MessageBox(t("tip"), t("saved_message"), self).exec()
+        self.close()
