@@ -19,9 +19,14 @@ class AudioRecorder:
         self._is_recording = False
         self._lock = threading.Lock()
         self._on_audio_level: Optional[Callable[[float], None]] = None
+        self._on_audio_data: Optional[Callable[[bytes], None]] = None
 
     def set_audio_level_callback(self, callback: Callable[[float], None]):
         self._on_audio_level = callback
+
+    def set_audio_data_callback(self, callback: Optional[Callable[[bytes], None]]):
+        """Set callback for real-time audio data (for streaming ASR)"""
+        self._on_audio_data = callback
 
     def start(self):
         with self._lock:
@@ -57,6 +62,9 @@ class AudioRecorder:
                 audio_data = np.frombuffer(in_data, dtype=np.int16)
                 level = np.abs(audio_data).mean() / 32768.0
                 self._on_audio_level(level)
+            # Call real-time audio data callback for streaming ASR
+            if self._on_audio_data:
+                self._on_audio_data(in_data)
         return (in_data, pyaudio.paContinue)
 
     def _get_wav_data(self) -> bytes:

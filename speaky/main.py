@@ -62,6 +62,7 @@ class SpeakyApp:
         self._floating_window = FloatingWindow()
         self._tray = TrayIcon()
         self._settings_dialog: Optional[SettingsDialog] = None
+        self._realtime_session = None  # For real-time streaming ASR
 
         self._setup_engine()
         self._setup_hotkey()
@@ -141,11 +142,69 @@ class SpeakyApp:
     def _on_start_recording(self):
         logger.info("Starting recording, showing floating window")
         self._floating_window.show_recording()
+
+        # Check if we should use real-time streaming
+        streaming_enabled = config.get("ui.streaming_mode", True)
+        use_realtime = (
+            streaming_enabled
+            and self._engine is not None
+            and self._engine.supports_realtime_streaming()
+        )
+
+        if use_realtime:
+            logger.info("Using real-time streaming ASR")
+            # Create and start real-time session
+            self._realtime_session = self._engine.create_realtime_session(
+                language=config.language,
+                on_partial=lambda text: self._signals.partial_result.emit(text),
+                on_final=lambda text: self._signals.recognition_done.emit(text),
+                on_error=lambda err: self._signals.recognition_error.emit(err),
+            )
+            self._realtime_session.start()
+
+            # Set up audio data callback to feed real-time session
+            def on_audio_data(data: bytes):
+                if self._realtime_session:
+                    self._realtime_session.send_audio(data)
+
+            self._recorder.set_audio_data_callback(on_audio_data)
+        else:
+            # Non-streaming mode - no audio callback needed
+            self._recorder.set_audio_data_callback(None)
+
         self._recorder.start()
 
     def _on_stop_recording(self):
         logger.info("Stopping recording")
         audio_data = self._recorder.stop()
+
+        # Clear audio data callback
+        self._recorder.set_audio_data_callback(None)
+
+        # Check if we were using real-time streaming
+        if self._realtime_session is not None:
+            logger.info("Finishing real-time streaming session")
+            self._floating_window.show_recognizing()
+
+            def finish_realtime():
+                try:
+                    result = self._realtime_session.finish()
+                    self._realtime_session = None
+                    if result:
+                        logger.info(f"Real-time result: {result}")
+                        # recognition_done is already called by on_final callback
+                    else:
+                        logger.warning("Real-time result is empty")
+                        self._signals.recognition_error.emit(t("empty_result"))
+                except Exception as e:
+                    logger.error(f"Real-time finish error: {e}", exc_info=True)
+                    self._signals.recognition_error.emit(str(e))
+                    self._realtime_session = None
+
+            threading.Thread(target=finish_realtime, daemon=True).start()
+            return
+
+        # Non-streaming mode
         if not audio_data:
             logger.warning("No audio data recorded")
             self._floating_window.hide()

@@ -3,11 +3,13 @@ import gzip
 import json
 import logging
 import struct
+import threading
 import uuid
 from typing import Optional, Tuple, Callable
+from queue import Queue, Empty
 
 import aiohttp
-from .base import BaseEngine
+from .base import BaseEngine, RealtimeSession
 
 logger = logging.getLogger(__name__)
 
@@ -408,3 +410,293 @@ class VolcBigModelEngine(BaseEngine):
     @property
     def name(self) -> str:
         return "火山语音大模型"
+
+    def supports_realtime_streaming(self) -> bool:
+        return True
+
+    def create_realtime_session(
+        self,
+        language: str = "zh",
+        on_partial: Optional[Callable[[str], None]] = None,
+        on_final: Optional[Callable[[str], None]] = None,
+        on_error: Optional[Callable[[str], None]] = None,
+    ) -> "VolcRealtimeSession":
+        return VolcRealtimeSession(
+            app_key=self._app_key,
+            access_key=self._access_key,
+            ws_url=self._ws_url_async,
+            on_partial=on_partial,
+            on_final=on_final,
+            on_error=on_error,
+        )
+
+
+class VolcRealtimeSession(RealtimeSession):
+    """Real-time streaming ASR session for Volcengine BigModel."""
+
+    # Audio parameters (must match recorder)
+    SAMPLE_RATE = 16000
+    CHANNELS = 1
+    SAMPLE_WIDTH = 2  # 16-bit
+
+    def __init__(
+        self,
+        app_key: str,
+        access_key: str,
+        ws_url: str,
+        on_partial: Optional[Callable[[str], None]] = None,
+        on_final: Optional[Callable[[str], None]] = None,
+        on_error: Optional[Callable[[str], None]] = None,
+    ):
+        self._app_key = app_key
+        self._access_key = access_key
+        self._ws_url = ws_url
+        self._on_partial = on_partial
+        self._on_final = on_final
+        self._on_error = on_error
+
+        self._audio_queue: Queue[Optional[bytes]] = Queue()
+        self._result_text = ""
+        self._is_running = False
+        self._thread: Optional[threading.Thread] = None
+        self._seq = 1
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+
+    def start(self):
+        """Start the session in a background thread."""
+        if self._is_running:
+            return
+        self._is_running = True
+        self._result_text = ""
+        self._seq = 1
+        self._thread = threading.Thread(target=self._run_async, daemon=True)
+        self._thread.start()
+        logger.info("VolcRealtimeSession started")
+
+    def send_audio(self, audio_data: bytes):
+        """Send raw PCM audio data chunk."""
+        if self._is_running:
+            self._audio_queue.put(audio_data)
+
+    def finish(self) -> str:
+        """Signal end of audio and wait for final result."""
+        if not self._is_running:
+            return self._result_text
+
+        # Signal end of audio
+        self._audio_queue.put(None)
+
+        # Wait for thread to finish
+        if self._thread:
+            self._thread.join(timeout=10)
+
+        self._is_running = False
+        logger.info(f"VolcRealtimeSession finished: {self._result_text}")
+        return self._result_text
+
+    def cancel(self):
+        """Cancel the session."""
+        self._is_running = False
+        self._audio_queue.put(None)
+        if self._thread:
+            self._thread.join(timeout=2)
+
+    def _run_async(self):
+        """Run the async WebSocket communication."""
+        self._loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._loop)
+        try:
+            self._loop.run_until_complete(self._session_loop())
+        except Exception as e:
+            logger.error(f"RealtimeSession error: {e}", exc_info=True)
+            if self._on_error:
+                self._on_error(str(e))
+        finally:
+            self._loop.close()
+
+    async def _session_loop(self):
+        """Main async session loop."""
+        request_id = str(uuid.uuid4())
+        headers = {
+            "X-Api-Resource-Id": "volc.seedasr.sauc.duration",
+            "X-Api-Request-Id": request_id,
+            "X-Api-Access-Key": self._access_key,
+            "X-Api-App-Key": self._app_key,
+        }
+
+        logger.info(f"Connecting to {self._ws_url}")
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.ws_connect(self._ws_url, headers=headers) as ws:
+                    logger.info("WebSocket connected")
+
+                    # Send initial full request
+                    full_request = self._build_full_request()
+                    await ws.send_bytes(full_request)
+                    self._seq += 1
+
+                    # Wait for initial response
+                    msg = await ws.receive()
+                    if msg.type == aiohttp.WSMsgType.BINARY:
+                        resp = parse_response(msg.data)
+                        if resp["code"] != 0:
+                            logger.error(f"Initial request failed: {resp}")
+                            if self._on_error:
+                                self._on_error(f"Connection failed: {resp}")
+                            return
+
+                    # Start sender and receiver tasks
+                    sender_task = asyncio.create_task(self._send_audio_loop(ws))
+                    receiver_task = asyncio.create_task(self._receive_loop(ws))
+
+                    # Wait for both to complete
+                    await asyncio.gather(sender_task, receiver_task)
+
+        except Exception as e:
+            logger.error(f"WebSocket error: {e}", exc_info=True)
+            if self._on_error:
+                self._on_error(str(e))
+
+    async def _send_audio_loop(self, ws):
+        """Send audio data from queue to WebSocket."""
+        audio_buffer = bytearray()
+        # Accumulate ~200ms of audio before sending (as per API recommendation)
+        bytes_per_200ms = self.SAMPLE_RATE * self.CHANNELS * self.SAMPLE_WIDTH * 200 // 1000
+
+        while self._is_running:
+            try:
+                # Non-blocking get with timeout
+                audio_data = await asyncio.get_event_loop().run_in_executor(
+                    None, lambda: self._audio_queue.get(timeout=0.1)
+                )
+
+                if audio_data is None:
+                    # End of audio - send remaining buffer as last packet
+                    if audio_buffer:
+                        await self._send_audio_packet(ws, bytes(audio_buffer), is_last=True)
+                    else:
+                        # Send empty last packet
+                        await self._send_audio_packet(ws, b"", is_last=True)
+                    logger.info("Sent last audio packet")
+                    break
+
+                audio_buffer.extend(audio_data)
+
+                # Send when we have enough data (~200ms)
+                while len(audio_buffer) >= bytes_per_200ms:
+                    chunk = bytes(audio_buffer[:bytes_per_200ms])
+                    audio_buffer = audio_buffer[bytes_per_200ms:]
+                    await self._send_audio_packet(ws, chunk, is_last=False)
+
+            except Empty:
+                # No data available, continue waiting
+                continue
+            except Exception as e:
+                logger.error(f"Send error: {e}")
+                break
+
+    async def _send_audio_packet(self, ws, audio_data: bytes, is_last: bool):
+        """Send a single audio packet."""
+        if is_last:
+            flags = MessageTypeSpecificFlags.NEG_WITH_SEQUENCE
+            seq = -self._seq
+        else:
+            flags = MessageTypeSpecificFlags.POS_SEQUENCE
+            seq = self._seq
+            self._seq += 1
+
+        header = build_header(
+            message_type=MessageType.CLIENT_AUDIO_ONLY_REQUEST,
+            flags=flags,
+        )
+
+        compressed = gzip.compress(audio_data) if audio_data else gzip.compress(b"")
+
+        request = bytearray()
+        request.extend(header)
+        request.extend(struct.pack('>i', seq))
+        request.extend(struct.pack('>I', len(compressed)))
+        request.extend(compressed)
+
+        await ws.send_bytes(bytes(request))
+        logger.debug(f"Sent audio packet: seq={seq}, size={len(audio_data)}, last={is_last}")
+
+    async def _receive_loop(self, ws):
+        """Receive results from WebSocket."""
+        try:
+            async for msg in ws:
+                if msg.type == aiohttp.WSMsgType.BINARY:
+                    resp = parse_response(msg.data)
+                    logger.debug(f"Received: seq={resp['sequence']}, last={resp['is_last']}")
+
+                    if resp["code"] != 0:
+                        logger.error(f"Error response: {resp}")
+                        if self._on_error:
+                            self._on_error(f"ASR error: {resp['code']}")
+                        break
+
+                    if resp["payload"]:
+                        payload = resp["payload"]
+                        if "result" in payload:
+                            res = payload["result"]
+                            if isinstance(res, list) and res:
+                                text = res[0].get("text", "")
+                            elif isinstance(res, dict):
+                                text = res.get("text", "")
+                            else:
+                                text = ""
+
+                            if text:
+                                self._result_text = text
+                                logger.debug(f"Partial result: {text}")
+                                if self._on_partial:
+                                    self._on_partial(text)
+
+                    if resp["is_last"]:
+                        logger.info(f"Final result: {self._result_text}")
+                        if self._on_final:
+                            self._on_final(self._result_text)
+                        break
+
+                elif msg.type in (aiohttp.WSMsgType.ERROR, aiohttp.WSMsgType.CLOSED):
+                    logger.warning(f"WebSocket closed: {msg.type}")
+                    break
+
+        except Exception as e:
+            logger.error(f"Receive error: {e}", exc_info=True)
+
+    def _build_full_request(self) -> bytes:
+        """Build full client request."""
+        header = build_header(
+            message_type=MessageType.CLIENT_FULL_REQUEST,
+            flags=MessageTypeSpecificFlags.POS_SEQUENCE,
+        )
+
+        payload = {
+            "user": {"uid": "speaky"},
+            "audio": {
+                "format": "pcm",
+                "codec": "raw",
+                "rate": self.SAMPLE_RATE,
+                "bits": self.SAMPLE_WIDTH * 8,
+                "channel": self.CHANNELS,
+            },
+            "request": {
+                "model_name": "bigmodel",
+                "enable_itn": True,
+                "enable_punc": True,
+                "enable_ddc": True,
+                "show_utterances": True,
+            },
+        }
+
+        payload_bytes = gzip.compress(json.dumps(payload).encode('utf-8'))
+
+        request = bytearray()
+        request.extend(header)
+        request.extend(struct.pack('>i', 1))  # seq=1
+        request.extend(struct.pack('>I', len(payload_bytes)))
+        request.extend(payload_bytes)
+
+        return bytes(request)
