@@ -385,6 +385,9 @@ class SpeakyApp:
         """执行文字输入和回车"""
         logger.info(f"AI mode: Now inputting text: {text}")
 
+        # 隐藏浮窗（输入前隐藏，避免遮挡）
+        self._floating_window.hide()
+
         # 输入文字
         input_method.type_text(text)
 
