@@ -6,10 +6,9 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon
 
 from qfluentwidgets import (
-    ComboBox, EditableComboBox, LineEdit, PasswordLineEdit, PushButton, PrimaryPushButton,
+    ComboBox, EditableComboBox, LineEdit, PasswordLineEdit, PrimaryPushButton,
     SwitchButton, Slider, DoubleSpinBox, BodyLabel, SubtitleLabel,
-    CardWidget, FluentIcon, MessageBox,
-    NavigationItemPosition
+    CardWidget, FluentIcon, MessageBox
 )
 from qfluentwidgets import FluentWindow
 
@@ -34,6 +33,7 @@ class SettingCard(CardWidget):
 
 class SettingsPage(QScrollArea):
     """Base class for settings pages"""
+    save_clicked = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -59,6 +59,17 @@ class SettingsPage(QScrollArea):
 
     def add_stretch(self):
         self._layout.addStretch()
+
+    def add_save_button(self):
+        """Add save button at the bottom of page"""
+        self._layout.addStretch()
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        save_btn = PrimaryPushButton(t("save"))
+        save_btn.setMinimumWidth(120)
+        save_btn.clicked.connect(self.save_clicked.emit)
+        btn_layout.addWidget(save_btn)
+        self._layout.addLayout(btn_layout)
 
 
 class GeneralPage(SettingsPage):
@@ -105,7 +116,7 @@ class GeneralPage(SettingsPage):
         self.ui_lang_combo.setMinimumWidth(150)
         self.add_card(t("ui_lang"), self.ui_lang_combo)
 
-        self.add_stretch()
+        self.add_save_button()
 
 
 class EnginePage(SettingsPage):
@@ -205,7 +216,7 @@ class EnginePage(SettingsPage):
         self.aliyun_token.setMinimumWidth(250)
         self._aliyun_token_card = self.add_card(t("access_token"), self.aliyun_token)
 
-        self.add_stretch()
+        self.add_save_button()
 
         # Store all engine widgets for visibility control
         self._whisper_widgets = [self._whisper_label, self._whisper_model_card, self._whisper_device_card]
@@ -260,7 +271,7 @@ class UIPage(SettingsPage):
         opacity_layout.addWidget(self._opacity_label)
         self.add_card(t("window_opacity"), opacity_widget)
 
-        self.add_stretch()
+        self.add_save_button()
 
 
 class SettingsDialog(FluentWindow):
@@ -290,23 +301,10 @@ class SettingsDialog(FluentWindow):
         self.addSubInterface(self._engine_page, FluentIcon.IOT, t("tab_engine"))
         self.addSubInterface(self._ui_page, FluentIcon.PALETTE, t("tab_ui"))
 
-        # Add save/cancel buttons at bottom
-        self.navigationInterface.addSeparator()
-
-        # Create a save button card at the bottom
-        save_btn = PrimaryPushButton(t("save"))
-        save_btn.clicked.connect(self._save_settings)
-
-        cancel_btn = PushButton(t("cancel"))
-        cancel_btn.clicked.connect(self.close)
-
-        # Add to bottom of navigation
-        self.navigationInterface.addWidget(
-            "save_btn",
-            save_btn,
-            lambda: None,
-            NavigationItemPosition.BOTTOM
-        )
+        # Connect save signals
+        self._general_page.save_clicked.connect(self._save_settings)
+        self._engine_page.save_clicked.connect(self._save_settings)
+        self._ui_page.save_clicked.connect(self._save_settings)
 
     def _load_settings(self):
         # General page
