@@ -279,8 +279,11 @@ class SettingsDialog(FluentWindow):
 
         # Create pages
         self._general_page = GeneralPage(self._config, self)
+        self._general_page.setObjectName("generalPage")
         self._engine_page = EnginePage(self._config, self)
+        self._engine_page.setObjectName("enginePage")
         self._ui_page = UIPage(self._config, self)
+        self._ui_page.setObjectName("uiPage")
 
         # Add pages to navigation
         self.addSubInterface(self._general_page, FluentIcon.SETTING, t("tab_general"))
