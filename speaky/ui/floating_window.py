@@ -126,6 +126,7 @@ class FloatingWindow(QWidget):
             | Qt.Tool
         )
         self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setFixedSize(320, 120)
 
         layout = QVBoxLayout(self)
@@ -169,7 +170,7 @@ class FloatingWindow(QWidget):
         self._center_on_screen()
         self.show()
         self.raise_()
-        self.activateWindow()
+        # Don't call activateWindow() - we don't want to steal focus from the user's app
         logger.info(f"Window shown at position: {self.pos()}, visible: {self.isVisible()}")
 
     def show_recognizing(self):

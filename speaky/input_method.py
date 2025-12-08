@@ -100,21 +100,18 @@ class InputMethod:
             if self._system == "Windows":
                 ctypes.windll.user32.SetForegroundWindow(self._saved_window)
                 logger.info(f"Restored focus to window: {self._saved_window}")
+                time.sleep(0.15)  # Wait for focus to settle
             elif self._system == "Darwin":
-                # macOS: activate the saved application
-                script = f'tell application "{self._saved_window}" to activate'
-                subprocess.run(
-                    ["osascript", "-e", script],
-                    check=False, capture_output=True
-                )
-                logger.info(f"Restored focus to app: {self._saved_window}")
+                # macOS: with accessory mode, we never steal focus, so no need to restore
+                # Calling activate on an already-frontmost app can reset cursor state in some apps
+                logger.info(f"macOS accessory mode - skipping restore_focus for: {self._saved_window}")
             elif self._system == "Linux" and self._xdotool:
                 subprocess.run(
                     [self._xdotool, "windowactivate", "--sync", self._saved_window],
                     check=False
                 )
                 logger.info(f"Restored focus to window: {self._saved_window}")
-            time.sleep(0.15)  # Wait for focus to settle
+                time.sleep(0.15)  # Wait for focus to settle
         except Exception as e:
             logger.error(f"Failed to restore focus: {e}")
 

@@ -1,4 +1,5 @@
 import logging
+import platform
 import sys
 import threading
 from typing import Optional
@@ -24,6 +25,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def set_macos_accessory_mode():
+    """Set macOS app to Accessory mode - won't appear in Dock or steal focus"""
+    if platform.system() != "Darwin":
+        return
+    try:
+        from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
+        NSApplication.sharedApplication().setActivationPolicy_(NSApplicationActivationPolicyAccessory)
+    except ImportError:
+        pass
+
+
 class SignalBridge(QObject):
     start_recording = pyqtSignal()
     stop_recording = pyqtSignal()
@@ -37,6 +49,9 @@ class SpeakyApp:
     def __init__(self):
         self._app = QApplication(sys.argv)
         self._app.setQuitOnLastWindowClosed(False)
+
+        # Set macOS to accessory mode - won't appear in Dock or steal focus
+        set_macos_accessory_mode()
 
         # Initialize i18n language from config
         i18n.set_language(config.get("ui_language", "auto"))
@@ -211,8 +226,6 @@ class SpeakyApp:
 
 
 def main():
-    import platform
-
     # Check macOS Accessibility permission before starting
     if platform.system() == "Darwin" and not check_macos_accessibility():
         print("\n⚠️  Speaky 需要辅助功能权限才能正常工作")
