@@ -118,9 +118,13 @@ class SettingsDialog(QDialog):
         self._volc_appid = QLineEdit()
         volc_layout.addRow("App ID:", self._volc_appid)
 
-        self._volc_token = QLineEdit()
-        self._volc_token.setEchoMode(QLineEdit.Password)
-        volc_layout.addRow("Access Token:", self._volc_token)
+        self._volc_ak = QLineEdit()
+        self._volc_ak.setEchoMode(QLineEdit.Password)
+        volc_layout.addRow("Access Key (AK):", self._volc_ak)
+
+        self._volc_sk = QLineEdit()
+        self._volc_sk.setEchoMode(QLineEdit.Password)
+        volc_layout.addRow("Secret Key (SK):", self._volc_sk)
 
         layout.addWidget(self._volc_group)
 
@@ -192,7 +196,8 @@ class SettingsDialog(QDialog):
         self._openai_url.setText(self._config.get("openai.base_url", ""))
 
         self._volc_appid.setText(self._config.get("volcengine.app_id", ""))
-        self._volc_token.setText(self._config.get("volcengine.access_token", ""))
+        self._volc_ak.setText(self._config.get("volcengine.access_key", ""))
+        self._volc_sk.setText(self._config.get("volcengine.secret_key", ""))
 
         self._aliyun_appkey.setText(self._config.get("aliyun.app_key", ""))
         self._aliyun_token.setText(self._config.get("aliyun.access_token", ""))
@@ -217,7 +222,8 @@ class SettingsDialog(QDialog):
         self._config.set("openai.base_url", self._openai_url.text() or "https://api.openai.com/v1")
 
         self._config.set("volcengine.app_id", self._volc_appid.text())
-        self._config.set("volcengine.access_token", self._volc_token.text())
+        self._config.set("volcengine.access_key", self._volc_ak.text())
+        self._config.set("volcengine.secret_key", self._volc_sk.text())
 
         self._config.set("aliyun.app_key", self._aliyun_appkey.text())
         self._config.set("aliyun.access_token", self._aliyun_token.text())

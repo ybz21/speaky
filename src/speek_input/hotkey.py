@@ -1,6 +1,9 @@
+import logging
 import threading
 from typing import Callable, Optional
 from pynput import keyboard
+
+logger = logging.getLogger(__name__)
 
 KEY_MAP = {
     "ctrl": keyboard.Key.ctrl,
@@ -41,6 +44,7 @@ class HotkeyListener:
     def _on_key_press(self, key):
         target = self._get_target_key()
         if target is None:
+            logger.warning(f"Target key is None for hotkey: {self._hotkey}")
             return
         is_match = False
         if isinstance(target, keyboard.Key):
@@ -57,6 +61,7 @@ class HotkeyListener:
         if is_match:
             with self._lock:
                 if not self._is_pressed:
+                    logger.info(f"Hotkey {self._hotkey} pressed (key: {key})")
                     self._is_pressed = True
                     self._on_press()
 
@@ -79,6 +84,7 @@ class HotkeyListener:
         if is_match:
             with self._lock:
                 if self._is_pressed:
+                    logger.info(f"Hotkey {self._hotkey} released (key: {key})")
                     self._is_pressed = False
                     self._on_release()
 

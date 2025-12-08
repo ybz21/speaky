@@ -1,3 +1,4 @@
+import logging
 import sys
 import threading
 from typing import Optional
@@ -13,6 +14,13 @@ from .engines.base import BaseEngine
 from .ui.floating_window import FloatingWindow
 from .ui.tray_icon import TrayIcon
 from .ui.settings_dialog import SettingsDialog
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
 class SignalBridge(QObject):
@@ -42,6 +50,7 @@ class SpeekInputApp:
 
     def _setup_engine(self):
         engine_name = config.engine
+        logger.info(f"Setting up engine: {engine_name}")
         if engine_name == "whisper":
             from .engines.whisper_engine import WhisperEngine
             self._engine = WhisperEngine(
@@ -59,7 +68,8 @@ class SpeekInputApp:
             from .engines.volcengine_engine import VolcEngineEngine
             self._engine = VolcEngineEngine(
                 app_id=config.get("volcengine.app_id", ""),
-                access_token=config.get("volcengine.access_token", ""),
+                access_key=config.get("volcengine.access_key", ""),
+                secret_key=config.get("volcengine.secret_key", ""),
             )
         elif engine_name == "aliyun":
             from .engines.aliyun_engine import AliyunEngine
@@ -96,34 +106,45 @@ class SpeekInputApp:
         self._tray.quit_clicked.connect(self._quit)
 
     def _on_hotkey_press(self):
+        logger.info("Hotkey pressed - starting recording")
         self._signals.start_recording.emit()
 
     def _on_hotkey_release(self):
+        logger.info("Hotkey released - stopping recording")
         self._signals.stop_recording.emit()
 
     def _on_start_recording(self):
+        logger.info("Starting recording, showing floating window")
         self._floating_window.show_recording()
         self._recorder.start()
 
     def _on_stop_recording(self):
+        logger.info("Stopping recording")
         audio_data = self._recorder.stop()
         if not audio_data:
+            logger.warning("No audio data recorded")
             self._floating_window.hide()
             return
 
+        logger.info(f"Recorded {len(audio_data)} bytes of audio data")
         self._floating_window.show_recognizing()
 
         def recognize():
             try:
                 if self._engine is None:
+                    logger.error("No recognition engine configured")
                     self._signals.recognition_error.emit("未配置识别引擎")
                     return
+                logger.info(f"Transcribing with engine: {self._engine.name}")
                 text = self._engine.transcribe(audio_data, config.language)
                 if text:
+                    logger.info(f"Recognition result: {text}")
                     self._signals.recognition_done.emit(text)
                 else:
+                    logger.warning("Recognition result is empty")
                     self._signals.recognition_error.emit("识别结果为空")
             except Exception as e:
+                logger.error(f"Recognition error: {e}", exc_info=True)
                 self._signals.recognition_error.emit(str(e))
 
         threading.Thread(target=recognize, daemon=True).start()
@@ -153,9 +174,12 @@ class SpeekInputApp:
         self._app.quit()
 
     def run(self):
+        logger.info(f"SpeekInput starting with hotkey: {config.hotkey}")
+        logger.info(f"Engine: {config.engine}, Language: {config.language}")
         self._tray.show()
         self._tray.show_message("SpeekInput", f"已启动，长按 {config.hotkey.upper()} 开始语音输入")
         self._hotkey_listener.start()
+        logger.info("Hotkey listener started")
         return self._app.exec_()
 
 

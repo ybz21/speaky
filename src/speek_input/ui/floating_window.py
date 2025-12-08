@@ -1,6 +1,9 @@
+import logging
 from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QProgressBar
 from PyQt5.QtCore import Qt, pyqtSignal, QTimer
 from PyQt5.QtGui import QFont
+
+logger = logging.getLogger(__name__)
 
 
 class FloatingWindow(QWidget):
@@ -63,11 +66,15 @@ class FloatingWindow(QWidget):
         layout.addWidget(container)
 
     def show_recording(self):
+        logger.info("Showing recording window")
         self._status_label.setText("正在录音...")
         self._status_label.setStyleSheet("color: #4CAF50; font-size: 14px;")
         self._text_label.setText("")
         self._center_on_screen()
         self.show()
+        self.raise_()
+        self.activateWindow()
+        logger.info(f"Window shown at position: {self.pos()}, visible: {self.isVisible()}")
 
     def show_recognizing(self):
         self._status_label.setText("识别中...")
@@ -75,6 +82,7 @@ class FloatingWindow(QWidget):
         self._level_bar.setValue(0)
 
     def show_result(self, text: str):
+        logger.info(f"Showing result: {text}")
         self._status_label.setText("识别完成")
         self._status_label.setStyleSheet("color: #2196F3; font-size: 14px;")
         self._text_label.setText(text[:50] + "..." if len(text) > 50 else text)
