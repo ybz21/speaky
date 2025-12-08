@@ -1,16 +1,16 @@
-from PyQt5.QtWidgets import (
+from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
     QLabel, QLineEdit, QComboBox, QPushButton,
     QTabWidget, QWidget, QGroupBox, QCheckBox,
     QSlider, QMessageBox, QDoubleSpinBox
 )
-from PyQt5.QtCore import Qt, pyqtSignal
+from PySide6.QtCore import Qt, Signal
 
 from ..i18n import t, i18n
 
 
 class SettingsDialog(QDialog):
-    settings_changed = pyqtSignal()
+    settings_changed = Signal()
 
     def __init__(self, config, parent=None):
         super().__init__(parent)
@@ -125,7 +125,7 @@ class SettingsDialog(QDialog):
         openai_layout = QFormLayout(self._openai_group)
 
         self._openai_key = QLineEdit()
-        self._openai_key.setEchoMode(QLineEdit.Password)
+        self._openai_key.setEchoMode(QLineEdit.EchoMode.Password)
         openai_layout.addRow(t("api_key"), self._openai_key)
 
         self._openai_url = QLineEdit()
@@ -142,11 +142,11 @@ class SettingsDialog(QDialog):
         volc_layout.addRow(t("app_id"), self._volc_appid)
 
         self._volc_ak = QLineEdit()
-        self._volc_ak.setEchoMode(QLineEdit.Password)
+        self._volc_ak.setEchoMode(QLineEdit.EchoMode.Password)
         volc_layout.addRow(t("access_key"), self._volc_ak)
 
         self._volc_sk = QLineEdit()
-        self._volc_sk.setEchoMode(QLineEdit.Password)
+        self._volc_sk.setEchoMode(QLineEdit.EchoMode.Password)
         volc_layout.addRow(t("secret_key"), self._volc_sk)
 
         layout.addWidget(self._volc_group)
@@ -159,7 +159,7 @@ class SettingsDialog(QDialog):
         volc_bigmodel_layout.addRow(t("app_key"), self._volc_bigmodel_appkey)
 
         self._volc_bigmodel_ak = QLineEdit()
-        self._volc_bigmodel_ak.setEchoMode(QLineEdit.Password)
+        self._volc_bigmodel_ak.setEchoMode(QLineEdit.EchoMode.Password)
         volc_bigmodel_layout.addRow(t("access_key"), self._volc_bigmodel_ak)
 
         self._volc_bigmodel_model = QComboBox()
@@ -176,7 +176,7 @@ class SettingsDialog(QDialog):
         aliyun_layout.addRow(t("app_key"), self._aliyun_appkey)
 
         self._aliyun_token = QLineEdit()
-        self._aliyun_token.setEchoMode(QLineEdit.Password)
+        self._aliyun_token.setEchoMode(QLineEdit.EchoMode.Password)
         aliyun_layout.addRow(t("access_token"), self._aliyun_token)
 
         layout.addWidget(self._aliyun_group)
@@ -198,7 +198,7 @@ class SettingsDialog(QDialog):
         self._streaming_mode.setToolTip(t("streaming_tooltip"))
         ui_layout.addRow(self._streaming_mode)
 
-        self._opacity_slider = QSlider(Qt.Horizontal)
+        self._opacity_slider = QSlider(Qt.Orientation.Horizontal)
         self._opacity_slider.setRange(50, 100)
         self._opacity_slider.setValue(90)
         ui_layout.addRow(t("window_opacity"), self._opacity_slider)

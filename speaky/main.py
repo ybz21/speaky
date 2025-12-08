@@ -4,8 +4,8 @@ import sys
 import threading
 from typing import Optional
 
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtCore import QObject, pyqtSignal, QTimer
+from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QObject, Signal, QTimer
 
 from .config import config
 from .audio import AudioRecorder
@@ -37,12 +37,12 @@ def set_macos_accessory_mode():
 
 
 class SignalBridge(QObject):
-    start_recording = pyqtSignal()
-    stop_recording = pyqtSignal()
-    audio_level = pyqtSignal(float)
-    recognition_done = pyqtSignal(str)
-    recognition_error = pyqtSignal(str)
-    partial_result = pyqtSignal(str)  # For streaming ASR
+    start_recording = Signal()
+    stop_recording = Signal()
+    audio_level = Signal(float)
+    recognition_done = Signal(str)
+    recognition_error = Signal(str)
+    partial_result = Signal(str)  # For streaming ASR
 
 
 class SpeakyApp:
@@ -317,7 +317,7 @@ class SpeakyApp:
         )
         self._hotkey_listener.start()
         logger.info("Hotkey listener started")
-        return self._app.exec_()
+        return self._app.exec()
 
 
 def main():

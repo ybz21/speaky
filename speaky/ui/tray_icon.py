@@ -1,14 +1,14 @@
-from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction, QApplication
-from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import pyqtSignal, QObject
+from PySide6.QtWidgets import QSystemTrayIcon, QMenu, QApplication
+from PySide6.QtGui import QIcon, QAction
+from PySide6.QtCore import Signal, QObject
 import os
 
 from ..i18n import t
 
 
 class TrayIcon(QObject):
-    settings_clicked = pyqtSignal()
-    quit_clicked = pyqtSignal()
+    settings_clicked = Signal()
+    quit_clicked = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -21,9 +21,8 @@ class TrayIcon(QObject):
         if icon_path and os.path.exists(icon_path):
             self._tray.setIcon(QIcon(icon_path))
         else:
-            self._tray.setIcon(QApplication.style().standardIcon(
-                QApplication.style().SP_ComputerIcon
-            ))
+            style = QApplication.style()
+            self._tray.setIcon(style.standardIcon(style.StandardPixmap.SP_ComputerIcon))
         self._tray.setToolTip(t("app_name"))
 
     def _get_icon_path(self) -> str:
@@ -58,4 +57,4 @@ class TrayIcon(QObject):
         self._tray.hide()
 
     def show_message(self, title: str, message: str):
-        self._tray.showMessage(title, message, QSystemTrayIcon.Information, 2000)
+        self._tray.showMessage(title, message, QSystemTrayIcon.MessageIcon.Information, 2000)
