@@ -50,8 +50,8 @@ class Config:
     def __init__(self):
         # 填入控制台获取的app id和access token
         self.auth = {
-            "app_key": "xxxxxxx",
-            "access_key": "xxxxxxxxxxxx"
+            "app_key": "2400800346",
+            "access_key": "q1QiLqqZ-v4nKhuZbjP-cZT7mCMNt9YW"
         }
 
     @property
@@ -183,7 +183,7 @@ class RequestBuilder:
     def new_auth_headers() -> Dict[str, str]:
         reqid = str(uuid.uuid4())
         return {
-            "X-Api-Resource-Id": "volc.bigasr.sauc.duration",
+            "X-Api-Resource-Id": "volc.seedasr.sauc.duration",  # 2.0小时版
             "X-Api-Request-Id": reqid,
             "X-Api-Access-Key": config.access_key,
             "X-Api-App-Key": config.app_key
@@ -362,12 +362,17 @@ class AsrWsClient:
             
     async def create_connection(self) -> None:
         headers = RequestBuilder.new_auth_headers()
+        logger.info(f"Connecting with headers: {headers}")
         try:
             self.conn = await self.session.ws_connect(  # 使用self.session
                 self.url,
                 headers=headers
             )
             logger.info(f"Connected to {self.url}")
+        except aiohttp.WSServerHandshakeError as e:
+            logger.error(f"WebSocket handshake failed: status={e.status}, message={e.message}")
+            logger.error(f"Response headers: {e.headers if hasattr(e, 'headers') else 'N/A'}")
+            raise
         except Exception as e:
             logger.error(f"Failed to connect to WebSocket: {e}")
             raise

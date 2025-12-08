@@ -126,7 +126,8 @@ class VolcBigModelEngine(BaseEngine):
         self._access_key = access_key
         self._model = model  # bigmodel, bigmodel_async, bigmodel_nostream
         self._segment_duration = segment_duration
-        self._ws_url = f"wss://openspeech.bytedance.com/api/v3/sauc/{model}"
+        # 对于 seedasr 2.0，需要使用 bigmodel_nostream 端点
+        self._ws_url = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream"
         logger.info(f"VolcBigModel initialized: model={model}, app_key={app_key[:4] if app_key else 'None'}..., access_key={access_key[:4] if access_key else 'None'}...")
 
     def transcribe(self, audio_data: bytes, language: str = "zh") -> str:

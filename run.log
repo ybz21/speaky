@@ -1,0 +1,131 @@
+2025-12-08 16:43:03,438 - ERROR - Failed to connect to WebSocket: 400, message='Invalid response status', url='wss://openspeech.bytedance.com/api/v3/sauc/bigmodel'
+2025-12-08 16:43:03,438 - ERROR - Error in ASR execution: 400, message='Invalid response status', url='wss://openspeech.bytedance.com/api/v3/sauc/bigmodel'
+2025-12-08 16:43:03,438 - ERROR - ASR processing failed: 400, message='Invalid response status', url='wss://openspeech.bytedance.com/api/v3/sauc/bigmodel'
+2025-12-08 16:44:18,499 - INFO - Connecting with headers: {'X-Api-Resource-Id': 'volc.seedasr.sauc.duration', 'X-Api-Request-Id': '812c405b-7b0b-4320-9304-289784f05770', 'X-Api-Access-Key': 'q1QiLqqZ-v4nKhuZbjP-cZT7mCMNt9YW', 'X-Api-App-Key': '2400800346'}
+2025-12-08 16:44:20,020 - ERROR - WebSocket handshake failed: status=400, message=Invalid response status
+2025-12-08 16:44:20,021 - ERROR - Response headers: <CIMultiDictProxy('Server': 'volc-dcdn', 'Content-Type': 'application/json', 'Content-Length': '64', 'Connection': 'keep-alive', 'Date': 'Mon, 08 Dec 2025 08:44:19 GMT', 'X-Tt-Logid': '20251208164419D8270F95525F362ED4F8', 'Api-Service-Host': 'fdbd:dc03:11:109::32', 'server-timing': 'inner; dur=13, cdn-cache;desc=MISS, origin;dur=18, edge;dur=0', 'x-tt-trace-host': '018941d04f13c4a161ce1dfdc37893e576b390e790aa353d2c67e05d74670fe8dcd8bbbee0ab191dd776b9a6903825931e6e8dee0b1fb785f70bd81b51d2b6df8f05265ab12dbe74e4106733d65afd27153c14d50e1c4b38101dcd2a66c18b53ed', 'x-tt-trace-tag': 'id=5', 'x-tt-trace-id': '00-fd22113703010447d2ec41b64d3a0000-fd22113703010447-01', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'DNT,X-Mx-ReqToken,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization,X-Api-App-Key,X-Api-Access-Key,X-Api-Request-Id,X-Api-Resource-Id,X-Api-Sequence', 'Access-Control-Expose-Headers': 'X-Tt-Logid,X-Api-Status-Code,X-Api-Message', 'Via': 'n173-021-012.tscu-bm.Creative', 'x-request-ip': '221.216.116.44', 'x-dsa-trace-id': '1765183459d08ebd05de2887b672282cdeaf993422', 'X-Dsa-Origin-Status': '400')>
+2025-12-08 16:44:20,021 - ERROR - Error in ASR execution: 400, message='Invalid response status', url='wss://openspeech.bytedance.com/api/v3/sauc/bigmodel'
+2025-12-08 16:44:20,021 - ERROR - ASR processing failed: 400, message='Invalid response status', url='wss://openspeech.bytedance.com/api/v3/sauc/bigmodel'
+2025-12-08 16:45:03,268 - INFO - Connecting with headers: {'X-Api-Resource-Id': 'volc.bigasr.sauc.duration', 'X-Api-Request-Id': '064a6937-b350-4734-9cfe-edf19eed2648', 'X-Api-Access-Key': 'q1QiLqqZ-v4nKhuZbjP-cZT7mCMNt9YW', 'X-Api-App-Key': '2400800346'}
+2025-12-08 16:45:04,069 - ERROR - WebSocket handshake failed: status=403, message=Invalid response status
+2025-12-08 16:45:04,070 - ERROR - Response headers: <CIMultiDictProxy('Server': 'volc-dcdn', 'Content-Type': 'application/json', 'Content-Length': '82', 'Connection': 'keep-alive', 'Date': 'Mon, 08 Dec 2025 08:45:02 GMT', 'X-Tt-Logid': '20251208164502EBEEF123785A2466100D', 'Api-Service-Host': 'fdbd:dc03:14:e38::19', 'server-timing': 'inner; dur=8, cdn-cache;desc=MISS, origin;dur=29, edge;dur=0', 'x-tt-trace-host': '018941d04f13c4a161ce1dfdc37893e5763714fdb93b104bcbdd01dbca8e0e561a4c9e487b69949f95b5dac95e1a9cb7395a333cdbf572e0edf1d860afe603f0f68b7497e4b9971de3e8d3b5d7bb260cf2d5c2a47e8f67d21d30f9db53ca88e8fc', 'x-tt-trace-tag': 'id=5', 'x-tt-trace-id': '00-fd22b9a7030104a34f4bf0cf00950000-fd22b9a7030104a3-01', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'DNT,X-Mx-ReqToken,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization,X-Api-App-Key,X-Api-Access-Key,X-Api-Request-Id,X-Api-Resource-Id,X-Api-Sequence', 'Access-Control-Expose-Headers': 'X-Tt-Logid,X-Api-Status-Code,X-Api-Message', 'Via': 'n173-021-011.tscu-bm.Creative', 'x-request-ip': '221.216.116.44', 'x-dsa-trace-id': '17651835027e64b88b09c50fdee23713f57f84e018', 'X-Dsa-Origin-Status': '403')>
+2025-12-08 16:45:04,070 - ERROR - Error in ASR execution: 403, message='Invalid response status', url='wss://openspeech.bytedance.com/api/v3/sauc/bigmodel'
+2025-12-08 16:45:04,070 - ERROR - ASR processing failed: 403, message='Invalid response status', url='wss://openspeech.bytedance.com/api/v3/sauc/bigmodel'
+2025-12-08 16:52:06,781 - INFO - Connecting with headers: {'X-Api-Resource-Id': 'volc.seedasr.sauc.duration', 'X-Api-Request-Id': '6925a52c-5535-4b50-84b3-a899c71773ab', 'X-Api-Access-Key': 'q1QiLqqZ-v4nKhuZbjP-cZT7mCMNt9YW', 'X-Api-App-Key': '2400800346'}
+2025-12-08 16:52:07,567 - INFO - Connected to wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream
+2025-12-08 16:52:07,568 - INFO - Sent full client request with seq: 1
+2025-12-08 16:52:07,655 - INFO - Received response: {'code': 0, 'event': 0, 'is_last_package': False, 'payload_sequence': 1, 'payload_size': 110, 'payload_msg': {'audio_info': {'duration': 0}, 'result': {'additions': {'log_id': '20251208165205DA58D31B9C5A0B053A7C'}, 'text': ''}}}
+2025-12-08 16:52:07,656 - INFO - Sent audio segment with seq: 2 (last: False)
+2025-12-08 16:52:07,749 - INFO - Received response: {
+  "code": 0,
+  "event": 0,
+  "is_last_package": false,
+  "payload_sequence": 2,
+  "payload_size": 112,
+  "payload_msg": {
+    "audio_info": {
+      "duration": 198
+    },
+    "result": {
+      "additions": {
+        "log_id": "20251208165205DA58D31B9C5A0B053A7C"
+      },
+      "text": ""
+    }
+  }
+}
+2025-12-08 16:52:07,858 - INFO - Sent audio segment with seq: 3 (last: False)
+2025-12-08 16:52:07,956 - INFO - Received response: {
+  "code": 0,
+  "event": 0,
+  "is_last_package": false,
+  "payload_sequence": 3,
+  "payload_size": 112,
+  "payload_msg": {
+    "audio_info": {
+      "duration": 398
+    },
+    "result": {
+      "additions": {
+        "log_id": "20251208165205DA58D31B9C5A0B053A7C"
+      },
+      "text": ""
+    }
+  }
+}
+2025-12-08 16:52:08,063 - INFO - Sent audio segment with seq: 4 (last: False)
+2025-12-08 16:52:08,131 - INFO - Received response: {
+  "code": 0,
+  "event": 0,
+  "is_last_package": false,
+  "payload_sequence": 4,
+  "payload_size": 112,
+  "payload_msg": {
+    "audio_info": {
+      "duration": 598
+    },
+    "result": {
+      "additions": {
+        "log_id": "20251208165205DA58D31B9C5A0B053A7C"
+      },
+      "text": ""
+    }
+  }
+}
+2025-12-08 16:52:08,269 - INFO - Sent audio segment with seq: 5 (last: False)
+2025-12-08 16:52:08,338 - INFO - Received response: {
+  "code": 0,
+  "event": 0,
+  "is_last_package": false,
+  "payload_sequence": 5,
+  "payload_size": 112,
+  "payload_msg": {
+    "audio_info": {
+      "duration": 798
+    },
+    "result": {
+      "additions": {
+        "log_id": "20251208165205DA58D31B9C5A0B053A7C"
+      },
+      "text": ""
+    }
+  }
+}
+2025-12-08 16:52:08,474 - INFO - Sent audio segment with seq: 6 (last: False)
+2025-12-08 16:52:08,559 - INFO - Received response: {
+  "code": 0,
+  "event": 0,
+  "is_last_package": false,
+  "payload_sequence": 6,
+  "payload_size": 112,
+  "payload_msg": {
+    "audio_info": {
+      "duration": 998
+    },
+    "result": {
+      "additions": {
+        "log_id": "20251208165205DA58D31B9C5A0B053A7C"
+      },
+      "text": ""
+    }
+  }
+}
+2025-12-08 16:52:08,679 - INFO - Sent audio segment with seq: 7 (last: True)
+2025-12-08 16:52:08,896 - INFO - Received response: {
+  "code": 0,
+  "event": 0,
+  "is_last_package": true,
+  "payload_sequence": 7,
+  "payload_size": 113,
+  "payload_msg": {
+    "audio_info": {
+      "duration": 1000
+    },
+    "result": {
+      "additions": {
+        "log_id": "20251208165205DA58D31B9C5A0B053A7C"
+      },
+      "text": ""
+    }
+  }
+}
