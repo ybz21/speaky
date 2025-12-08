@@ -99,6 +99,9 @@ class SpeakyApp:
                 access_key=config.get("volc_bigmodel.access_key", ""),
                 model=config.get("volc_bigmodel.model", "bigmodel"),
             )
+            # Pre-warm connection for faster first request
+            if hasattr(self._engine, 'warmup'):
+                threading.Thread(target=self._engine.warmup, daemon=True).start()
         elif engine_name == "aliyun":
             from .engines.aliyun_engine import AliyunEngine
             self._engine = AliyunEngine(

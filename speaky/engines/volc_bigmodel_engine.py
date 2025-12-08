@@ -133,7 +133,26 @@ class VolcBigModelEngine(BaseEngine):
         self._ws_url_streaming = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel"
         self._ws_url_async = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async"
         self._ws_url_nostream = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream"
+
+        # Persistent connection manager for faster session startup
+        self._connection_manager: Optional["VolcConnectionManager"] = None
+
         logger.info(f"VolcBigModel initialized: model={model}, app_key={app_key[:4] if app_key else 'None'}..., access_key={access_key[:4] if access_key else 'None'}...")
+
+    def _get_connection_manager(self) -> "VolcConnectionManager":
+        """Get or create connection manager for persistent connections."""
+        if self._connection_manager is None:
+            self._connection_manager = VolcConnectionManager(
+                app_key=self._app_key,
+                access_key=self._access_key,
+                ws_url=self._ws_url_async,
+            )
+        return self._connection_manager
+
+    def warmup(self):
+        """Pre-initialize connection for faster first request."""
+        logger.info("Warming up connection...")
+        self._get_connection_manager().ensure_ready()
 
     def transcribe(self, audio_data: bytes, language: str = "zh") -> str:
         loop = asyncio.new_event_loop()
@@ -421,36 +440,137 @@ class VolcBigModelEngine(BaseEngine):
         on_final: Optional[Callable[[str], None]] = None,
         on_error: Optional[Callable[[str], None]] = None,
     ) -> "VolcRealtimeSession":
+        # Use connection manager for faster startup
+        manager = self._get_connection_manager()
         return VolcRealtimeSession(
-            app_key=self._app_key,
-            access_key=self._access_key,
-            ws_url=self._ws_url_async,
+            connection_manager=manager,
             on_partial=on_partial,
             on_final=on_final,
             on_error=on_error,
         )
 
 
-class VolcRealtimeSession(RealtimeSession):
-    """Real-time streaming ASR session for Volcengine BigModel."""
+class VolcConnectionManager:
+    """Manages persistent WebSocket connections for faster session startup.
 
-    # Audio parameters (must match recorder)
+    Key optimizations:
+    1. Pre-establishes connection in background thread
+    2. Keeps event loop running between sessions
+    3. Reuses aiohttp ClientSession
+    """
+
+    SAMPLE_RATE = 16000
+    CHANNELS = 1
+    SAMPLE_WIDTH = 2  # 16-bit
+
+    def __init__(self, app_key: str, access_key: str, ws_url: str):
+        self._app_key = app_key
+        self._access_key = access_key
+        self._ws_url = ws_url
+
+        # Persistent event loop thread
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._loop_thread: Optional[threading.Thread] = None
+        self._session: Optional[aiohttp.ClientSession] = None
+        self._is_ready = threading.Event()
+        self._lock = threading.Lock()
+
+        # Start background loop
+        self._start_loop()
+
+    def _start_loop(self):
+        """Start the persistent event loop in a background thread."""
+        if self._loop_thread is not None and self._loop_thread.is_alive():
+            return
+
+        def run_loop():
+            self._loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self._loop)
+
+            # Create persistent session
+            async def setup():
+                self._session = aiohttp.ClientSession()
+                logger.info("ConnectionManager: aiohttp session created")
+
+            self._loop.run_until_complete(setup())
+            self._is_ready.set()
+
+            # Keep loop running
+            self._loop.run_forever()
+
+            # Cleanup when loop stops
+            async def cleanup():
+                if self._session:
+                    await self._session.close()
+                    self._session = None
+
+            self._loop.run_until_complete(cleanup())
+            self._loop.close()
+
+        self._loop_thread = threading.Thread(target=run_loop, daemon=True)
+        self._loop_thread.start()
+        logger.info("ConnectionManager: background loop started")
+
+    def ensure_ready(self):
+        """Ensure the connection manager is ready."""
+        if not self._is_ready.wait(timeout=5):
+            logger.warning("ConnectionManager: timeout waiting for ready")
+            self._start_loop()
+            self._is_ready.wait(timeout=5)
+
+    def run_coroutine(self, coro):
+        """Run a coroutine in the persistent event loop."""
+        self.ensure_ready()
+        if self._loop is None:
+            raise RuntimeError("Event loop not available")
+        return asyncio.run_coroutine_threadsafe(coro, self._loop)
+
+    def get_headers(self) -> dict:
+        """Generate request headers."""
+        return {
+            "X-Api-Resource-Id": "volc.seedasr.sauc.duration",
+            "X-Api-Request-Id": str(uuid.uuid4()),
+            "X-Api-Access-Key": self._access_key,
+            "X-Api-App-Key": self._app_key,
+        }
+
+    @property
+    def session(self) -> Optional[aiohttp.ClientSession]:
+        return self._session
+
+    @property
+    def ws_url(self) -> str:
+        return self._ws_url
+
+    def shutdown(self):
+        """Shutdown the connection manager."""
+        if self._loop:
+            self._loop.call_soon_threadsafe(self._loop.stop)
+        if self._loop_thread:
+            self._loop_thread.join(timeout=2)
+        logger.info("ConnectionManager: shutdown complete")
+
+
+class VolcRealtimeSession(RealtimeSession):
+    """Real-time streaming ASR session for Volcengine BigModel.
+
+    Uses ConnectionManager for faster startup by:
+    1. Reusing persistent event loop
+    2. Reusing aiohttp session
+    """
+
     SAMPLE_RATE = 16000
     CHANNELS = 1
     SAMPLE_WIDTH = 2  # 16-bit
 
     def __init__(
         self,
-        app_key: str,
-        access_key: str,
-        ws_url: str,
+        connection_manager: VolcConnectionManager,
         on_partial: Optional[Callable[[str], None]] = None,
         on_final: Optional[Callable[[str], None]] = None,
         on_error: Optional[Callable[[str], None]] = None,
     ):
-        self._app_key = app_key
-        self._access_key = access_key
-        self._ws_url = ws_url
+        self._manager = connection_manager
         self._on_partial = on_partial
         self._on_final = on_final
         self._on_error = on_error
@@ -458,20 +578,27 @@ class VolcRealtimeSession(RealtimeSession):
         self._audio_queue: Queue[Optional[bytes]] = Queue()
         self._result_text = ""
         self._is_running = False
-        self._thread: Optional[threading.Thread] = None
+        self._session_future = None
         self._seq = 1
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
 
     def start(self):
-        """Start the session in a background thread."""
+        """Start the session using the persistent connection manager."""
         if self._is_running:
             return
         self._is_running = True
         self._result_text = ""
         self._seq = 1
-        self._thread = threading.Thread(target=self._run_async, daemon=True)
-        self._thread.start()
-        logger.info("VolcRealtimeSession started")
+
+        # Clear any stale data in queue
+        while not self._audio_queue.empty():
+            try:
+                self._audio_queue.get_nowait()
+            except Empty:
+                break
+
+        # Start session in persistent loop
+        self._session_future = self._manager.run_coroutine(self._session_loop())
+        logger.info("VolcRealtimeSession started (using persistent loop)")
 
     def send_audio(self, audio_data: bytes):
         """Send raw PCM audio data chunk."""
@@ -486,9 +613,12 @@ class VolcRealtimeSession(RealtimeSession):
         # Signal end of audio
         self._audio_queue.put(None)
 
-        # Wait for thread to finish
-        if self._thread:
-            self._thread.join(timeout=10)
+        # Wait for session to complete
+        if self._session_future:
+            try:
+                self._session_future.result(timeout=10)
+            except Exception as e:
+                logger.error(f"Session finish error: {e}")
 
         self._is_running = False
         logger.info(f"VolcRealtimeSession finished: {self._result_text}")
@@ -498,60 +628,43 @@ class VolcRealtimeSession(RealtimeSession):
         """Cancel the session."""
         self._is_running = False
         self._audio_queue.put(None)
-        if self._thread:
-            self._thread.join(timeout=2)
-
-    def _run_async(self):
-        """Run the async WebSocket communication."""
-        self._loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self._loop)
-        try:
-            self._loop.run_until_complete(self._session_loop())
-        except Exception as e:
-            logger.error(f"RealtimeSession error: {e}", exc_info=True)
-            if self._on_error:
-                self._on_error(str(e))
-        finally:
-            self._loop.close()
+        if self._session_future:
+            self._session_future.cancel()
 
     async def _session_loop(self):
         """Main async session loop."""
-        request_id = str(uuid.uuid4())
-        headers = {
-            "X-Api-Resource-Id": "volc.seedasr.sauc.duration",
-            "X-Api-Request-Id": request_id,
-            "X-Api-Access-Key": self._access_key,
-            "X-Api-App-Key": self._app_key,
-        }
-
-        logger.info(f"Connecting to {self._ws_url}")
+        headers = self._manager.get_headers()
+        logger.info(f"Connecting to {self._manager.ws_url}")
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.ws_connect(self._ws_url, headers=headers) as ws:
-                    logger.info("WebSocket connected")
+            async with self._manager.session.ws_connect(
+                self._manager.ws_url,
+                headers=headers,
+                heartbeat=30,
+            ) as ws:
+                logger.info("WebSocket connected")
 
-                    # Send initial full request
-                    full_request = self._build_full_request()
-                    await ws.send_bytes(full_request)
-                    self._seq += 1
+                # Send initial full request
+                full_request = self._build_full_request()
+                await ws.send_bytes(full_request)
+                self._seq += 1
 
-                    # Wait for initial response
-                    msg = await ws.receive()
-                    if msg.type == aiohttp.WSMsgType.BINARY:
-                        resp = parse_response(msg.data)
-                        if resp["code"] != 0:
-                            logger.error(f"Initial request failed: {resp}")
-                            if self._on_error:
-                                self._on_error(f"Connection failed: {resp}")
-                            return
+                # Wait for initial response
+                msg = await ws.receive()
+                if msg.type == aiohttp.WSMsgType.BINARY:
+                    resp = parse_response(msg.data)
+                    if resp["code"] != 0:
+                        logger.error(f"Initial request failed: {resp}")
+                        if self._on_error:
+                            self._on_error(f"Connection failed: {resp}")
+                        return
 
-                    # Start sender and receiver tasks
-                    sender_task = asyncio.create_task(self._send_audio_loop(ws))
-                    receiver_task = asyncio.create_task(self._receive_loop(ws))
+                # Start sender and receiver tasks
+                sender_task = asyncio.create_task(self._send_audio_loop(ws))
+                receiver_task = asyncio.create_task(self._receive_loop(ws))
 
-                    # Wait for both to complete
-                    await asyncio.gather(sender_task, receiver_task)
+                # Wait for both to complete
+                await asyncio.gather(sender_task, receiver_task)
 
         except Exception as e:
             logger.error(f"WebSocket error: {e}", exc_info=True)
@@ -561,13 +674,13 @@ class VolcRealtimeSession(RealtimeSession):
     async def _send_audio_loop(self, ws):
         """Send audio data from queue to WebSocket."""
         audio_buffer = bytearray()
-        # Accumulate ~200ms of audio before sending (as per API recommendation)
         bytes_per_200ms = self.SAMPLE_RATE * self.CHANNELS * self.SAMPLE_WIDTH * 200 // 1000
 
         while self._is_running:
             try:
                 # Non-blocking get with timeout
-                audio_data = await asyncio.get_event_loop().run_in_executor(
+                loop = asyncio.get_event_loop()
+                audio_data = await loop.run_in_executor(
                     None, lambda: self._audio_queue.get(timeout=0.1)
                 )
 
@@ -576,7 +689,6 @@ class VolcRealtimeSession(RealtimeSession):
                     if audio_buffer:
                         await self._send_audio_packet(ws, bytes(audio_buffer), is_last=True)
                     else:
-                        # Send empty last packet
                         await self._send_audio_packet(ws, b"", is_last=True)
                     logger.info("Sent last audio packet")
                     break
@@ -590,7 +702,6 @@ class VolcRealtimeSession(RealtimeSession):
                     await self._send_audio_packet(ws, chunk, is_last=False)
 
             except Empty:
-                # No data available, continue waiting
                 continue
             except Exception as e:
                 logger.error(f"Send error: {e}")

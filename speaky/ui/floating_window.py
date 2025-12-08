@@ -1,8 +1,8 @@
 import logging
 import math
-from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QGraphicsDropShadowEffect
-from PyQt5.QtCore import Qt, pyqtSignal, QTimer, QPointF, QRectF
-from PyQt5.QtGui import QPainter, QColor, QPainterPath, QLinearGradient, QRadialGradient, QPen, QFont, QBrush
+from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QGraphicsDropShadowEffect, QScrollArea, QSizePolicy
+from PyQt5.QtCore import Qt, pyqtSignal, QTimer, QPointF, QRectF, QPropertyAnimation, QEasingCurve
+from PyQt5.QtGui import QPainter, QColor, QPainterPath, QLinearGradient, QRadialGradient, QPen, QFont, QBrush, QFontMetrics
 
 from ..i18n import t
 
@@ -225,10 +225,20 @@ class SiriWaveWidget(QWidget):
 class FloatingWindow(QWidget):
     closed = pyqtSignal()
 
+    # Window size constants
+    MIN_WIDTH = 360
+    MAX_WIDTH = 500
+    MIN_HEIGHT = 200
+    MAX_HEIGHT = 400
+    WAVE_HEIGHT = 140
+    TEXT_PADDING = 40  # Padding for text area
+
     def __init__(self):
         super().__init__()
-        self._setup_ui()
         self._audio_level = 0.0
+        self._current_text = ""
+        self._is_expanded = False
+        self._setup_ui()
 
     def _setup_ui(self):
         self.setWindowFlags(
@@ -238,18 +248,20 @@ class FloatingWindow(QWidget):
         )
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
-        self.setFixedSize(320, 240)
+        self.setMinimumSize(self.MIN_WIDTH, self.MIN_HEIGHT)
+        self.setMaximumSize(self.MAX_WIDTH, self.MAX_HEIGHT)
+        self.resize(self.MIN_WIDTH, self.MIN_HEIGHT)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(0)
 
         # Main container with glassmorphism effect
-        container = QWidget()
-        container.setObjectName("container")
-        container.setStyleSheet("""
+        self._container = QWidget()
+        self._container.setObjectName("container")
+        self._container.setStyleSheet("""
             QWidget#container {
-                background-color: rgba(20, 20, 25, 230);
+                background-color: rgba(20, 20, 25, 235);
                 border-radius: 24px;
                 border: 1px solid rgba(255, 255, 255, 0.1);
             }
@@ -258,13 +270,13 @@ class FloatingWindow(QWidget):
         # Add shadow effect
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(40)
-        shadow.setColor(QColor(0, 0, 0, 100))
-        shadow.setOffset(0, 10)
-        container.setGraphicsEffect(shadow)
+        shadow.setColor(QColor(0, 0, 0, 120))
+        shadow.setOffset(0, 8)
+        self._container.setGraphicsEffect(shadow)
 
-        container_layout = QVBoxLayout(container)
-        container_layout.setContentsMargins(20, 15, 20, 20)
-        container_layout.setSpacing(8)
+        container_layout = QVBoxLayout(self._container)
+        container_layout.setContentsMargins(20, 15, 20, 15)
+        container_layout.setSpacing(6)
 
         # Status label - minimal, elegant
         self._status_label = QLabel("Listening...")
@@ -275,29 +287,78 @@ class FloatingWindow(QWidget):
             padding: 0;
         """)
         self._status_label.setAlignment(Qt.AlignCenter)
+        self._status_label.setFixedHeight(24)
         container_layout.addWidget(self._status_label)
 
         # Siri wave widget - the star of the show
         self._wave_widget = SiriWaveWidget()
         container_layout.addWidget(self._wave_widget, alignment=Qt.AlignCenter)
 
+        # Text container for results with smooth expansion
+        self._text_container = QWidget()
+        self._text_container.setStyleSheet("background: transparent;")
+        text_container_layout = QVBoxLayout(self._text_container)
+        text_container_layout.setContentsMargins(0, 0, 0, 0)
+        text_container_layout.setSpacing(0)
+
         # Text label for results - elegant and subtle
         self._text_label = QLabel("")
-        self._text_label.setFont(QFont("SF Pro Text", 11))
+        self._text_label.setFont(QFont("SF Pro Text", 12))
         self._text_label.setStyleSheet("""
-            color: rgba(255, 255, 255, 0.7);
+            color: rgba(255, 255, 255, 0.85);
             background: transparent;
-            padding: 5px 10px;
+            padding: 8px 5px;
+            line-height: 1.4;
         """)
         self._text_label.setAlignment(Qt.AlignCenter)
         self._text_label.setWordWrap(True)
-        self._text_label.setMaximumHeight(50)
-        container_layout.addWidget(self._text_label)
+        self._text_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        text_container_layout.addWidget(self._text_label)
 
-        layout.addWidget(container)
+        container_layout.addWidget(self._text_container)
+
+        layout.addWidget(self._container)
+
+    def _calculate_text_height(self, text: str) -> int:
+        """Calculate required height for text"""
+        if not text:
+            return 0
+
+        font = QFont("SF Pro Text", 12)
+        metrics = QFontMetrics(font)
+        # Available width for text (container width - padding)
+        available_width = self.MIN_WIDTH - 60
+
+        # Calculate wrapped text height
+        rect = metrics.boundingRect(
+            0, 0, available_width, 1000,
+            Qt.AlignCenter | Qt.TextWordWrap,
+            text
+        )
+        return rect.height() + 20  # Add padding
+
+    def _adjust_window_size(self, text: str):
+        """Smoothly adjust window size based on text length"""
+        text_height = self._calculate_text_height(text)
+
+        # Calculate new window height
+        base_height = self.WAVE_HEIGHT + 60  # Wave + status + margins
+        new_height = min(self.MAX_HEIGHT, max(self.MIN_HEIGHT, base_height + text_height))
+
+        # Calculate new width if text is long
+        if len(text) > 50:
+            new_width = min(self.MAX_WIDTH, self.MIN_WIDTH + (len(text) - 50) * 2)
+        else:
+            new_width = self.MIN_WIDTH
+
+        # Resize window
+        if new_height != self.height() or new_width != self.width():
+            self.resize(new_width, new_height)
+            self._center_on_screen()
 
     def show_recording(self):
         logger.info("Showing recording window")
+        self._current_text = ""
         self._status_label.setText(t("listening"))
         self._status_label.setStyleSheet("""
             color: #00D4FF;
@@ -312,6 +373,8 @@ class FloatingWindow(QWidget):
         """)
         self._wave_widget.set_mode("recording")
         self._wave_widget.start_animation()
+        # Reset to minimum size
+        self.resize(self.MIN_WIDTH, self.MIN_HEIGHT)
         self._center_on_screen()
         self.show()
         self.raise_()
@@ -331,16 +394,19 @@ class FloatingWindow(QWidget):
     def update_partial_result(self, text: str):
         """Update with partial/intermediate recognition result"""
         if text:
-            display_text = text[:60] + "..." if len(text) > 60 else text
-            self._text_label.setText(display_text)
+            self._current_text = text
+            self._text_label.setText(text)
             self._text_label.setStyleSheet("""
                 color: #FFE066;
                 background: transparent;
                 font-size: 12px;
             """)
+            # Adjust window size for long text
+            self._adjust_window_size(text)
 
     def show_result(self, text: str):
         logger.info(f"Showing result: {text}")
+        self._current_text = text
         self._status_label.setText(t("done"))
         self._status_label.setStyleSheet("""
             color: #00E676;
@@ -348,15 +414,18 @@ class FloatingWindow(QWidget):
             font-size: 14px;
             font-weight: 500;
         """)
-        display_text = text[:60] + "..." if len(text) > 60 else text
-        self._text_label.setText(display_text)
+        self._text_label.setText(text)
         self._text_label.setStyleSheet("""
-            color: rgba(255, 255, 255, 0.9);
+            color: rgba(255, 255, 255, 0.95);
             background: transparent;
             font-size: 12px;
         """)
         self._wave_widget.set_mode("done")
-        QTimer.singleShot(1500, self.hide)
+        # Adjust window size for full text
+        self._adjust_window_size(text)
+        # Longer display time for longer text
+        display_time = max(1500, min(4000, 1500 + len(text) * 20))
+        QTimer.singleShot(display_time, self.hide)
 
     def show_error(self, error: str):
         self._status_label.setText(t("error"))
@@ -373,7 +442,8 @@ class FloatingWindow(QWidget):
             font-size: 12px;
         """)
         self._wave_widget.set_mode("error")
-        QTimer.singleShot(2000, self.hide)
+        self._adjust_window_size(error)
+        QTimer.singleShot(2500, self.hide)
 
     def update_audio_level(self, level: float):
         self._wave_widget.set_audio_level(level * 4)  # Amplify for visibility
@@ -382,9 +452,11 @@ class FloatingWindow(QWidget):
         from PyQt5.QtWidgets import QApplication
         screen = QApplication.primaryScreen().geometry()
         x = (screen.width() - self.width()) // 2
-        y = screen.height() - self.height() - 120
+        y = screen.height() - self.height() - 100
         self.move(x, y)
 
     def hideEvent(self, event):
         self._wave_widget.stop_animation()
+        # Reset size for next show
+        self.resize(self.MIN_WIDTH, self.MIN_HEIGHT)
         super().hideEvent(event)
