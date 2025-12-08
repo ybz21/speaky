@@ -15,14 +15,7 @@ if ! command -v uv &> /dev/null; then
     fi
 fi
 
-# Check for Accessibility permissions
-echo "Note: Speaky requires Accessibility permissions to:"
-echo "  - Listen for hotkey events"
-echo "  - Simulate keyboard input (paste)"
-echo ""
-echo "If prompted, please grant permissions in:"
-echo "  System Settings > Privacy & Security > Accessibility"
-echo ""
+# Note: Accessibility permission check is handled in Python code
 
 # Install portaudio if needed (for pyaudio)
 if ! brew list portaudio &> /dev/null 2>&1; then

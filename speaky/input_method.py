@@ -4,8 +4,37 @@ import subprocess
 import shutil
 import time
 import ctypes
+import webbrowser
 
 logger = logging.getLogger(__name__)
+
+
+def check_macos_accessibility() -> bool:
+    """Check if the app has macOS Accessibility permission."""
+    if platform.system() != "Darwin":
+        return True
+
+    try:
+        # Try to use System Events - this requires Accessibility permission
+        result = subprocess.run(
+            ["osascript", "-e", 'tell application "System Events" to return (exists process 1)'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        return result.returncode == 0
+    except Exception as e:
+        logger.warning(f"Failed to check accessibility: {e}")
+        return False
+
+
+def open_macos_accessibility_settings():
+    """Open macOS System Settings to Accessibility page."""
+    if platform.system() != "Darwin":
+        return
+
+    # This URL scheme works on macOS Ventura and later
+    webbrowser.open("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
 
 
 class InputMethod:

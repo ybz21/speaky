@@ -9,7 +9,7 @@ from PyQt5.QtCore import QObject, pyqtSignal, QTimer
 from .config import config
 from .audio import AudioRecorder
 from .hotkey import HotkeyListener
-from .input_method import input_method
+from .input_method import input_method, check_macos_accessibility, open_macos_accessibility_settings
 from .engines.base import BaseEngine
 from .ui.floating_window import FloatingWindow
 from .ui.tray_icon import TrayIcon
@@ -32,7 +32,7 @@ class SignalBridge(QObject):
     recognition_error = pyqtSignal(str)
 
 
-class SpeekInputApp:
+class SpeakyApp:
     def __init__(self):
         self._app = QApplication(sys.argv)
         self._app.setQuitOnLastWindowClosed(False)
@@ -182,7 +182,7 @@ class SpeekInputApp:
         self._app.quit()
 
     def run(self):
-        logger.info(f"SpeekInput starting with hotkey: {config.hotkey}")
+        logger.info(f"Speaky starting with hotkey: {config.hotkey}")
         logger.info(f"Engine: {config.engine}, Language: {config.language}")
         self._tray.show()
         self._tray.show_message(
@@ -195,7 +195,23 @@ class SpeekInputApp:
 
 
 def main():
-    app = SpeekInputApp()
+    import platform
+
+    # Check macOS Accessibility permission before starting
+    if platform.system() == "Darwin" and not check_macos_accessibility():
+        print("\n⚠️  Speaky 需要辅助功能权限才能正常工作")
+        print("   - 监听全局快捷键")
+        print("   - 模拟键盘输入（粘贴）")
+        print("\n正在打开系统设置...")
+        open_macos_accessibility_settings()
+        print("\n📋 请在系统设置中：")
+        print("   1. 找到你的终端应用（Terminal/iTerm 等）")
+        print("   2. 点击开关启用权限")
+        print("   3. 授权后重新运行程序")
+        print()
+        input("按 Enter 继续运行（可能功能受限）...")
+
+    app = SpeakyApp()
     sys.exit(app.run())
 
 
