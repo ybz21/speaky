@@ -23,12 +23,30 @@ from .i18n import t, i18n
 # Enable faulthandler to dump traceback on segfault
 faulthandler.enable()
 
-# Setup logging
+# Setup logging - both console and file
+import os
+log_dir = os.path.expanduser("~/.speaky")
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, "speaky.log")
+
+# Create handlers
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+file_handler = logging.FileHandler(log_file, encoding='utf-8')
+file_handler.setLevel(logging.DEBUG)
+
+# Create formatters
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(formatter)
+file_handler.setFormatter(formatter)
+
+# Setup root logger
 logging.basicConfig(
-    level=logging.DEBUG,  # Changed to DEBUG for more info
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.DEBUG,
+    handlers=[console_handler, file_handler]
 )
 logger = logging.getLogger(__name__)
+logger.info(f"Log file: {log_file}")
 
 # Global exception handler
 def global_exception_handler(exctype, value, tb):
