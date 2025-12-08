@@ -324,14 +324,19 @@ class SpeakyApp:
 
     # AI key handlers
     def _on_ai_hotkey_press(self):
-        """AI 键按下：先显示浮窗和录音，然后延迟打开浏览器
+        """AI 键按下：发送信号到主线程处理"""
+        logger.info("AI hotkey pressed - emitting signal")
+        self._signals.ai_start_recording.emit()
+
+    def _on_ai_start_recording(self):
+        """AI 键按下处理（在 Qt 主线程中执行）
 
         设计要点：
         1. 先显示浮窗并开始录音（确保用户看到反馈）
         2. 延迟 300ms 后打开浏览器（让浮窗先稳定显示）
         3. 启动定时 raise，确保浮窗始终在浏览器之上
         """
-        logger.info("AI hotkey pressed - showing window, starting recording, then opening browser")
+        logger.info("AI mode: Starting recording in main thread")
 
         self._ai_mode = True
         self._ai_browser_open_time = time.time()
@@ -380,11 +385,6 @@ class SpeakyApp:
         logger.info("AI hotkey released - stopping recording")
         self._stop_ai_raise_timer()  # 停止 raise 定时器
         self._signals.ai_stop_recording.emit()
-
-    def _on_ai_start_recording(self):
-        """AI 模式开始录音（由普通录音流程处理）"""
-        logger.info("AI mode: Starting recording")
-        self._on_start_recording()
 
     def _on_ai_stop_recording(self):
         """AI 模式停止录音"""
