@@ -390,11 +390,18 @@ class FloatingWindow(QWidget):
         # Stop animation after brief transition to show "done" color
         QTimer.singleShot(500, self._wave_widget.stop_animation)
         # Display time based on text length, then hide
-        display_time = max(1500, min(3500, 1200 + len(text) * 15))
-        self._hide_timer = QTimer()
+        # 缩短显示时间：最短500ms，最长2000ms
+        display_time = max(500, min(2000, 300 + len(text) * 10))
+        logger.info(f"FloatingWindow: Will hide in {display_time}ms")
+        self._hide_timer = QTimer(self)  # 设置 parent 防止被垃圾回收
         self._hide_timer.setSingleShot(True)
-        self._hide_timer.timeout.connect(self.hide)
+        self._hide_timer.timeout.connect(self._do_hide)
         self._hide_timer.start(display_time)
+
+    def _do_hide(self):
+        """执行隐藏操作"""
+        logger.info("FloatingWindow._do_hide called")
+        self.hide()
 
     def show_error(self, error: str):
         self._cancel_hide_timer()
@@ -406,10 +413,11 @@ class FloatingWindow(QWidget):
         self._wave_widget.set_mode("error")
         # Stop animation after brief transition to show "error" color
         QTimer.singleShot(500, self._wave_widget.stop_animation)
-        self._hide_timer = QTimer()
+        logger.info("FloatingWindow: Will hide error in 2000ms")
+        self._hide_timer = QTimer(self)  # 设置 parent 防止被垃圾回收
         self._hide_timer.setSingleShot(True)
-        self._hide_timer.timeout.connect(self.hide)
-        self._hide_timer.start(2500)
+        self._hide_timer.timeout.connect(self._do_hide)
+        self._hide_timer.start(2000)
 
     def update_audio_level(self, level: float):
         self._wave_widget.set_audio_level(level * 3)
