@@ -14,7 +14,7 @@ from .input_method import input_method, check_macos_accessibility, open_macos_ac
 from .engines.base import BaseEngine
 from .ui.floating_window import FloatingWindow
 from .ui.tray_icon import TrayIcon
-from .ui.settings_dialog import SettingsDialog
+from .ui.settings_dialog import SettingsDialog, apply_theme
 from .i18n import t, i18n
 
 # Setup logging
@@ -55,6 +55,9 @@ class SpeakyApp:
 
         # Initialize i18n language from config
         i18n.set_language(config.get("ui_language", "auto"))
+
+        # Apply theme from config
+        apply_theme(config.get("ui.theme", "auto"))
 
         self._signals = SignalBridge()
         self._recorder = AudioRecorder()

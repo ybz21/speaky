@@ -56,6 +56,10 @@ secret_id: "Secret ID:"
 
 # UI tab
 ui_group: "Interface Settings"
+theme: "Theme:"
+theme_light: "Light"
+theme_dark: "Dark"
+theme_auto: "Auto (System)"
 show_waveform: "Show waveform"
 window_opacity: "Window opacity:"
 streaming_mode: "Streaming mode"

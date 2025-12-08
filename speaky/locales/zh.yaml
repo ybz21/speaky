@@ -56,6 +56,10 @@ secret_id: "Secret ID:"
 
 # 界面标签页
 ui_group: "界面设置"
+theme: "主题:"
+theme_light: "浅色"
+theme_dark: "深色"
+theme_auto: "跟随系统"
 show_waveform: "显示波形"
 window_opacity: "窗口透明度:"
 streaming_mode: "流式识别"

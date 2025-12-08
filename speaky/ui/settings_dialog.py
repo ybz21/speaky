@@ -8,11 +8,22 @@ from PySide6.QtGui import QIcon
 from qfluentwidgets import (
     ComboBox, EditableComboBox, LineEdit, PasswordLineEdit, PrimaryPushButton,
     SwitchButton, Slider, DoubleSpinBox, BodyLabel, SubtitleLabel,
-    CardWidget, FluentIcon, MessageBox
+    CardWidget, FluentIcon, MessageBox,
+    setTheme, Theme, setThemeColor
 )
 from qfluentwidgets import FluentWindow
 
 from ..i18n import t, i18n
+
+
+def apply_theme(theme: str):
+    """Apply theme setting"""
+    if theme == "light":
+        setTheme(Theme.LIGHT)
+    elif theme == "dark":
+        setTheme(Theme.DARK)
+    else:  # auto
+        setTheme(Theme.AUTO)
 
 
 class SettingCard(CardWidget):
@@ -250,6 +261,14 @@ class UIPage(SettingsPage):
     def _setup_ui(self):
         self.add_group_label(t("ui_group"))
 
+        # Theme selection
+        self.theme_combo = ComboBox()
+        self.theme_combo.addItem(t("theme_light"), "light")
+        self.theme_combo.addItem(t("theme_dark"), "dark")
+        self.theme_combo.addItem(t("theme_auto"), "auto")
+        self.theme_combo.setMinimumWidth(150)
+        self.add_card(t("theme"), self.theme_combo)
+
         self.show_waveform = SwitchButton()
         self.add_card(t("show_waveform"), self.show_waveform)
 
@@ -341,6 +360,11 @@ class SettingsDialog(FluentWindow):
         self._engine_page.aliyun_token.setText(self._config.get("aliyun.access_token", ""))
 
         # UI page
+        theme = self._config.get("ui.theme", "auto")
+        for i in range(self._ui_page.theme_combo.count()):
+            if self._ui_page.theme_combo.itemData(i) == theme:
+                self._ui_page.theme_combo.setCurrentIndex(i)
+                break
         self._ui_page.show_waveform.setChecked(self._config.get("ui.show_waveform", True))
         self._ui_page.streaming_mode.setChecked(self._config.get("ui.streaming_mode", True))
         opacity = int(self._config.get("ui.window_opacity", 0.9) * 100)
@@ -375,6 +399,8 @@ class SettingsDialog(FluentWindow):
         self._config.set("aliyun.access_token", self._engine_page.aliyun_token.text())
 
         # UI settings
+        theme = self._ui_page.theme_combo.currentData()
+        self._config.set("ui.theme", theme)
         self._config.set("ui.show_waveform", self._ui_page.show_waveform.isChecked())
         self._config.set("ui.streaming_mode", self._ui_page.streaming_mode.isChecked())
         self._config.set("ui.window_opacity", self._ui_page.opacity_slider.value() / 100)
@@ -383,6 +409,9 @@ class SettingsDialog(FluentWindow):
 
         # Update i18n language
         i18n.set_language(self._general_page.ui_lang_combo.currentData())
+
+        # Apply theme
+        apply_theme(theme)
 
         self.settings_changed.emit()
 

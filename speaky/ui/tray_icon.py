@@ -15,6 +15,8 @@ class TrayIcon(QObject):
         self._tray = QSystemTrayIcon()
         self._setup_icon()
         self._setup_menu()
+        # Single click opens settings
+        self._tray.activated.connect(self._on_activated)
 
     def _setup_icon(self):
         icon_path = self._get_icon_path()
@@ -58,3 +60,8 @@ class TrayIcon(QObject):
 
     def show_message(self, title: str, message: str):
         self._tray.showMessage(title, message, QSystemTrayIcon.MessageIcon.Information, 2000)
+
+    def _on_activated(self, reason):
+        """Handle tray icon activation"""
+        if reason == QSystemTrayIcon.ActivationReason.Trigger:  # Single click
+            self.settings_clicked.emit()
