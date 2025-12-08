@@ -4,9 +4,7 @@ import json
 import logging
 import struct
 import uuid
-import wave
-from io import BytesIO
-from typing import Optional
+from typing import Optional, Tuple
 
 import aiohttp
 from .base import BaseEngine
@@ -144,19 +142,21 @@ class VolcBigModelEngine(BaseEngine):
         request_id = str(uuid.uuid4())
         logger.info(f"Starting BigModel transcription, request_id={request_id}")
 
-        # Parse WAV info
+        # Validate WAV format
+        if not self._is_valid_wav(audio_data):
+            logger.error("Invalid WAV format")
+            return ""
+
+        # Parse WAV info for logging and segment size calculation
         try:
-            with BytesIO(audio_data) as f:
-                wave_fp = wave.open(f, 'rb')
-                nchannels, sampwidth, framerate, nframes = wave_fp.getparams()[:4]
-                wav_bytes = wave_fp.readframes(nframes)
+            nchannels, sampwidth, framerate, nframes, _ = self._read_wav_info(audio_data)
         except Exception as e:
             logger.error(f"Failed to parse WAV: {e}")
             return ""
 
         logger.info(f"Audio info: channels={nchannels}, bits={sampwidth*8}, rate={framerate}, frames={nframes}")
 
-        # Calculate segment size
+        # Calculate segment size based on audio properties
         size_per_sec = nchannels * sampwidth * framerate
         segment_size = size_per_sec * self._segment_duration // 1000
 
@@ -192,8 +192,9 @@ class VolcBigModelEngine(BaseEngine):
                             logger.error(f"Initial request failed: {resp}")
                             return ""
 
-                    # Send audio segments
-                    segments = self._split_audio(wav_bytes, segment_size)
+                    # Send audio segments - send the ENTIRE WAV file content (including header)
+                    # This matches the demo behavior
+                    segments = self._split_audio(audio_data, segment_size)
                     total = len(segments)
 
                     async def send_audio():
@@ -252,6 +253,47 @@ class VolcBigModelEngine(BaseEngine):
 
         logger.info(f"Transcription complete: {result_text}")
         return result_text.strip()
+
+    @staticmethod
+    def _is_valid_wav(data: bytes) -> bool:
+        """Check if data is a valid WAV file"""
+        if len(data) < 44:
+            return False
+        return data[:4] == b'RIFF' and data[8:12] == b'WAVE'
+
+    @staticmethod
+    def _read_wav_info(data: bytes) -> Tuple[int, int, int, int, bytes]:
+        """Parse WAV header and return (num_channels, samp_width, sample_rate, nframes, wave_data)"""
+        if len(data) < 44:
+            raise ValueError("Invalid WAV file: too short")
+
+        # Parse WAV header
+        chunk_id = data[:4]
+        if chunk_id != b'RIFF':
+            raise ValueError("Invalid WAV file: not RIFF format")
+
+        format_ = data[8:12]
+        if format_ != b'WAVE':
+            raise ValueError("Invalid WAV file: not WAVE format")
+
+        # Parse fmt subchunk
+        num_channels = struct.unpack('<H', data[22:24])[0]
+        sample_rate = struct.unpack('<I', data[24:28])[0]
+        bits_per_sample = struct.unpack('<H', data[34:36])[0]
+
+        # Find data subchunk
+        pos = 36
+        while pos < len(data) - 8:
+            subchunk_id = data[pos:pos+4]
+            subchunk_size = struct.unpack('<I', data[pos+4:pos+8])[0]
+            if subchunk_id == b'data':
+                wave_data = data[pos+8:pos+8+subchunk_size]
+                samp_width = bits_per_sample // 8
+                nframes = subchunk_size // (num_channels * samp_width)
+                return (num_channels, samp_width, sample_rate, nframes, wave_data)
+            pos += 8 + subchunk_size
+
+        raise ValueError("Invalid WAV file: no data subchunk found")
 
     def _build_full_request(self, seq: int, rate: int, bits: int, channels: int) -> bytes:
         """Build full client request"""
