@@ -1,0 +1,71 @@
+# Русский перевод
+listening: "Запись..."
+recognizing: "Распознавание..."
+done: "Готово"
+error: "Ошибка"
+no_engine: "Движок распознавания не настроен"
+empty_result: "Результат распознавания пуст"
+
+# Значок в трее
+app_name: "Голосовой ввод"
+started_message: "Запущено, удерживайте {hotkey} для голосового ввода"
+settings: "Настройки"
+quit: "Выход"
+
+# Диалог настроек
+settings_title: "Настройки голосового ввода"
+tab_general: "Общие"
+tab_engine: "Движок"
+tab_ui: "Интерфейс"
+save: "Сохранить"
+cancel: "Отмена"
+saved_message: "Настройки сохранены"
+tip: "Подсказка"
+
+# Вкладка Общие
+hotkey_group: "Горячая клавиша"
+hotkey_label: "Клавиша удержания:"
+hold_time_label: "Задержка удержания:"
+hold_time_tooltip: "Как долго удерживать перед началом записи, 0 означает немедленно"
+seconds: " сек"
+language_group: "Язык"
+recognition_lang: "Язык распознавания:"
+ui_lang: "Язык интерфейса:"
+auto: "Авто (Система)"
+
+# Вкладка Движок
+engine_group: "Движок распознавания"
+engine_label: "Движок:"
+whisper_settings: "Настройки Whisper"
+model: "Модель:"
+device: "Устройство:"
+openai_settings: "Настройки OpenAI"
+api_key: "API ключ:"
+base_url: "Базовый URL:"
+volc_settings: "Настройки Volcengine"
+app_id: "App ID:"
+access_key: "Ключ доступа:"
+secret_key: "Секретный ключ:"
+aliyun_settings: "Настройки Aliyun"
+app_key: "Ключ App:"
+access_token: "Токен доступа:"
+tencent_settings: "Настройки Tencent"
+secret_id: "Секретный ID:"
+
+# Вкладка UI
+ui_group: "Настройки интерфейса"
+show_waveform: "Показать волну"
+window_opacity: "Прозрачность окна:"
+
+# Названия языков
+lang_name_auto: "Авто (Система)"
+lang_name_en: "Английский"
+lang_name_zh: "Китайский (упрощённый)"
+lang_name_zh_TW: "Китайский (традиционный)"
+lang_name_ja: "Японский"
+lang_name_ko: "Корейский"
+lang_name_de: "Немецкий"
+lang_name_fr: "Французский"
+lang_name_es: "Испанский"
+lang_name_pt: "Португальский"
+lang_name_ru: "Русский"

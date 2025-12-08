@@ -1,0 +1,71 @@
+# 繁體中文翻譯
+listening: "正在錄音..."
+recognizing: "辨識中..."
+done: "辨識完成"
+error: "辨識失敗"
+no_engine: "未配置辨識引擎"
+empty_result: "辨識結果為空"
+
+# 系統匣圖示
+app_name: "語音輸入"
+started_message: "已啟動，長按 {hotkey} 開始語音輸入"
+settings: "設定"
+quit: "退出"
+
+# 設定對話框
+settings_title: "語音輸入設定"
+tab_general: "一般"
+tab_engine: "辨識引擎"
+tab_ui: "介面"
+save: "儲存"
+cancel: "取消"
+saved_message: "設定已儲存"
+tip: "提示"
+
+# 一般標籤頁
+hotkey_group: "快捷鍵"
+hotkey_label: "長按喚醒鍵:"
+hold_time_label: "長按延遲:"
+hold_time_tooltip: "長按多少秒後開始錄音，0 表示立即開始"
+seconds: " 秒"
+language_group: "語言"
+recognition_lang: "辨識語言:"
+ui_lang: "介面語言:"
+auto: "自動 (跟隨系統)"
+
+# 引擎標籤頁
+engine_group: "辨識引擎"
+engine_label: "引擎:"
+whisper_settings: "Whisper 設定"
+model: "模型:"
+device: "裝置:"
+openai_settings: "OpenAI 設定"
+api_key: "API Key:"
+base_url: "Base URL:"
+volc_settings: "火山引擎設定"
+app_id: "App ID:"
+access_key: "Access Key:"
+secret_key: "Secret Key:"
+aliyun_settings: "阿里雲設定"
+app_key: "App Key:"
+access_token: "Access Token:"
+tencent_settings: "騰訊雲設定"
+secret_id: "Secret ID:"
+
+# 介面標籤頁
+ui_group: "介面設定"
+show_waveform: "顯示波形"
+window_opacity: "視窗透明度:"
+
+# 語言名稱
+lang_name_auto: "自動 (跟隨系統)"
+lang_name_en: "英語"
+lang_name_zh: "簡體中文"
+lang_name_zh_TW: "繁體中文"
+lang_name_ja: "日語"
+lang_name_ko: "韓語"
+lang_name_de: "德語"
+lang_name_fr: "法語"
+lang_name_es: "西班牙語"
+lang_name_pt: "葡萄牙語"
+lang_name_ru: "俄語"

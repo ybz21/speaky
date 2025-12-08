@@ -14,6 +14,7 @@ from .engines.base import BaseEngine
 from .ui.floating_window import FloatingWindow
 from .ui.tray_icon import TrayIcon
 from .ui.settings_dialog import SettingsDialog
+from .i18n import t, i18n
 
 # Setup logging
 logging.basicConfig(
@@ -35,6 +36,9 @@ class SpeekInputApp:
     def __init__(self):
         self._app = QApplication(sys.argv)
         self._app.setQuitOnLastWindowClosed(False)
+
+        # Initialize i18n language from config
+        i18n.set_language(config.get("ui_language", "auto"))
 
         self._signals = SignalBridge()
         self._recorder = AudioRecorder()
@@ -89,6 +93,7 @@ class SpeekInputApp:
             hotkey=config.hotkey,
             on_press=self._on_hotkey_press,
             on_release=self._on_hotkey_release,
+            hold_time=config.get("hotkey_hold_time", 1.0),
         )
         self._recorder.set_audio_level_callback(
             lambda level: self._signals.audio_level.emit(level)
@@ -107,6 +112,8 @@ class SpeekInputApp:
 
     def _on_hotkey_press(self):
         logger.info("Hotkey pressed - starting recording")
+        # Save current focus before showing floating window
+        input_method.save_focus()
         self._signals.start_recording.emit()
 
     def _on_hotkey_release(self):
@@ -133,7 +140,7 @@ class SpeekInputApp:
             try:
                 if self._engine is None:
                     logger.error("No recognition engine configured")
-                    self._signals.recognition_error.emit("未配置识别引擎")
+                    self._signals.recognition_error.emit(t("no_engine"))
                     return
                 logger.info(f"Transcribing with engine: {self._engine.name}")
                 text = self._engine.transcribe(audio_data, config.language)
@@ -142,7 +149,7 @@ class SpeekInputApp:
                     self._signals.recognition_done.emit(text)
                 else:
                     logger.warning("Recognition result is empty")
-                    self._signals.recognition_error.emit("识别结果为空")
+                    self._signals.recognition_error.emit(t("empty_result"))
             except Exception as e:
                 logger.error(f"Recognition error: {e}", exc_info=True)
                 self._signals.recognition_error.emit(str(e))
@@ -166,6 +173,7 @@ class SpeekInputApp:
     def _on_settings_changed(self):
         self._setup_engine()
         self._hotkey_listener.update_hotkey(config.hotkey)
+        self._hotkey_listener.update_hold_time(config.get("hotkey_hold_time", 1.0))
 
     def _quit(self):
         self._hotkey_listener.stop()
@@ -177,7 +185,10 @@ class SpeekInputApp:
         logger.info(f"SpeekInput starting with hotkey: {config.hotkey}")
         logger.info(f"Engine: {config.engine}, Language: {config.language}")
         self._tray.show()
-        self._tray.show_message("SpeekInput", f"已启动，长按 {config.hotkey.upper()} 开始语音输入")
+        self._tray.show_message(
+            t("app_name"),
+            t("started_message", hotkey=config.hotkey.upper())
+        )
         self._hotkey_listener.start()
         logger.info("Hotkey listener started")
         return self._app.exec_()

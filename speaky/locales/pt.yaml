@@ -1,0 +1,71 @@
+# Tradução para português
+listening: "Gravando..."
+recognizing: "Reconhecendo..."
+done: "Concluído"
+error: "Erro"
+no_engine: "Nenhum motor de reconhecimento configurado"
+empty_result: "O resultado do reconhecimento está vazio"
+
+# Ícone da bandeja
+app_name: "Entrada de voz"
+started_message: "Iniciado, segure {hotkey} para entrada de voz"
+settings: "Configurações"
+quit: "Sair"
+
+# Diálogo de configurações
+settings_title: "Configurações de entrada de voz"
+tab_general: "Geral"
+tab_engine: "Motor"
+tab_ui: "Interface"
+save: "Salvar"
+cancel: "Cancelar"
+saved_message: "Configurações salvas"
+tip: "Dica"
+
+# Aba Geral
+hotkey_group: "Tecla de atalho"
+hotkey_label: "Tecla para segurar:"
+hold_time_label: "Atraso ao segurar:"
+hold_time_tooltip: "Quanto tempo segurar antes de começar a gravar, 0 significa imediato"
+seconds: " seg"
+language_group: "Idioma"
+recognition_lang: "Idioma de reconhecimento:"
+ui_lang: "Idioma da interface:"
+auto: "Auto (Sistema)"
+
+# Aba Motor
+engine_group: "Motor de reconhecimento"
+engine_label: "Motor:"
+whisper_settings: "Configurações do Whisper"
+model: "Modelo:"
+device: "Dispositivo:"
+openai_settings: "Configurações do OpenAI"
+api_key: "Chave API:"
+base_url: "URL base:"
+volc_settings: "Configurações do Volcengine"
+app_id: "App ID:"
+access_key: "Chave de acesso:"
+secret_key: "Chave secreta:"
+aliyun_settings: "Configurações do Aliyun"
+app_key: "Chave App:"
+access_token: "Token de acesso:"
+tencent_settings: "Configurações do Tencent"
+secret_id: "ID secreto:"
+
+# Aba UI
+ui_group: "Configurações de interface"
+show_waveform: "Mostrar forma de onda"
+window_opacity: "Opacidade da janela:"
+
+# Nomes dos idiomas
+lang_name_auto: "Auto (Sistema)"
+lang_name_en: "Inglês"
+lang_name_zh: "Chinês (simplificado)"
+lang_name_zh_TW: "Chinês (tradicional)"
+lang_name_ja: "Japonês"
+lang_name_ko: "Coreano"
+lang_name_de: "Alemão"
+lang_name_fr: "Francês"
+lang_name_es: "Espanhol"
+lang_name_pt: "Português"
+lang_name_ru: "Russo"

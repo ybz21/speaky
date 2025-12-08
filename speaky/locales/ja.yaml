@@ -1,0 +1,71 @@
+# 日本語翻訳
+listening: "録音中..."
+recognizing: "認識中..."
+done: "完了"
+error: "エラー"
+no_engine: "認識エンジンが設定されていません"
+empty_result: "認識結果が空です"
+
+# トレイアイコン
+app_name: "音声入力"
+started_message: "起動しました。{hotkey} を長押しして音声入力を開始"
+settings: "設定"
+quit: "終了"
+
+# 設定ダイアログ
+settings_title: "音声入力設定"
+tab_general: "一般"
+tab_engine: "認識エンジン"
+tab_ui: "インターフェース"
+save: "保存"
+cancel: "キャンセル"
+saved_message: "設定を保存しました"
+tip: "ヒント"
+
+# 一般タブ
+hotkey_group: "ホットキー"
+hotkey_label: "長押しキー:"
+hold_time_label: "長押し遅延:"
+hold_time_tooltip: "録音開始までの長押し時間、0は即時開始"
+seconds: " 秒"
+language_group: "言語"
+recognition_lang: "認識言語:"
+ui_lang: "インターフェース言語:"
+auto: "自動 (システム)"
+
+# エンジンタブ
+engine_group: "認識エンジン"
+engine_label: "エンジン:"
+whisper_settings: "Whisper 設定"
+model: "モデル:"
+device: "デバイス:"
+openai_settings: "OpenAI 設定"
+api_key: "API Key:"
+base_url: "Base URL:"
+volc_settings: "火山エンジン設定"
+app_id: "App ID:"
+access_key: "Access Key:"
+secret_key: "Secret Key:"
+aliyun_settings: "Aliyun 設定"
+app_key: "App Key:"
+access_token: "Access Token:"
+tencent_settings: "Tencent 設定"
+secret_id: "Secret ID:"
+
+# UIタブ
+ui_group: "インターフェース設定"
+show_waveform: "波形を表示"
+window_opacity: "ウィンドウ透明度:"
+
+# 言語名
+lang_name_auto: "自動 (システム)"
+lang_name_en: "英語"
+lang_name_zh: "中国語 (簡体字)"
+lang_name_zh_TW: "中国語 (繁体字)"
+lang_name_ja: "日本語"
+lang_name_ko: "韓国語"
+lang_name_de: "ドイツ語"
+lang_name_fr: "フランス語"
+lang_name_es: "スペイン語"
+lang_name_pt: "ポルトガル語"
+lang_name_ru: "ロシア語"

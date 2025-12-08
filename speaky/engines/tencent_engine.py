@@ -24,7 +24,7 @@ class TencentEngine(BaseEngine):
             "EngSerViceType": "16k_zh" if language == "zh" else "16k_en",
             "SourceType": 1,
             "VoiceFormat": "wav",
-            "UsrAudioKey": "speek-input",
+            "UsrAudioKey": "speaky",
             "Data": audio_base64,
             "DataLen": len(audio_data),
         }

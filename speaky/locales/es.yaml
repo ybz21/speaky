@@ -1,0 +1,71 @@
+# Traducción al español
+listening: "Grabando..."
+recognizing: "Reconociendo..."
+done: "Listo"
+error: "Error"
+no_engine: "No hay motor de reconocimiento configurado"
+empty_result: "El resultado del reconocimiento está vacío"
+
+# Icono de bandeja
+app_name: "Entrada de voz"
+started_message: "Iniciado, mantén {hotkey} para entrada de voz"
+settings: "Configuración"
+quit: "Salir"
+
+# Diálogo de configuración
+settings_title: "Configuración de entrada de voz"
+tab_general: "General"
+tab_engine: "Motor"
+tab_ui: "Interfaz"
+save: "Guardar"
+cancel: "Cancelar"
+saved_message: "Configuración guardada"
+tip: "Consejo"
+
+# Pestaña General
+hotkey_group: "Tecla de acceso rápido"
+hotkey_label: "Tecla a mantener:"
+hold_time_label: "Retraso de mantener:"
+hold_time_tooltip: "Cuánto tiempo mantener antes de empezar a grabar, 0 significa inmediato"
+seconds: " seg"
+language_group: "Idioma"
+recognition_lang: "Idioma de reconocimiento:"
+ui_lang: "Idioma de interfaz:"
+auto: "Auto (Sistema)"
+
+# Pestaña Motor
+engine_group: "Motor de reconocimiento"
+engine_label: "Motor:"
+whisper_settings: "Configuración de Whisper"
+model: "Modelo:"
+device: "Dispositivo:"
+openai_settings: "Configuración de OpenAI"
+api_key: "Clave API:"
+base_url: "URL base:"
+volc_settings: "Configuración de Volcengine"
+app_id: "App ID:"
+access_key: "Clave de acceso:"
+secret_key: "Clave secreta:"
+aliyun_settings: "Configuración de Aliyun"
+app_key: "Clave App:"
+access_token: "Token de acceso:"
+tencent_settings: "Configuración de Tencent"
+secret_id: "ID secreto:"
+
+# Pestaña UI
+ui_group: "Configuración de interfaz"
+show_waveform: "Mostrar forma de onda"
+window_opacity: "Opacidad de ventana:"
+
+# Nombres de idiomas
+lang_name_auto: "Auto (Sistema)"
+lang_name_en: "Inglés"
+lang_name_zh: "Chino (simplificado)"
+lang_name_zh_TW: "Chino (tradicional)"
+lang_name_ja: "Japonés"
+lang_name_ko: "Coreano"
+lang_name_de: "Alemán"
+lang_name_fr: "Francés"
+lang_name_es: "Español"
+lang_name_pt: "Portugués"
+lang_name_ru: "Ruso"

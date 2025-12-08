@@ -1,0 +1,71 @@
+# English translations
+listening: "Listening..."
+recognizing: "Recognizing..."
+done: "Done!"
+error: "Error"
+no_engine: "No recognition engine configured"
+empty_result: "Recognition result is empty"
+
+# Tray icon
+app_name: "Speaky"
+started_message: "Started, hold {hotkey} to start voice input"
+settings: "Settings"
+quit: "Quit"
+
+# Settings dialog
+settings_title: "Speaky Settings"
+tab_general: "General"
+tab_engine: "Engine"
+tab_ui: "Interface"
+save: "Save"
+cancel: "Cancel"
+saved_message: "Settings saved"
+tip: "Tip"
+
+# General tab
+hotkey_group: "Hotkey"
+hotkey_label: "Hold key:"
+hold_time_label: "Hold delay:"
+hold_time_tooltip: "How long to hold before recording starts, 0 means immediate"
+seconds: " sec"
+language_group: "Language"
+recognition_lang: "Recognition language:"
+ui_lang: "Interface language:"
+auto: "Auto (System)"
+
+# Engine tab
+engine_group: "Recognition Engine"
+engine_label: "Engine:"
+whisper_settings: "Whisper Settings"
+model: "Model:"
+device: "Device:"
+openai_settings: "OpenAI Settings"
+api_key: "API Key:"
+base_url: "Base URL:"
+volc_settings: "Volcengine Settings"
+app_id: "App ID:"
+access_key: "Access Key:"
+secret_key: "Secret Key:"
+aliyun_settings: "Aliyun Settings"
+app_key: "App Key:"
+access_token: "Access Token:"
+tencent_settings: "Tencent Settings"
+secret_id: "Secret ID:"
+
+# UI tab
+ui_group: "Interface Settings"
+show_waveform: "Show waveform"
+window_opacity: "Window opacity:"
+
+# Language names
+lang_name_auto: "Auto (System)"
+lang_name_en: "English"
+lang_name_zh: "Chinese (Simplified)"
+lang_name_zh_TW: "Chinese (Traditional)"
+lang_name_ja: "Japanese"
+lang_name_ko: "Korean"
+lang_name_de: "German"
+lang_name_fr: "French"
+lang_name_es: "Spanish"
+lang_name_pt: "Portuguese"
+lang_name_ru: "Russian"

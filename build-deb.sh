@@ -1,14 +1,14 @@
 #!/bin/bash
 set -e
 
-APP_NAME="speek-input"
+APP_NAME="speaky"
 VERSION="1.0.0"
 ARCH="amd64"
 BUILD_DIR="build"
 DIST_DIR="dist"
 DEB_DIR="${BUILD_DIR}/${APP_NAME}_${VERSION}_${ARCH}"
 
-echo "=== Building SpeekInput ${VERSION} ==="
+echo "=== Building Speaky ${VERSION} ==="
 
 # Clean
 rm -rf "${BUILD_DIR}" "${DIST_DIR}"
@@ -32,7 +32,7 @@ pyinstaller \
     --hidden-import="numpy" \
     --hidden-import="pynput" \
     --hidden-import="pyaudio" \
-    src/speek_input/main.py
+    speaky/main.py
 
 # Create deb structure
 echo "=== Creating deb package ==="
@@ -53,7 +53,7 @@ Section: utils
 Priority: optional
 Architecture: ${ARCH}
 Depends: xdotool, libportaudio2
-Maintainer: SpeekInput <speek-input@example.com>
+Maintainer: Speaky <speaky@example.com>
 Description: Linux voice input method
  A voice input tool for Linux with hotkey activation,
  supporting multiple speech recognition engines including
@@ -63,7 +63,7 @@ EOF
 # Create desktop entry
 cat > "${DEB_DIR}/usr/share/applications/${APP_NAME}.desktop" << EOF
 [Desktop Entry]
-Name=SpeekInput
+Name=Speaky
 Comment=Voice Input Method
 Exec=${APP_NAME}
 Icon=${APP_NAME}

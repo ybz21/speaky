@@ -119,7 +119,7 @@ class VolcEngineEngine(BaseEngine):
                 "cluster": self._cluster,
                 "token": self._access_key,
             },
-            "user": {"uid": "speek-input"},
+            "user": {"uid": "speaky"},
             "request": {
                 "reqid": request_id,
                 "nbest": 1,

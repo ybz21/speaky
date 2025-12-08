@@ -3,6 +3,7 @@ import platform
 import subprocess
 import shutil
 import time
+import ctypes
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,7 @@ class InputMethod:
         self._system = platform.system()
         self._xdotool = shutil.which("xdotool") if self._system == "Linux" else None
         self._keyboard = None
+        self._saved_window = None
 
         # Use pynput for simulating Cmd+V / Ctrl+V
         try:
@@ -28,6 +30,41 @@ class InputMethod:
         if self._system == "Linux":
             return self._xdotool is not None
         return self._keyboard is not None
+
+    def save_focus(self):
+        """Save the currently focused window"""
+        try:
+            if self._system == "Windows":
+                self._saved_window = ctypes.windll.user32.GetForegroundWindow()
+                logger.info(f"Saved focus window: {self._saved_window}")
+            elif self._system == "Linux" and self._xdotool:
+                result = subprocess.run(
+                    [self._xdotool, "getactivewindow"],
+                    capture_output=True, text=True
+                )
+                if result.returncode == 0:
+                    self._saved_window = result.stdout.strip()
+                    logger.info(f"Saved focus window: {self._saved_window}")
+        except Exception as e:
+            logger.error(f"Failed to save focus: {e}")
+
+    def restore_focus(self):
+        """Restore focus to the saved window"""
+        if not self._saved_window:
+            return
+        try:
+            if self._system == "Windows":
+                ctypes.windll.user32.SetForegroundWindow(self._saved_window)
+                logger.info(f"Restored focus to window: {self._saved_window}")
+            elif self._system == "Linux" and self._xdotool:
+                subprocess.run(
+                    [self._xdotool, "windowactivate", "--sync", self._saved_window],
+                    check=False
+                )
+                logger.info(f"Restored focus to window: {self._saved_window}")
+            time.sleep(0.1)  # Wait for focus to settle
+        except Exception as e:
+            logger.error(f"Failed to restore focus: {e}")
 
     def _copy_to_clipboard(self, text: str) -> bool:
         """Copy text to system clipboard"""
@@ -88,6 +125,9 @@ class InputMethod:
             return
 
         logger.info(f"Typing text via clipboard: {text}")
+
+        # Restore focus to the original window first
+        self.restore_focus()
 
         if self._system == "Linux" and self._xdotool:
             # Linux with xdotool: use direct typing

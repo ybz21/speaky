@@ -1,0 +1,71 @@
+# 한국어 번역
+listening: "녹음 중..."
+recognizing: "인식 중..."
+done: "완료"
+error: "오류"
+no_engine: "인식 엔진이 설정되지 않았습니다"
+empty_result: "인식 결과가 비어 있습니다"
+
+# 트레이 아이콘
+app_name: "음성 입력"
+started_message: "시작됨, {hotkey} 길게 눌러 음성 입력 시작"
+settings: "설정"
+quit: "종료"
+
+# 설정 대화 상자
+settings_title: "음성 입력 설정"
+tab_general: "일반"
+tab_engine: "인식 엔진"
+tab_ui: "인터페이스"
+save: "저장"
+cancel: "취소"
+saved_message: "설정이 저장되었습니다"
+tip: "팁"
+
+# 일반 탭
+hotkey_group: "단축키"
+hotkey_label: "길게 누를 키:"
+hold_time_label: "길게 누름 지연:"
+hold_time_tooltip: "녹음 시작 전 길게 누를 시간, 0은 즉시 시작"
+seconds: " 초"
+language_group: "언어"
+recognition_lang: "인식 언어:"
+ui_lang: "인터페이스 언어:"
+auto: "자동 (시스템)"
+
+# 엔진 탭
+engine_group: "인식 엔진"
+engine_label: "엔진:"
+whisper_settings: "Whisper 설정"
+model: "모델:"
+device: "장치:"
+openai_settings: "OpenAI 설정"
+api_key: "API Key:"
+base_url: "Base URL:"
+volc_settings: "Volcengine 설정"
+app_id: "App ID:"
+access_key: "Access Key:"
+secret_key: "Secret Key:"
+aliyun_settings: "Aliyun 설정"
+app_key: "App Key:"
+access_token: "Access Token:"
+tencent_settings: "Tencent 설정"
+secret_id: "Secret ID:"
+
+# UI 탭
+ui_group: "인터페이스 설정"
+show_waveform: "파형 표시"
+window_opacity: "창 투명도:"
+
+# 언어 이름
+lang_name_auto: "자동 (시스템)"
+lang_name_en: "영어"
+lang_name_zh: "중국어 (간체)"
+lang_name_zh_TW: "중국어 (번체)"
+lang_name_ja: "일본어"
+lang_name_ko: "한국어"
+lang_name_de: "독일어"
+lang_name_fr: "프랑스어"
+lang_name_es: "스페인어"
+lang_name_pt: "포르투갈어"
+lang_name_ru: "러시아어"

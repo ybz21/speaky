@@ -1,0 +1,71 @@
+# 中文翻译
+listening: "正在录音..."
+recognizing: "识别中..."
+done: "识别完成"
+error: "识别失败"
+no_engine: "未配置识别引擎"
+empty_result: "识别结果为空"
+
+# 托盘图标
+app_name: "语音输入"
+started_message: "已启动，长按 {hotkey} 开始语音输入"
+settings: "设置"
+quit: "退出"
+
+# 设置对话框
+settings_title: "语音输入设置"
+tab_general: "常规"
+tab_engine: "识别引擎"
+tab_ui: "界面"
+save: "保存"
+cancel: "取消"
+saved_message: "设置已保存"
+tip: "提示"
+
+# 常规标签页
+hotkey_group: "快捷键"
+hotkey_label: "长按唤醒键:"
+hold_time_label: "长按延迟:"
+hold_time_tooltip: "长按多少秒后开始录音，0 表示立即开始"
+seconds: " 秒"
+language_group: "语言"
+recognition_lang: "识别语言:"
+ui_lang: "界面语言:"
+auto: "自动 (跟随系统)"
+
+# 引擎标签页
+engine_group: "识别引擎"
+engine_label: "引擎:"
+whisper_settings: "Whisper 设置"
+model: "模型:"
+device: "设备:"
+openai_settings: "OpenAI 设置"
+api_key: "API Key:"
+base_url: "Base URL:"
+volc_settings: "火山引擎设置"
+app_id: "App ID:"
+access_key: "Access Key:"
+secret_key: "Secret Key:"
+aliyun_settings: "阿里云设置"
+app_key: "App Key:"
+access_token: "Access Token:"
+tencent_settings: "腾讯云设置"
+secret_id: "Secret ID:"
+
+# 界面标签页
+ui_group: "界面设置"
+show_waveform: "显示波形"
+window_opacity: "窗口透明度:"
+
+# 语言名称
+lang_name_auto: "自动 (跟随系统)"
+lang_name_en: "英语"
+lang_name_zh: "简体中文"
+lang_name_zh_TW: "繁体中文"
+lang_name_ja: "日语"
+lang_name_ko: "韩语"
+lang_name_de: "德语"
+lang_name_fr: "法语"
+lang_name_es: "西班牙语"
+lang_name_pt: "葡萄牙语"
+lang_name_ru: "俄语"

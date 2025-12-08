@@ -3,6 +3,8 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import pyqtSignal, QObject
 import os
 
+from ..i18n import t
+
 
 class TrayIcon(QObject):
     settings_clicked = pyqtSignal()
@@ -22,7 +24,7 @@ class TrayIcon(QObject):
             self._tray.setIcon(QApplication.style().standardIcon(
                 QApplication.style().SP_ComputerIcon
             ))
-        self._tray.setToolTip("SpeekInput - 语音输入")
+        self._tray.setToolTip(t("app_name"))
 
     def _get_icon_path(self) -> str:
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -37,13 +39,13 @@ class TrayIcon(QObject):
     def _setup_menu(self):
         menu = QMenu()
 
-        settings_action = QAction("设置", menu)
+        settings_action = QAction(t("settings"), menu)
         settings_action.triggered.connect(self.settings_clicked.emit)
         menu.addAction(settings_action)
 
         menu.addSeparator()
 
-        quit_action = QAction("退出", menu)
+        quit_action = QAction(t("quit"), menu)
         quit_action.triggered.connect(self.quit_clicked.emit)
         menu.addAction(quit_action)
 

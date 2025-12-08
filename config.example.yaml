@@ -1,0 +1,31 @@
+hotkey: "ctrl"
+hotkey_hold_time: 1.0
+engine: volcengine
+language: zh
+ui_language: auto  # auto, en, zh, ja, ko
+
+whisper:
+  model: base
+  device: auto
+
+openai:
+  api_key: ""
+  model: whisper-1
+  base_url: https://api.openai.com/v1
+
+volcengine:
+  app_id: ""
+  access_key: ""
+  secret_key: ""
+
+aliyun:
+  app_key: ""
+  access_token: ""
+
+tencent:
+  secret_id: ""
+  secret_key: ""
+
+ui:
+  show_waveform: true
+  window_opacity: 0.9

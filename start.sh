@@ -17,4 +17,4 @@ if grep -qi microsoft /proc/version 2>/dev/null; then
     export PULSE_SERVER=unix:/mnt/wslg/PulseServer
 fi
 
-uv run --with PyQt5 --with pynput --with pyaudio --with numpy --with pyyaml --with openai --with requests --with websockets python -m speek_input.main "$@"
+uv run --with PyQt5 --with pynput --with pyaudio --with numpy --with pyyaml --with openai --with requests --with websockets python -m speaky.main "$@"
