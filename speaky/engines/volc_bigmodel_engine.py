@@ -160,8 +160,9 @@ class VolcBigModelEngine(BaseEngine):
         segment_size = size_per_sec * self._segment_duration // 1000
 
         # Build headers - exactly matching demo format
+        # 使用豆包流式语音识别模型2.0小时版
         headers = {
-            "X-Api-Resource-Id": "volc.bigasr.sauc.duration",
+            "X-Api-Resource-Id": "volc.seedasr.sauc.duration",
             "X-Api-Request-Id": request_id,
             "X-Api-Access-Key": self._access_key,
             "X-Api-App-Key": self._app_key,
