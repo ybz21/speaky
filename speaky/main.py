@@ -195,7 +195,9 @@ class SpeakyApp:
                     self._realtime_session = None
                     if result:
                         logger.info(f"Real-time result: {result}")
-                        # recognition_done is already called by on_final callback
+                        # Emit recognition_done to ensure window hides
+                        # (on_final callback may have already been called, but this ensures it)
+                        self._signals.recognition_done.emit(result)
                     else:
                         logger.warning("Real-time result is empty")
                         self._signals.recognition_error.emit(t("empty_result"))

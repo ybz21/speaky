@@ -13,16 +13,22 @@ logger = logging.getLogger(__name__)
 
 
 class WaveOrbWidget(QWidget):
-    """Optimized animated orb widget - simpler, smoother"""
+    """Optimized animated orb widget with smooth color transitions"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(100, 100)
+        self.setFixedSize(150, 150)  # Adjusted for 1.5x height
         self._audio_level = 0.0
         self._target_level = 0.0
         self._phase = 0.0
         self._is_animating = False
         self._mode = "recording"
+
+        # Color transition support
+        self._current_primary = QColor("#00D4FF")
+        self._current_secondary = QColor("#00FF88")
+        self._target_primary = QColor("#00D4FF")
+        self._target_secondary = QColor("#00FF88")
 
         # Use faster timer interval (30fps instead of 60fps for less CPU)
         self._timer = QTimer(self)
@@ -42,6 +48,9 @@ class WaveOrbWidget(QWidget):
 
     def set_mode(self, mode: str):
         self._mode = mode
+        # Set target colors for smooth transition
+        colors = self._colors.get(mode, self._colors["idle"])
+        self._target_primary, self._target_secondary = colors
         self.update()
 
     def start_animation(self):
@@ -56,9 +65,23 @@ class WaveOrbWidget(QWidget):
         self._target_level = 0.0
         self.update()
 
+    def _lerp_color(self, c1: QColor, c2: QColor, t: float) -> QColor:
+        """Linear interpolation between two colors"""
+        return QColor(
+            int(c1.red() + (c2.red() - c1.red()) * t),
+            int(c1.green() + (c2.green() - c1.green()) * t),
+            int(c1.blue() + (c2.blue() - c1.blue()) * t),
+            int(c1.alpha() + (c2.alpha() - c1.alpha()) * t)
+        )
+
     def _update(self):
-        # Smooth interpolation
+        # Smooth interpolation for audio level
         self._audio_level += (self._target_level - self._audio_level) * 0.2
+
+        # Smooth color transition (slower for visual effect)
+        self._current_primary = self._lerp_color(self._current_primary, self._target_primary, 0.15)
+        self._current_secondary = self._lerp_color(self._current_secondary, self._target_secondary, 0.15)
+
         self._phase += 0.12
         if self._phase > 6.283:  # 2*pi
             self._phase -= 6.283
@@ -72,13 +95,14 @@ class WaveOrbWidget(QWidget):
         h = self.height()
         cx, cy = w / 2, h / 2
 
-        colors = self._colors.get(self._mode, self._colors["idle"])
-        primary, secondary = colors
+        # Use smoothly interpolated colors
+        primary = self._current_primary
+        secondary = self._current_secondary
 
         # Simple glow (just 2 layers instead of 5)
-        base_r = 25 + self._audio_level * 10
+        base_r = 38 + self._audio_level * 15  # Scaled for 1.5x
         for i in range(2):
-            r = base_r + i * 12
+            r = base_r + i * 18  # Scaled for 1.5x
             alpha = int(50 * (1 - i * 0.5))
             gradient = QRadialGradient(cx, cy, r)
             gradient.setColorAt(0, QColor(primary.red(), primary.green(), primary.blue(), alpha))
@@ -90,7 +114,7 @@ class WaveOrbWidget(QWidget):
         # Main orb with simple wave deformation (fewer points)
         path = QPainterPath()
         num_points = 24  # Reduced from 64
-        orb_r = 20 + self._audio_level * 12
+        orb_r = 30 + self._audio_level * 18  # Scaled for 1.5x
 
         for i in range(num_points + 1):
             angle = (i / num_points) * 6.283
@@ -137,9 +161,9 @@ class FloatingWindow(QWidget):
     """Floating window with horizontal layout: animation left, text right"""
     closed = pyqtSignal()
 
-    # Fixed size
-    WINDOW_WIDTH = 420
-    WINDOW_HEIGHT = 120
+    # Fixed size - enlarged: width 3x (420*3=1260), height 1.5x (120*1.5=180)
+    WINDOW_WIDTH = 1260
+    WINDOW_HEIGHT = 180
 
     def __init__(self):
         super().__init__()
@@ -192,9 +216,12 @@ class FloatingWindow(QWidget):
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(4)
 
-        # Status label
+        # Status label - use system default font
         self._status_label = QLabel(t("listening"))
-        self._status_label.setFont(QFont("SF Pro Display", 12, QFont.Medium))
+        status_font = self._status_label.font()
+        status_font.setPointSize(12)
+        status_font.setWeight(QFont.Medium)
+        self._status_label.setFont(status_font)
         self._status_label.setStyleSheet("color: #00D4FF; background: transparent;")
         self._status_label.setFixedHeight(20)
         right_layout.addWidget(self._status_label)
@@ -224,9 +251,11 @@ class FloatingWindow(QWidget):
             }
         """)
 
-        # Text label inside scroll area
+        # Text label inside scroll area - use system default font
         self._text_label = QLabel("")
-        self._text_label.setFont(QFont("SF Pro Text", 11))
+        text_font = self._text_label.font()
+        text_font.setPointSize(11)
+        self._text_label.setFont(text_font)
         self._text_label.setStyleSheet("""
             color: rgba(255, 255, 255, 0.85);
             background: transparent;
@@ -285,6 +314,8 @@ class FloatingWindow(QWidget):
         """)
         self._wave_widget.set_mode("done")
         QTimer.singleShot(10, self._scroll_to_bottom)
+        # Stop animation after brief transition to show "done" color
+        QTimer.singleShot(500, self._wave_widget.stop_animation)
         # Display time based on text length
         display_time = max(1500, min(3500, 1200 + len(text) * 15))
         QTimer.singleShot(display_time, self.hide)
@@ -295,6 +326,8 @@ class FloatingWindow(QWidget):
         self._text_label.setText(error)
         self._text_label.setStyleSheet("color: rgba(255,255,255,0.7); background: transparent;")
         self._wave_widget.set_mode("error")
+        # Stop animation after brief transition to show "error" color
+        QTimer.singleShot(500, self._wave_widget.stop_animation)
         QTimer.singleShot(2500, self.hide)
 
     def update_audio_level(self, level: float):
