@@ -37,6 +37,21 @@ class InputMethod:
             if self._system == "Windows":
                 self._saved_window = ctypes.windll.user32.GetForegroundWindow()
                 logger.info(f"Saved focus window: {self._saved_window}")
+            elif self._system == "Darwin":
+                # macOS: get frontmost application using AppleScript
+                script = '''
+                    tell application "System Events"
+                        set frontApp to name of first application process whose frontmost is true
+                    end tell
+                    return frontApp
+                '''
+                result = subprocess.run(
+                    ["osascript", "-e", script],
+                    capture_output=True, text=True
+                )
+                if result.returncode == 0:
+                    self._saved_window = result.stdout.strip()
+                    logger.info(f"Saved focus app: {self._saved_window}")
             elif self._system == "Linux" and self._xdotool:
                 result = subprocess.run(
                     [self._xdotool, "getactivewindow"],
@@ -56,13 +71,21 @@ class InputMethod:
             if self._system == "Windows":
                 ctypes.windll.user32.SetForegroundWindow(self._saved_window)
                 logger.info(f"Restored focus to window: {self._saved_window}")
+            elif self._system == "Darwin":
+                # macOS: activate the saved application
+                script = f'tell application "{self._saved_window}" to activate'
+                subprocess.run(
+                    ["osascript", "-e", script],
+                    check=False, capture_output=True
+                )
+                logger.info(f"Restored focus to app: {self._saved_window}")
             elif self._system == "Linux" and self._xdotool:
                 subprocess.run(
                     [self._xdotool, "windowactivate", "--sync", self._saved_window],
                     check=False
                 )
                 logger.info(f"Restored focus to window: {self._saved_window}")
-            time.sleep(0.1)  # Wait for focus to settle
+            time.sleep(0.15)  # Wait for focus to settle
         except Exception as e:
             logger.error(f"Failed to restore focus: {e}")
 
@@ -104,14 +127,15 @@ class InputMethod:
     def _paste(self):
         """Simulate paste shortcut (Cmd+V on macOS, Ctrl+V on others)"""
         try:
-            time.sleep(0.1)  # Small delay to ensure clipboard is ready
             if self._system == "Darwin":
-                # macOS: use AppleScript for reliable paste
+                # macOS: longer delay and use AppleScript for reliable paste
+                time.sleep(0.2)
                 script = 'tell application "System Events" to keystroke "v" using command down'
                 subprocess.run(["osascript", "-e", script], check=False, capture_output=True)
                 logger.info("Paste command sent via AppleScript")
             elif self._keyboard:
                 # Linux/Windows: Ctrl+V via pynput
+                time.sleep(0.1)
                 with self._keyboard.pressed(self._Key.ctrl):
                     self._keyboard.press("v")
                     self._keyboard.release("v")
