@@ -2,11 +2,14 @@ import asyncio
 import base64
 import gzip
 import json
+import logging
 import uuid
 import wave
 from io import BytesIO
 import websockets
 from .base import BaseEngine
+
+logger = logging.getLogger(__name__)
 
 # Protocol constants
 PROTOCOL_VERSION = 0b0001
@@ -79,19 +82,27 @@ class VolcEngineEngine(BaseEngine):
     文档: https://www.volcengine.com/docs/6561/80818
     """
 
-    def __init__(self, app_id: str, access_token: str, cluster: str = "volcengine_input_common"):
+    def __init__(self, app_id: str, access_key: str, secret_key: str, cluster: str = "volcengine_input_common"):
         self._app_id = app_id
-        self._access_token = access_token
+        self._access_key = access_key
+        self._secret_key = secret_key
         self._cluster = cluster
         self._ws_url = "wss://openspeech.bytedance.com/api/v2/asr"
+        logger.info(f"VolcEngine initialized: app_id={app_id}, cluster={cluster}")
 
     def transcribe(self, audio_data: bytes, language: str = "zh") -> str:
-        return asyncio.get_event_loop().run_until_complete(
-            self._transcribe_async(audio_data, language)
-        )
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(
+                self._transcribe_async(audio_data, language)
+            )
+        finally:
+            loop.close()
 
     async def _transcribe_async(self, audio_data: bytes, language: str) -> str:
         request_id = str(uuid.uuid4())
+        logger.info(f"Starting transcription, request_id={request_id}")
 
         # 读取 wav 信息
         with BytesIO(audio_data) as f:
@@ -99,12 +110,14 @@ class VolcEngineEngine(BaseEngine):
             nchannels, sampwidth, framerate, nframes = wave_fp.getparams()[:4]
             wav_bytes = wave_fp.readframes(nframes)
 
-        # 构建请求参数
+        logger.info(f"Audio info: channels={nchannels}, sampwidth={sampwidth}, framerate={framerate}, frames={nframes}")
+
+        # 构建请求参数 - 使用 access_key 作为 token
         request_params = {
             "app": {
                 "appid": self._app_id,
                 "cluster": self._cluster,
-                "token": self._access_token,
+                "token": self._access_key,
             },
             "user": {"uid": "speek-input"},
             "request": {
@@ -125,27 +138,36 @@ class VolcEngineEngine(BaseEngine):
             },
         }
 
+        logger.debug(f"Request params: {json.dumps(request_params, indent=2)}")
+
         # 构建 full client request
         payload_bytes = gzip.compress(json.dumps(request_params).encode())
         full_request = bytearray(generate_header(CLIENT_FULL_REQUEST, NO_SEQUENCE))
         full_request.extend(len(payload_bytes).to_bytes(4, 'big'))
         full_request.extend(payload_bytes)
 
-        headers = {"Authorization": f"Bearer; {self._access_token}"}
+        headers = {"Authorization": f"Bearer; {self._access_key}"}
 
         result_text = ""
         try:
-            async with websockets.connect(self._ws_url, extra_headers=headers, max_size=1000000000) as ws:
+            logger.info(f"Connecting to {self._ws_url}")
+            async with websockets.connect(self._ws_url, additional_headers=headers, max_size=1000000000) as ws:
                 # 发送 full client request
+                logger.info("Sending full client request")
                 await ws.send(full_request)
                 res = await ws.recv()
                 result = parse_response(res)
-                if 'payload_msg' in result and result['payload_msg'].get('code') != 1000:
-                    return ""
+                logger.info(f"Full request response: {result}")
+                if 'payload_msg' in result:
+                    code = result['payload_msg'].get('code')
+                    if code != 1000:
+                        logger.error(f"Full request failed with code {code}: {result['payload_msg']}")
+                        return ""
 
                 # 分段发送音频数据
                 segment_size = nchannels * sampwidth * framerate  # 1秒的数据
                 offset = 0
+                segment_count = 0
                 while offset < len(wav_bytes):
                     chunk = wav_bytes[offset:offset + segment_size]
                     is_last = offset + segment_size >= len(wav_bytes)
@@ -161,22 +183,33 @@ class VolcEngineEngine(BaseEngine):
                     await ws.send(audio_request)
                     res = await ws.recv()
                     result = parse_response(res)
+                    segment_count += 1
+                    logger.debug(f"Segment {segment_count} response: {result}")
 
                     if 'payload_msg' in result:
                         payload = result['payload_msg']
+                        logger.debug(f"Payload: {payload}")
                         if payload.get('code') == 1000 and 'result' in payload:
-                            result_text = payload['result'].get('text', '')
+                            res = payload['result']
+                            # result can be a list of utterances or a dict
+                            if isinstance(res, list) and len(res) > 0:
+                                result_text = res[0].get('text', '')
+                            elif isinstance(res, dict):
+                                result_text = res.get('text', '')
+                            logger.info(f"Got result text: {result_text}")
 
                     offset += segment_size
 
+                logger.info(f"Transcription complete, final text: {result_text}")
+
         except Exception as e:
-            print(f"VolcEngine ASR error: {e}")
+            logger.error(f"VolcEngine ASR error: {e}", exc_info=True)
             return ""
 
         return result_text.strip()
 
     def is_available(self) -> bool:
-        return bool(self._app_id and self._access_token)
+        return bool(self._app_id and self._access_key)
 
     @property
     def name(self) -> str:

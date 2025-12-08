@@ -18,7 +18,8 @@ DEFAULT_CONFIG = {
     },
     "volcengine": {
         "app_id": "",
-        "access_token": "",
+        "access_key": "",
+        "secret_key": "",
     },
     "aliyun": {
         "app_key": "",
