@@ -73,6 +73,7 @@ class SpeakyApp:
         self._realtime_session = None  # For real-time streaming ASR
 
         self._ai_mode = False  # Track if we're in AI mode
+        self._ai_raise_timer = None  # Timer to keep floating window on top
         self._setup_engine()
         self._setup_hotkey()
         self._setup_ai_hotkey()
@@ -323,31 +324,59 @@ class SpeakyApp:
 
     # AI key handlers
     def _on_ai_hotkey_press(self):
-        """AI 键按下：同时开始录音和打开浏览器（并行执行）
+        """AI 键按下：先显示浮窗和录音，然后延迟打开浏览器
 
-        核心设计：
-        1. 立即开始录音（用户体验优先，不让用户等待）
-        2. 同时异步打开浏览器（不阻塞录音）
-        3. 记录浏览器打开时间，用于后续计算等待时间
+        设计要点：
+        1. 先显示浮窗并开始录音（确保用户看到反馈）
+        2. 延迟 300ms 后打开浏览器（让浮窗先稳定显示）
+        3. 启动定时 raise，确保浮窗始终在浏览器之上
         """
-        import webbrowser
-        logger.info("AI hotkey pressed - starting recording and opening browser in parallel")
+        logger.info("AI hotkey pressed - showing window, starting recording, then opening browser")
 
         self._ai_mode = True
-        self._ai_browser_open_time = time.time()  # 记录打开时间
+        self._ai_browser_open_time = time.time()
 
-        # 1. 立即开始录音（用户可以马上开始说话）
-        input_method.save_focus()
+        # 1. 先开始录音（会显示浮窗和设置流式回调）
         self._on_start_recording()
 
-        # 2. 同时打开浏览器（异步，不阻塞）
+        # 2. 启动定时 raise，确保浮窗始终在最前面
+        self._start_ai_raise_timer()
+
+        # 3. 延迟打开浏览器（让浮窗先稳定显示）
+        QTimer.singleShot(300, self._ai_open_browser)
+
+    def _ai_open_browser(self):
+        """延迟打开浏览器"""
+        import webbrowser
         ai_url = config.get("ai_url", "https://chatgpt.com")
         logger.info(f"AI mode: Opening {ai_url}")
         webbrowser.open(ai_url)
+        # 打开浏览器后立即 raise 浮窗
+        QTimer.singleShot(200, self._floating_window.raise_)
+
+    def _start_ai_raise_timer(self):
+        """启动定时器，每 500ms raise 浮窗一次"""
+        if self._ai_raise_timer is None:
+            self._ai_raise_timer = QTimer()
+            self._ai_raise_timer.timeout.connect(self._ai_raise_window)
+            self._ai_raise_timer.start(500)
+
+    def _ai_raise_window(self):
+        """raise 浮窗确保在最前面"""
+        if self._floating_window.isVisible():
+            self._floating_window.raise_()
+            self._floating_window.activateWindow()
+
+    def _stop_ai_raise_timer(self):
+        """停止 raise 定时器"""
+        if self._ai_raise_timer:
+            self._ai_raise_timer.stop()
+            self._ai_raise_timer = None
 
     def _on_ai_hotkey_release(self):
         """AI 键松开：停止录音"""
         logger.info("AI hotkey released - stopping recording")
+        self._stop_ai_raise_timer()  # 停止 raise 定时器
         self._signals.ai_stop_recording.emit()
 
     def _on_ai_start_recording(self):
