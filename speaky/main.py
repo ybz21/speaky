@@ -303,6 +303,8 @@ class SpeakyApp:
         self._setup_engine()
         self._hotkey_listener.update_hotkey(config.hotkey)
         self._hotkey_listener.update_hold_time(config.get("hotkey_hold_time", 1.0))
+        # Reset settings dialog so it recreates with new language
+        self._settings_dialog = None
 
     def _quit(self):
         self._hotkey_listener.stop()

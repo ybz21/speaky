@@ -14,6 +14,7 @@ from qfluentwidgets import (
 from qfluentwidgets import FluentWindow
 
 from ..i18n import t, i18n
+from ..autostart import is_autostart_enabled, set_autostart
 
 
 def apply_theme(theme: str):
@@ -275,6 +276,9 @@ class UIPage(SettingsPage):
         self.streaming_mode = SwitchButton()
         self.add_card(t("streaming_mode"), self.streaming_mode)
 
+        self.auto_start = SwitchButton()
+        self.add_card(t("auto_start"), self.auto_start)
+
         # Opacity slider with value label
         opacity_widget = QWidget()
         opacity_layout = QHBoxLayout(opacity_widget)
@@ -367,6 +371,7 @@ class SettingsDialog(FluentWindow):
                 break
         self._ui_page.show_waveform.setChecked(self._config.get("ui.show_waveform", True))
         self._ui_page.streaming_mode.setChecked(self._config.get("ui.streaming_mode", True))
+        self._ui_page.auto_start.setChecked(is_autostart_enabled())
         opacity = int(self._config.get("ui.window_opacity", 0.9) * 100)
         self._ui_page.opacity_slider.setValue(opacity)
         self._ui_page._opacity_label.setText(f"{opacity}%")
@@ -404,6 +409,9 @@ class SettingsDialog(FluentWindow):
         self._config.set("ui.show_waveform", self._ui_page.show_waveform.isChecked())
         self._config.set("ui.streaming_mode", self._ui_page.streaming_mode.isChecked())
         self._config.set("ui.window_opacity", self._ui_page.opacity_slider.value() / 100)
+
+        # Set auto-start
+        set_autostart(self._ui_page.auto_start.isChecked())
 
         self._config.save()
 

@@ -64,6 +64,7 @@ show_waveform: "Show waveform"
 window_opacity: "Window opacity:"
 streaming_mode: "Streaming mode"
 streaming_tooltip: "Show recognition results in real-time during recording"
+auto_start: "Start on boot"
 
 # Language names
 lang_name_auto: "Auto (System)"

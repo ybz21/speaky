@@ -64,6 +64,7 @@ show_waveform: "显示波形"
 window_opacity: "窗口透明度:"
 streaming_mode: "流式识别"
 streaming_tooltip: "在录音过程中实时显示识别结果"
+auto_start: "开机自启"
 
 # 语言名称
 lang_name_auto: "自动 (跟随系统)"
