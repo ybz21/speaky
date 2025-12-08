@@ -75,6 +75,13 @@ class SpeakyApp:
                 access_key=config.get("volcengine.access_key", ""),
                 secret_key=config.get("volcengine.secret_key", ""),
             )
+        elif engine_name == "volc_bigmodel":
+            from .engines.volc_bigmodel_engine import VolcBigModelEngine
+            self._engine = VolcBigModelEngine(
+                app_key=config.get("volc_bigmodel.app_key", ""),
+                access_key=config.get("volc_bigmodel.access_key", ""),
+                model=config.get("volc_bigmodel.model", "bigmodel"),
+            )
         elif engine_name == "aliyun":
             from .engines.aliyun_engine import AliyunEngine
             self._engine = AliyunEngine(

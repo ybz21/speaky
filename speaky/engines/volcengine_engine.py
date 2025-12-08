@@ -213,4 +213,4 @@ class VolcEngineEngine(BaseEngine):
 
     @property
     def name(self) -> str:
-        return "火山引擎"
+        return "火山引擎-一句话识别"

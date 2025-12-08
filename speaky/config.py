@@ -22,6 +22,11 @@ DEFAULT_CONFIG = {
         "access_key": "",
         "secret_key": "",
     },
+    "volc_bigmodel": {
+        "app_key": "",
+        "access_key": "",
+        "model": "bigmodel",  # bigmodel, bigmodel_async, bigmodel_nostream
+    },
     "aliyun": {
         "app_key": "",
         "access_token": "",

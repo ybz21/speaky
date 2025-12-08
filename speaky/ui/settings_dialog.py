@@ -92,7 +92,7 @@ class SettingsDialog(QDialog):
 
         self._engine_combo = QComboBox()
         self._engine_combo.addItems([
-            "whisper", "openai", "volcengine", "aliyun", "tencent"
+            "whisper", "openai", "volcengine", "volc_bigmodel", "aliyun", "tencent"
         ])
         self._engine_combo.currentTextChanged.connect(self._on_engine_changed)
         engine_layout.addRow(t("engine_label"), self._engine_combo)
@@ -143,6 +143,23 @@ class SettingsDialog(QDialog):
         volc_layout.addRow(t("secret_key"), self._volc_sk)
 
         layout.addWidget(self._volc_group)
+
+        # Volcengine BigModel settings
+        self._volc_bigmodel_group = QGroupBox(t("volc_bigmodel_settings"))
+        volc_bigmodel_layout = QFormLayout(self._volc_bigmodel_group)
+
+        self._volc_bigmodel_appkey = QLineEdit()
+        volc_bigmodel_layout.addRow(t("app_key"), self._volc_bigmodel_appkey)
+
+        self._volc_bigmodel_ak = QLineEdit()
+        self._volc_bigmodel_ak.setEchoMode(QLineEdit.Password)
+        volc_bigmodel_layout.addRow(t("access_key"), self._volc_bigmodel_ak)
+
+        self._volc_bigmodel_model = QComboBox()
+        self._volc_bigmodel_model.addItems(["bigmodel", "bigmodel_async", "bigmodel_nostream"])
+        volc_bigmodel_layout.addRow(t("model"), self._volc_bigmodel_model)
+
+        layout.addWidget(self._volc_bigmodel_group)
 
         # Aliyun settings
         self._aliyun_group = QGroupBox(t("aliyun_settings"))
@@ -197,6 +214,7 @@ class SettingsDialog(QDialog):
         self._whisper_group.setVisible(engine == "whisper")
         self._openai_group.setVisible(engine == "openai")
         self._volc_group.setVisible(engine == "volcengine")
+        self._volc_bigmodel_group.setVisible(engine == "volc_bigmodel")
         self._aliyun_group.setVisible(engine == "aliyun")
         self._tencent_group.setVisible(engine == "tencent")
 
@@ -223,6 +241,10 @@ class SettingsDialog(QDialog):
         self._volc_appid.setText(self._config.get("volcengine.app_id", ""))
         self._volc_ak.setText(self._config.get("volcengine.access_key", ""))
         self._volc_sk.setText(self._config.get("volcengine.secret_key", ""))
+
+        self._volc_bigmodel_appkey.setText(self._config.get("volc_bigmodel.app_key", ""))
+        self._volc_bigmodel_ak.setText(self._config.get("volc_bigmodel.access_key", ""))
+        self._volc_bigmodel_model.setCurrentText(self._config.get("volc_bigmodel.model", "bigmodel"))
 
         self._aliyun_appkey.setText(self._config.get("aliyun.app_key", ""))
         self._aliyun_token.setText(self._config.get("aliyun.access_token", ""))
@@ -251,6 +273,10 @@ class SettingsDialog(QDialog):
         self._config.set("volcengine.app_id", self._volc_appid.text())
         self._config.set("volcengine.access_key", self._volc_ak.text())
         self._config.set("volcengine.secret_key", self._volc_sk.text())
+
+        self._config.set("volc_bigmodel.app_key", self._volc_bigmodel_appkey.text())
+        self._config.set("volc_bigmodel.access_key", self._volc_bigmodel_ak.text())
+        self._config.set("volc_bigmodel.model", self._volc_bigmodel_model.currentText())
 
         self._config.set("aliyun.app_key", self._aliyun_appkey.text())
         self._config.set("aliyun.access_token", self._aliyun_token.text())
