@@ -351,21 +351,23 @@ class SpeakyApp:
         ai_url = config.get("ai_url", "https://chatgpt.com")
         logger.info(f"AI mode: Opening {ai_url}")
         webbrowser.open(ai_url)
-        # 打开浏览器后立即 raise 浮窗
-        QTimer.singleShot(200, self._floating_window.raise_)
+        # 打开浏览器后立即强制置顶浮窗
+        QTimer.singleShot(200, self._floating_window.force_to_top)
+        QTimer.singleShot(500, self._floating_window.force_to_top)
+        QTimer.singleShot(1000, self._floating_window.force_to_top)
 
     def _start_ai_raise_timer(self):
-        """启动定时器，每 500ms raise 浮窗一次"""
+        """启动定时器，每 300ms raise 浮窗一次"""
         if self._ai_raise_timer is None:
             self._ai_raise_timer = QTimer()
             self._ai_raise_timer.timeout.connect(self._ai_raise_window)
-            self._ai_raise_timer.start(500)
+            self._ai_raise_timer.start(300)  # 更频繁地 raise
+            logger.info("AI mode: Started raise timer")
 
     def _ai_raise_window(self):
         """raise 浮窗确保在最前面"""
         if self._floating_window.isVisible():
-            self._floating_window.raise_()
-            self._floating_window.activateWindow()
+            self._floating_window.force_to_top()
 
     def _stop_ai_raise_timer(self):
         """停止 raise 定时器"""

@@ -1,5 +1,6 @@
 import logging
 import math
+import platform
 from PySide6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout,
     QGraphicsDropShadowEffect, QScrollArea, QSizePolicy
@@ -10,6 +11,33 @@ from PySide6.QtGui import QPainter, QColor, QPainterPath, QRadialGradient, QPen,
 from ..i18n import t
 
 logger = logging.getLogger(__name__)
+
+
+def force_window_to_top(hwnd):
+    """Windows: Force window to top using Win32 API"""
+    if platform.system() != "Windows":
+        return
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.windll.user32
+
+        # Constants
+        HWND_TOPMOST = -1
+        SWP_NOMOVE = 0x0002
+        SWP_NOSIZE = 0x0001
+        SWP_SHOWWINDOW = 0x0040
+
+        # SetWindowPos to make it topmost
+        user32.SetWindowPos(
+            hwnd,
+            HWND_TOPMOST,
+            0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW
+        )
+    except Exception as e:
+        logger.debug(f"force_window_to_top failed: {e}")
 
 
 class WaveOrbWidget(QWidget):
@@ -300,6 +328,16 @@ class FloatingWindow(QWidget):
         self._center_on_screen()
         self.show()
         self.raise_()
+        self.force_to_top()
+
+    def force_to_top(self):
+        """Force window to stay on top (Windows specific)"""
+        if platform.system() == "Windows":
+            # Get native window handle
+            hwnd = int(self.winId())
+            force_window_to_top(hwnd)
+        else:
+            self.raise_()
 
     def show_recognizing(self):
         self._cancel_hide_timer()
