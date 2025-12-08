@@ -159,16 +159,14 @@ class VolcBigModelEngine(BaseEngine):
         size_per_sec = nchannels * sampwidth * framerate
         segment_size = size_per_sec * self._segment_duration // 1000
 
-        # Build headers
-        connect_id = str(uuid.uuid4())
+        # Build headers - exactly matching demo format
         headers = {
             "X-Api-Resource-Id": "volc.bigasr.sauc.duration",
             "X-Api-Request-Id": request_id,
-            "X-Api-Connect-Id": connect_id,
             "X-Api-Access-Key": self._access_key,
             "X-Api-App-Key": self._app_key,
         }
-        logger.info(f"Connecting with headers: app_key={self._app_key[:4] if self._app_key else 'EMPTY'}..., access_key={self._access_key[:4] if self._access_key else 'EMPTY'}...")
+        logger.info(f"Connecting to {self._ws_url} with app_key={self._app_key[:4] if self._app_key else 'EMPTY'}..., access_key={self._access_key[:4] if self._access_key else 'EMPTY'}...")
 
         result_text = ""
         seq = 1
