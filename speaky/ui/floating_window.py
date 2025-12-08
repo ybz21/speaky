@@ -219,11 +219,11 @@ class FloatingWindow(QWidget):
         # Status label - use system default font
         self._status_label = QLabel(t("listening"))
         status_font = self._status_label.font()
-        status_font.setPointSize(12)
+        status_font.setPointSize(14)  # Larger font
         status_font.setWeight(QFont.Medium)
         self._status_label.setFont(status_font)
         self._status_label.setStyleSheet("color: #00D4FF; background: transparent;")
-        self._status_label.setFixedHeight(20)
+        self._status_label.setFixedHeight(28)  # Taller for larger font
         right_layout.addWidget(self._status_label)
 
         # Scrollable text area

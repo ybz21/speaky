@@ -189,14 +189,20 @@ class SpeakyApp:
             logger.info("Finishing real-time streaming session")
             self._floating_window.show_recognizing()
 
-            def finish_realtime():
+            # Capture session reference before starting thread
+            session = self._realtime_session
+            self._realtime_session = None
+
+            def finish_realtime(sess):
                 try:
-                    result = self._realtime_session.finish()
-                    self._realtime_session = None
+                    if sess is None:
+                        logger.warning("Real-time session is None")
+                        self._signals.recognition_error.emit(t("empty_result"))
+                        return
+                    result = sess.finish()
                     if result:
                         logger.info(f"Real-time result: {result}")
                         # Emit recognition_done to ensure window hides
-                        # (on_final callback may have already been called, but this ensures it)
                         self._signals.recognition_done.emit(result)
                     else:
                         logger.warning("Real-time result is empty")
@@ -204,9 +210,8 @@ class SpeakyApp:
                 except Exception as e:
                     logger.error(f"Real-time finish error: {e}", exc_info=True)
                     self._signals.recognition_error.emit(str(e))
-                    self._realtime_session = None
 
-            threading.Thread(target=finish_realtime, daemon=True).start()
+            threading.Thread(target=finish_realtime, args=(session,), daemon=True).start()
             return
 
         # Non-streaming mode
