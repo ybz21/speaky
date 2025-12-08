@@ -322,9 +322,18 @@ class SpeakyApp:
 
     # AI key handlers
     def _on_ai_hotkey_press(self):
-        logger.info("AI hotkey pressed - starting recording for AI")
+        logger.info("AI hotkey pressed - opening AI website and starting recording")
+        import webbrowser
         self._ai_mode = True
-        self._signals.ai_start_recording.emit()
+
+        # First, open AI website
+        ai_url = config.get("ai_url", "https://chatgpt.com")
+        logger.info(f"AI mode: Opening {ai_url}")
+        webbrowser.open(ai_url)
+
+        # Wait for browser to open and page to load, then start recording
+        # Delay to allow page to load and input to be focused
+        QTimer.singleShot(2000, lambda: self._signals.ai_start_recording.emit())
 
     def _on_ai_hotkey_release(self):
         logger.info("AI hotkey released - stopping recording")
@@ -333,7 +342,6 @@ class SpeakyApp:
     def _on_ai_start_recording(self):
         """Start recording for AI mode - same as normal recording"""
         logger.info("AI mode: Starting recording")
-        input_method.save_focus()
         self._on_start_recording()
 
     def _on_ai_stop_recording(self):
@@ -341,17 +349,24 @@ class SpeakyApp:
         self._on_stop_recording()
 
     def _on_ai_recognition_done(self, text: str):
-        """Handle recognition result in AI mode - open URL and type text"""
-        import webbrowser
-        ai_url = config.get("ai_url", "https://chatgpt.com")
-        logger.info(f"AI mode: Opening {ai_url} and typing: {text}")
+        """Handle recognition result in AI mode - type text and press Enter"""
+        logger.info(f"AI mode: Typing text and pressing Enter: {text}")
 
-        # Open AI website
-        webbrowser.open(ai_url)
+        # Type text and press Enter to send
+        def type_and_enter():
+            input_method.type_text(text)
+            # Small delay then press Enter
+            QTimer.singleShot(200, self._press_enter)
 
-        # Wait for browser to open and focus on input, then type
-        # Longer delay to allow page to load
-        QTimer.singleShot(1500, lambda: input_method.type_text(text))
+        QTimer.singleShot(100, type_and_enter)
+
+    def _press_enter(self):
+        """Press Enter key to send message"""
+        from pynput.keyboard import Controller, Key
+        keyboard = Controller()
+        keyboard.press(Key.enter)
+        keyboard.release(Key.enter)
+        logger.info("AI mode: Enter pressed")
 
     def _show_settings(self):
         if self._settings_dialog is None:
