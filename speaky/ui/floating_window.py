@@ -1,11 +1,11 @@
 import logging
 import math
-from PyQt5.QtWidgets import (
+from PySide6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout,
     QGraphicsDropShadowEffect, QScrollArea, QSizePolicy
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QTimer, QPointF
-from PyQt5.QtGui import QPainter, QColor, QPainterPath, QRadialGradient, QPen, QFont
+from PySide6.QtCore import Qt, Signal, QTimer, QPointF
+from PySide6.QtGui import QPainter, QColor, QPainterPath, QRadialGradient, QPen, QFont
 
 from ..i18n import t
 
@@ -89,7 +89,7 @@ class WaveOrbWidget(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         w = self.width()
         h = self.height()
@@ -108,7 +108,7 @@ class WaveOrbWidget(QWidget):
             gradient.setColorAt(0, QColor(primary.red(), primary.green(), primary.blue(), alpha))
             gradient.setColorAt(1, QColor(primary.red(), primary.green(), primary.blue(), 0))
             painter.setBrush(gradient)
-            painter.setPen(Qt.NoPen)
+            painter.setPen(Qt.PenStyle.NoPen)
             painter.drawEllipse(QPointF(cx, cy), r, r)
 
         # Main orb with simple wave deformation (fewer points)
@@ -142,7 +142,7 @@ class WaveOrbWidget(QWidget):
         bar_r = orb_r + 8 + self._audio_level * 5
         pen = QPen(primary)
         pen.setWidth(2)
-        pen.setCapStyle(Qt.RoundCap)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         painter.setPen(pen)
 
         for i in range(num_bars):
@@ -159,7 +159,7 @@ class WaveOrbWidget(QWidget):
 
 class FloatingWindow(QWidget):
     """Floating window with layout: [animation + status] | [text]"""
-    closed = pyqtSignal()
+    closed = Signal()
 
     # Fixed size
     WINDOW_WIDTH = 1260
@@ -172,12 +172,12 @@ class FloatingWindow(QWidget):
 
     def _setup_ui(self):
         self.setWindowFlags(
-            Qt.WindowStaysOnTopHint
-            | Qt.FramelessWindowHint
-            | Qt.Tool
+            Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.Tool
         )
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setFixedSize(self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
 
         # Main layout
@@ -213,20 +213,20 @@ class FloatingWindow(QWidget):
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(8)
-        left_layout.setAlignment(Qt.AlignCenter)
+        left_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Wave orb
         self._wave_widget = WaveOrbWidget()
-        left_layout.addWidget(self._wave_widget, 0, Qt.AlignCenter)
+        left_layout.addWidget(self._wave_widget, 0, Qt.AlignmentFlag.AlignCenter)
 
         # Status label below animation
         self._status_label = QLabel(t("listening"))
         status_font = self._status_label.font()
         status_font.setPointSize(12)
-        status_font.setWeight(QFont.Medium)
+        status_font.setWeight(QFont.Weight.Medium)
         self._status_label.setFont(status_font)
         self._status_label.setStyleSheet("color: #00D4FF; background: transparent;")
-        self._status_label.setAlignment(Qt.AlignCenter)
+        self._status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         left_layout.addWidget(self._status_label)
 
         h_layout.addWidget(left_panel)
@@ -234,8 +234,8 @@ class FloatingWindow(QWidget):
         # Right panel: scrollable text area (vertically centered)
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         scroll_area.setStyleSheet("""
             QScrollArea {
                 background: transparent;
@@ -267,11 +267,11 @@ class FloatingWindow(QWidget):
             padding: 2px 0;
         """)
         self._text_label.setWordWrap(True)
-        self._text_label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
-        self._text_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._text_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+        self._text_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         scroll_area.setWidget(self._text_label)
-        scroll_area.setAlignment(Qt.AlignVCenter)
+        scroll_area.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         h_layout.addWidget(scroll_area, 1)
 
         layout.addWidget(container)
@@ -357,7 +357,7 @@ class FloatingWindow(QWidget):
         self._wave_widget.set_audio_level(level * 3)
 
     def _center_on_screen(self):
-        from PyQt5.QtWidgets import QApplication
+        from PySide6.QtWidgets import QApplication
         screen = QApplication.primaryScreen().geometry()
         x = (screen.width() - self.width()) // 2
         y = screen.height() - self.height() - 80
