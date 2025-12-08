@@ -42,6 +42,8 @@ ai_enabled: "啟用 AI 鍵"
 ai_hotkey_label: "AI 熱鍵:"
 ai_hold_time_label: "長按延遲:"
 ai_url_label: "AI 網站網址:"
+ai_page_load_delay_label: "頁面載入等待:"
+ai_auto_enter: "自動發送 (Enter)"
 
 # 引擎標籤頁
 engine_group: "辨識引擎"

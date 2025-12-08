@@ -147,6 +147,16 @@ class CorePage(SettingsPage):
         self.ai_url_input.setMinimumWidth(250)
         self.add_card(t("ai_url_label"), self.ai_url_input)
 
+        self.ai_page_load_delay_spin = DoubleSpinBox()
+        self.ai_page_load_delay_spin.setRange(1.0, 10.0)
+        self.ai_page_load_delay_spin.setSingleStep(0.5)
+        self.ai_page_load_delay_spin.setDecimals(1)
+        self.ai_page_load_delay_spin.setMinimumWidth(120)
+        self.add_card(t("ai_page_load_delay_label"), self.ai_page_load_delay_spin)
+
+        self.ai_auto_enter = SwitchButton()
+        self.add_card(t("ai_auto_enter"), self.ai_auto_enter)
+
         # System settings
         self.add_group_label(t("system_group"))
 
@@ -392,9 +402,11 @@ class SettingsDialog(FluentWindow):
 
         # AI settings
         self._core_page.ai_enabled.setChecked(self._config.get("ai_enabled", True))
-        self._core_page.ai_hotkey_combo.setCurrentText(self._config.get("ai_hotkey", "shift"))
-        self._core_page.ai_hold_time_spin.setValue(self._config.get("ai_hotkey_hold_time", 1.0))
+        self._core_page.ai_hotkey_combo.setCurrentText(self._config.get("ai_hotkey", "alt"))
+        self._core_page.ai_hold_time_spin.setValue(self._config.get("ai_hotkey_hold_time", 0.5))
         self._core_page.ai_url_input.setText(self._config.get("ai_url", "https://chatgpt.com"))
+        self._core_page.ai_page_load_delay_spin.setValue(self._config.get("ai_page_load_delay", 3.0))
+        self._core_page.ai_auto_enter.setChecked(self._config.get("ai_auto_enter", True))
 
         # Engine page
         engine = self._config.get("engine", "whisper")
@@ -443,6 +455,8 @@ class SettingsDialog(FluentWindow):
         self._config.set("ai_hotkey", self._core_page.ai_hotkey_combo.currentText())
         self._config.set("ai_hotkey_hold_time", self._core_page.ai_hold_time_spin.value())
         self._config.set("ai_url", self._core_page.ai_url_input.text() or "https://chatgpt.com")
+        self._config.set("ai_page_load_delay", self._core_page.ai_page_load_delay_spin.value())
+        self._config.set("ai_auto_enter", self._core_page.ai_auto_enter.isChecked())
 
         # Set auto-start
         set_autostart(self._core_page.auto_start.isChecked())

@@ -42,6 +42,8 @@ ai_enabled: "AI-Taste aktivieren"
 ai_hotkey_label: "AI-Hotkey:"
 ai_hold_time_label: "Halteverzögerung:"
 ai_url_label: "AI-Website-URL:"
+ai_page_load_delay_label: "Seitenladezeit:"
+ai_auto_enter: "Automatisch senden (Enter)"
 
 # Engine-Tab
 engine_group: "Erkennungsengine"

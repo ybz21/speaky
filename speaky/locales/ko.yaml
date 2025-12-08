@@ -42,6 +42,8 @@ ai_enabled: "AI 키 활성화"
 ai_hotkey_label: "AI 단축키:"
 ai_hold_time_label: "길게 누름 지연:"
 ai_url_label: "AI 웹사이트 URL:"
+ai_page_load_delay_label: "페이지 로딩 대기:"
+ai_auto_enter: "자동 전송 (Enter)"
 
 # 엔진 탭
 engine_group: "인식 엔진"

@@ -42,6 +42,8 @@ ai_enabled: "Ativar tecla AI"
 ai_hotkey_label: "Tecla AI:"
 ai_hold_time_label: "Atraso ao segurar:"
 ai_url_label: "URL do site AI:"
+ai_page_load_delay_label: "Espera carregamento:"
+ai_auto_enter: "Envio auto (Enter)"
 
 # Aba Motor
 engine_group: "Motor de reconhecimento"

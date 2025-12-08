@@ -42,6 +42,8 @@ ai_enabled: "AIキーを有効化"
 ai_hotkey_label: "AIホットキー:"
 ai_hold_time_label: "長押し遅延:"
 ai_url_label: "AIウェブサイトURL:"
+ai_page_load_delay_label: "ページ読み込み待機:"
+ai_auto_enter: "自動送信 (Enter)"
 
 # エンジンタブ
 engine_group: "認識エンジン"

@@ -42,6 +42,8 @@ ai_enabled: "Activer la touche AI"
 ai_hotkey_label: "Raccourci AI:"
 ai_hold_time_label: "Délai de maintien:"
 ai_url_label: "URL du site AI:"
+ai_page_load_delay_label: "Attente chargement:"
+ai_auto_enter: "Envoi auto (Entrée)"
 
 # Onglet Moteur
 engine_group: "Moteur de reconnaissance"

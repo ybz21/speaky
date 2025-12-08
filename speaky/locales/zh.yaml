@@ -42,6 +42,8 @@ ai_enabled: "启用 AI 键"
 ai_hotkey_label: "AI 热键:"
 ai_hold_time_label: "长按延迟:"
 ai_url_label: "AI 网站地址:"
+ai_page_load_delay_label: "页面加载等待:"
+ai_auto_enter: "自动发送 (回车)"
 
 # 引擎标签页
 engine_group: "识别引擎"

@@ -42,6 +42,8 @@ ai_enabled: "Enable AI key"
 ai_hotkey_label: "AI hotkey:"
 ai_hold_time_label: "Hold delay:"
 ai_url_label: "AI website URL:"
+ai_page_load_delay_label: "Page load wait:"
+ai_auto_enter: "Auto send (Enter)"
 
 # Engine tab
 engine_group: "Recognition Engine"

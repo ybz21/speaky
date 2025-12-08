@@ -42,6 +42,8 @@ ai_enabled: "Включить клавишу AI"
 ai_hotkey_label: "Горячая клавиша AI:"
 ai_hold_time_label: "Задержка удержания:"
 ai_url_label: "URL сайта AI:"
+ai_page_load_delay_label: "Ожидание загрузки:"
+ai_auto_enter: "Авто отправка (Enter)"
 
 # Вкладка Движок
 engine_group: "Движок распознавания"

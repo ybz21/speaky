@@ -2,6 +2,7 @@ import logging
 import platform
 import sys
 import threading
+import time
 from typing import Optional
 
 from PySide6.QtWidgets import QApplication
@@ -322,51 +323,82 @@ class SpeakyApp:
 
     # AI key handlers
     def _on_ai_hotkey_press(self):
-        logger.info("AI hotkey pressed - opening AI website and starting recording")
-        import webbrowser
-        self._ai_mode = True
+        """AI 键按下：同时开始录音和打开浏览器（并行执行）
 
-        # First, open AI website
+        核心设计：
+        1. 立即开始录音（用户体验优先，不让用户等待）
+        2. 同时异步打开浏览器（不阻塞录音）
+        3. 记录浏览器打开时间，用于后续计算等待时间
+        """
+        import webbrowser
+        logger.info("AI hotkey pressed - starting recording and opening browser in parallel")
+
+        self._ai_mode = True
+        self._ai_browser_open_time = time.time()  # 记录打开时间
+
+        # 1. 立即开始录音（用户可以马上开始说话）
+        input_method.save_focus()
+        self._on_start_recording()
+
+        # 2. 同时打开浏览器（异步，不阻塞）
         ai_url = config.get("ai_url", "https://chatgpt.com")
         logger.info(f"AI mode: Opening {ai_url}")
         webbrowser.open(ai_url)
 
-        # Wait for browser to open and page to load, then start recording
-        # Delay to allow page to load and input to be focused
-        QTimer.singleShot(2000, lambda: self._signals.ai_start_recording.emit())
-
     def _on_ai_hotkey_release(self):
+        """AI 键松开：停止录音"""
         logger.info("AI hotkey released - stopping recording")
         self._signals.ai_stop_recording.emit()
 
     def _on_ai_start_recording(self):
-        """Start recording for AI mode - same as normal recording"""
+        """AI 模式开始录音（由普通录音流程处理）"""
         logger.info("AI mode: Starting recording")
         self._on_start_recording()
 
     def _on_ai_stop_recording(self):
-        """Stop recording for AI mode - same as normal stop"""
+        """AI 模式停止录音"""
         self._on_stop_recording()
 
     def _on_ai_recognition_done(self, text: str):
-        """Handle recognition result in AI mode - type text and press Enter"""
-        logger.info(f"AI mode: Typing text and pressing Enter: {text}")
+        """识别完成：智能等待页面加载后输入
 
-        # Type text and press Enter to send
-        def type_and_enter():
-            input_method.type_text(text)
-            # Small delay then press Enter
-            QTimer.singleShot(200, self._press_enter)
+        等待策略：
+        - 计算从打开浏览器到现在经过的时间
+        - 确保至少等待 ai_page_load_delay 秒（默认3秒）
+        - 如果识别耗时已经超过等待时间，则立即输入
+        """
+        if not text or not text.strip():
+            logger.warning("AI mode: Empty recognition result, skipping input")
+            return
 
-        QTimer.singleShot(100, type_and_enter)
+        page_load_delay = config.get("ai_page_load_delay", 3.0)
+        elapsed = time.time() - getattr(self, '_ai_browser_open_time', time.time())
+        remaining = max(0, page_load_delay - elapsed)
+
+        logger.info(f"AI mode: Recognition done. Elapsed: {elapsed:.1f}s, waiting {remaining:.1f}s more before input")
+        logger.info(f"AI mode: Text to input: {text}")
+
+        # 等待剩余时间后输入
+        QTimer.singleShot(int(remaining * 1000), lambda: self._ai_do_input(text))
+
+    def _ai_do_input(self, text: str):
+        """执行文字输入和回车"""
+        logger.info(f"AI mode: Now inputting text: {text}")
+
+        # 输入文字
+        input_method.type_text(text)
+
+        # 如果配置了自动回车，则发送
+        if config.get("ai_auto_enter", True):
+            QTimer.singleShot(300, self._press_enter)
 
     def _press_enter(self):
-        """Press Enter key to send message"""
+        """按回车键发送消息"""
         from pynput.keyboard import Controller, Key
         keyboard = Controller()
         keyboard.press(Key.enter)
         keyboard.release(Key.enter)
-        logger.info("AI mode: Enter pressed")
+        logger.info("AI mode: Enter pressed, message sent")
 
     def _show_settings(self):
         if self._settings_dialog is None:
