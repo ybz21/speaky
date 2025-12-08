@@ -127,7 +127,7 @@ class VolcBigModelEngine(BaseEngine):
         self._model = model  # bigmodel, bigmodel_async, bigmodel_nostream
         self._segment_duration = segment_duration
         self._ws_url = f"wss://openspeech.bytedance.com/api/v3/sauc/{model}"
-        logger.info(f"VolcBigModel initialized: model={model}")
+        logger.info(f"VolcBigModel initialized: model={model}, app_key={app_key[:4] if app_key else 'None'}..., access_key={access_key[:4] if access_key else 'None'}...")
 
     def transcribe(self, audio_data: bytes, language: str = "zh") -> str:
         loop = asyncio.new_event_loop()
@@ -166,6 +166,7 @@ class VolcBigModelEngine(BaseEngine):
             "X-Api-Access-Key": self._access_key,
             "X-Api-App-Key": self._app_key,
         }
+        logger.info(f"Connecting with headers: app_key={self._app_key[:4] if self._app_key else 'EMPTY'}..., access_key={self._access_key[:4] if self._access_key else 'EMPTY'}...")
 
         result_text = ""
         seq = 1
