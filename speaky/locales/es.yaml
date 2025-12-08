@@ -15,8 +15,10 @@ quit: "Salir"
 # Diálogo de configuración
 settings_title: "Configuración de entrada de voz"
 tab_general: "General"
+tab_core: "Principal"
 tab_engine: "Motor"
 tab_ui: "Interfaz"
+tab_appearance: "Apariencia"
 save: "Guardar"
 cancel: "Cancelar"
 saved_message: "Configuración guardada"
@@ -33,6 +35,7 @@ language_group: "Idioma"
 recognition_lang: "Idioma de reconocimiento:"
 ui_lang: "Idioma de interfaz:"
 auto: "Auto (Sistema)"
+system_group: "Sistema"
 
 # Pestaña Motor
 engine_group: "Motor de reconocimiento"
@@ -56,10 +59,15 @@ secret_id: "ID secreto:"
 
 # Pestaña UI
 ui_group: "Configuración de interfaz"
+theme: "Tema:"
+theme_light: "Claro"
+theme_dark: "Oscuro"
+theme_auto: "Auto (Sistema)"
 show_waveform: "Mostrar forma de onda"
 window_opacity: "Opacidad de ventana:"
 streaming_mode: "Modo streaming"
 streaming_tooltip: "Mostrar resultados de reconocimiento en tiempo real durante la grabación"
+auto_start: "Iniciar al arrancar"
 
 # Nombres de idiomas
 lang_name_auto: "Auto (Sistema)"

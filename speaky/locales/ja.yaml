@@ -15,8 +15,10 @@ quit: "終了"
 # 設定ダイアログ
 settings_title: "音声入力設定"
 tab_general: "一般"
+tab_core: "コア"
 tab_engine: "認識エンジン"
 tab_ui: "インターフェース"
+tab_appearance: "外観"
 save: "保存"
 cancel: "キャンセル"
 saved_message: "設定を保存しました"
@@ -33,6 +35,7 @@ language_group: "言語"
 recognition_lang: "認識言語:"
 ui_lang: "インターフェース言語:"
 auto: "自動 (システム)"
+system_group: "システム"
 
 # エンジンタブ
 engine_group: "認識エンジン"
@@ -56,10 +59,15 @@ secret_id: "Secret ID:"
 
 # UIタブ
 ui_group: "インターフェース設定"
+theme: "テーマ:"
+theme_light: "ライト"
+theme_dark: "ダーク"
+theme_auto: "自動 (システム)"
 show_waveform: "波形を表示"
 window_opacity: "ウィンドウ透明度:"
 streaming_mode: "ストリーミングモード"
 streaming_tooltip: "録音中にリアルタイムで認識結果を表示"
+auto_start: "起動時に自動開始"
 
 # 言語名
 lang_name_auto: "自動 (システム)"

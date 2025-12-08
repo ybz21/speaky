@@ -15,14 +15,16 @@ quit: "退出"
 # 设置对话框
 settings_title: "语音输入设置"
 tab_general: "常规"
+tab_core: "核心"
 tab_engine: "识别引擎"
 tab_ui: "界面"
+tab_appearance: "外观"
 save: "保存"
 cancel: "取消"
 saved_message: "设置已保存"
 tip: "提示"
 
-# 常规标签页
+# 核心标签页
 hotkey_group: "快捷键"
 hotkey_label: "长按唤醒键:"
 hotkey_tooltip: "支持的按键: ctrl, alt, shift, cmd, f1-f12, space, tab, caps_lock 等"
@@ -33,6 +35,7 @@ language_group: "语言"
 recognition_lang: "识别语言:"
 ui_lang: "界面语言:"
 auto: "自动 (跟随系统)"
+system_group: "系统"
 
 # 引擎标签页
 engine_group: "识别引擎"

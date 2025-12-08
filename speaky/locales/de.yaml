@@ -15,8 +15,10 @@ quit: "Beenden"
 # Einstellungsdialog
 settings_title: "Spracheingabe Einstellungen"
 tab_general: "Allgemein"
+tab_core: "Kern"
 tab_engine: "Engine"
 tab_ui: "Oberfläche"
+tab_appearance: "Aussehen"
 save: "Speichern"
 cancel: "Abbrechen"
 saved_message: "Einstellungen gespeichert"
@@ -33,6 +35,7 @@ language_group: "Sprache"
 recognition_lang: "Erkennungssprache:"
 ui_lang: "Oberflächensprache:"
 auto: "Auto (System)"
+system_group: "System"
 
 # Engine-Tab
 engine_group: "Erkennungsengine"
@@ -56,10 +59,15 @@ secret_id: "Secret ID:"
 
 # UI-Tab
 ui_group: "Oberflächeneinstellungen"
+theme: "Thema:"
+theme_light: "Hell"
+theme_dark: "Dunkel"
+theme_auto: "Auto (System)"
 show_waveform: "Wellenform anzeigen"
 window_opacity: "Fenstertransparenz:"
 streaming_mode: "Streaming-Modus"
 streaming_tooltip: "Erkennungsergebnisse während der Aufnahme in Echtzeit anzeigen"
+auto_start: "Beim Start öffnen"
 
 # Sprachnamen
 lang_name_auto: "Auto (System)"

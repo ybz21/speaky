@@ -15,8 +15,10 @@ quit: "Sair"
 # Diálogo de configurações
 settings_title: "Configurações de entrada de voz"
 tab_general: "Geral"
+tab_core: "Principal"
 tab_engine: "Motor"
 tab_ui: "Interface"
+tab_appearance: "Aparência"
 save: "Salvar"
 cancel: "Cancelar"
 saved_message: "Configurações salvas"
@@ -33,6 +35,7 @@ language_group: "Idioma"
 recognition_lang: "Idioma de reconhecimento:"
 ui_lang: "Idioma da interface:"
 auto: "Auto (Sistema)"
+system_group: "Sistema"
 
 # Aba Motor
 engine_group: "Motor de reconhecimento"
@@ -56,10 +59,15 @@ secret_id: "ID secreto:"
 
 # Aba UI
 ui_group: "Configurações de interface"
+theme: "Tema:"
+theme_light: "Claro"
+theme_dark: "Escuro"
+theme_auto: "Auto (Sistema)"
 show_waveform: "Mostrar forma de onda"
 window_opacity: "Opacidade da janela:"
 streaming_mode: "Modo streaming"
 streaming_tooltip: "Mostrar resultados de reconhecimento em tempo real durante a gravação"
+auto_start: "Iniciar ao arrancar"
 
 # Nomes dos idiomas
 lang_name_auto: "Auto (Sistema)"

@@ -15,8 +15,10 @@ quit: "Quitter"
 # Dialogue des paramètres
 settings_title: "Paramètres de saisie vocale"
 tab_general: "Général"
+tab_core: "Principal"
 tab_engine: "Moteur"
 tab_ui: "Interface"
+tab_appearance: "Apparence"
 save: "Enregistrer"
 cancel: "Annuler"
 saved_message: "Paramètres enregistrés"
@@ -33,6 +35,7 @@ language_group: "Langue"
 recognition_lang: "Langue de reconnaissance:"
 ui_lang: "Langue de l'interface:"
 auto: "Auto (Système)"
+system_group: "Système"
 
 # Onglet Moteur
 engine_group: "Moteur de reconnaissance"
@@ -56,10 +59,15 @@ secret_id: "ID secret:"
 
 # Onglet UI
 ui_group: "Paramètres d'interface"
+theme: "Thème:"
+theme_light: "Clair"
+theme_dark: "Sombre"
+theme_auto: "Auto (Système)"
 show_waveform: "Afficher la forme d'onde"
 window_opacity: "Opacité de la fenêtre:"
 streaming_mode: "Mode streaming"
 streaming_tooltip: "Afficher les résultats de reconnaissance en temps réel pendant l'enregistrement"
+auto_start: "Démarrer au lancement"
 
 # Noms des langues
 lang_name_auto: "Auto (Système)"

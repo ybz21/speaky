@@ -15,14 +15,16 @@ quit: "Quit"
 # Settings dialog
 settings_title: "Speaky Settings"
 tab_general: "General"
+tab_core: "Core"
 tab_engine: "Engine"
 tab_ui: "Interface"
+tab_appearance: "Appearance"
 save: "Save"
 cancel: "Cancel"
 saved_message: "Settings saved"
 tip: "Tip"
 
-# General tab
+# Core tab
 hotkey_group: "Hotkey"
 hotkey_label: "Hold key:"
 hotkey_tooltip: "Supported keys: ctrl, alt, shift, cmd, f1-f12, space, tab, caps_lock, etc."
@@ -33,6 +35,7 @@ language_group: "Language"
 recognition_lang: "Recognition language:"
 ui_lang: "Interface language:"
 auto: "Auto (System)"
+system_group: "System"
 
 # Engine tab
 engine_group: "Recognition Engine"

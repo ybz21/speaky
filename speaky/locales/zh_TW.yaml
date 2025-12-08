@@ -15,8 +15,10 @@ quit: "退出"
 # 設定對話框
 settings_title: "語音輸入設定"
 tab_general: "一般"
+tab_core: "核心"
 tab_engine: "辨識引擎"
 tab_ui: "介面"
+tab_appearance: "外觀"
 save: "儲存"
 cancel: "取消"
 saved_message: "設定已儲存"
@@ -33,6 +35,7 @@ language_group: "語言"
 recognition_lang: "辨識語言:"
 ui_lang: "介面語言:"
 auto: "自動 (跟隨系統)"
+system_group: "系統"
 
 # 引擎標籤頁
 engine_group: "辨識引擎"
@@ -56,10 +59,15 @@ secret_id: "Secret ID:"
 
 # 介面標籤頁
 ui_group: "介面設定"
+theme: "主題:"
+theme_light: "淺色"
+theme_dark: "深色"
+theme_auto: "跟隨系統"
 show_waveform: "顯示波形"
 window_opacity: "視窗透明度:"
 streaming_mode: "串流辨識"
 streaming_tooltip: "在錄音過程中即時顯示辨識結果"
+auto_start: "開機自啟"
 
 # 語言名稱
 lang_name_auto: "自動 (跟隨系統)"

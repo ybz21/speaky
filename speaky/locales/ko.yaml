@@ -15,8 +15,10 @@ quit: "종료"
 # 설정 대화 상자
 settings_title: "음성 입력 설정"
 tab_general: "일반"
+tab_core: "핵심"
 tab_engine: "인식 엔진"
 tab_ui: "인터페이스"
+tab_appearance: "외관"
 save: "저장"
 cancel: "취소"
 saved_message: "설정이 저장되었습니다"
@@ -33,6 +35,7 @@ language_group: "언어"
 recognition_lang: "인식 언어:"
 ui_lang: "인터페이스 언어:"
 auto: "자동 (시스템)"
+system_group: "시스템"
 
 # 엔진 탭
 engine_group: "인식 엔진"
@@ -56,10 +59,15 @@ secret_id: "Secret ID:"
 
 # UI 탭
 ui_group: "인터페이스 설정"
+theme: "테마:"
+theme_light: "라이트"
+theme_dark: "다크"
+theme_auto: "자동 (시스템)"
 show_waveform: "파형 표시"
 window_opacity: "창 투명도:"
 streaming_mode: "스트리밍 모드"
 streaming_tooltip: "녹음 중 실시간으로 인식 결과 표시"
+auto_start: "부팅 시 시작"
 
 # 언어 이름
 lang_name_auto: "자동 (시스템)"

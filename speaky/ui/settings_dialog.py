@@ -84,8 +84,8 @@ class SettingsPage(QScrollArea):
         self._layout.addLayout(btn_layout)
 
 
-class GeneralPage(SettingsPage):
-    """General settings page"""
+class CorePage(SettingsPage):
+    """Core settings page - hotkey, language, autostart, streaming"""
 
     def __init__(self, config, parent=None):
         super().__init__(parent)
@@ -121,27 +121,16 @@ class GeneralPage(SettingsPage):
         self.lang_combo.setMinimumWidth(150)
         self.add_card(t("recognition_lang"), self.lang_combo)
 
-        self.ui_lang_combo = ComboBox()
-        self._ui_lang_codes = ["auto", "en", "zh", "zh_TW", "ja", "ko", "de", "fr", "es", "pt", "ru"]
-        for lang_code in self._ui_lang_codes:
-            display_name = i18n.get_language_name(lang_code)
-            self.ui_lang_combo.addItem(display_name)
-        self.ui_lang_combo.setMinimumWidth(150)
-        self.add_card(t("ui_lang"), self.ui_lang_combo)
+        # System settings
+        self.add_group_label(t("system_group"))
+
+        self.auto_start = SwitchButton()
+        self.add_card(t("auto_start"), self.auto_start)
+
+        self.streaming_mode = SwitchButton()
+        self.add_card(t("streaming_mode"), self.streaming_mode)
 
         self.add_save_button()
-
-    def get_ui_lang_code(self) -> str:
-        """Get selected UI language code"""
-        idx = self.ui_lang_combo.currentIndex()
-        if 0 <= idx < len(self._ui_lang_codes):
-            return self._ui_lang_codes[idx]
-        return "auto"
-
-    def set_ui_lang_code(self, code: str):
-        """Set UI language by code"""
-        if code in self._ui_lang_codes:
-            self.ui_lang_combo.setCurrentIndex(self._ui_lang_codes.index(code))
 
 
 class EnginePage(SettingsPage):
@@ -264,8 +253,8 @@ class EnginePage(SettingsPage):
             w.setVisible(engine == "aliyun")
 
 
-class UIPage(SettingsPage):
-    """UI settings page"""
+class AppearancePage(SettingsPage):
+    """Appearance settings page - theme, UI language, waveform, opacity"""
 
     def __init__(self, config, parent=None):
         super().__init__(parent)
@@ -281,16 +270,20 @@ class UIPage(SettingsPage):
         self.theme_combo.addItem(t("theme_dark"), "dark")
         self.theme_combo.addItem(t("theme_auto"), "auto")
         self.theme_combo.setMinimumWidth(150)
+        self.theme_combo.currentIndexChanged.connect(self._on_theme_changed)
         self.add_card(t("theme"), self.theme_combo)
+
+        # UI Language
+        self.ui_lang_combo = ComboBox()
+        self._ui_lang_codes = ["auto", "en", "zh", "zh_TW", "ja", "ko", "de", "fr", "es", "pt", "ru"]
+        for lang_code in self._ui_lang_codes:
+            display_name = i18n.get_language_name(lang_code)
+            self.ui_lang_combo.addItem(display_name)
+        self.ui_lang_combo.setMinimumWidth(150)
+        self.add_card(t("ui_lang"), self.ui_lang_combo)
 
         self.show_waveform = SwitchButton()
         self.add_card(t("show_waveform"), self.show_waveform)
-
-        self.streaming_mode = SwitchButton()
-        self.add_card(t("streaming_mode"), self.streaming_mode)
-
-        self.auto_start = SwitchButton()
-        self.add_card(t("auto_start"), self.auto_start)
 
         # Opacity slider with value label
         opacity_widget = QWidget()
@@ -309,6 +302,24 @@ class UIPage(SettingsPage):
 
         self.add_save_button()
 
+    def _on_theme_changed(self, index: int):
+        """Apply theme immediately when changed"""
+        theme = self.theme_combo.itemData(index)
+        if theme:
+            apply_theme(theme)
+
+    def get_ui_lang_code(self) -> str:
+        """Get selected UI language code"""
+        idx = self.ui_lang_combo.currentIndex()
+        if 0 <= idx < len(self._ui_lang_codes):
+            return self._ui_lang_codes[idx]
+        return "auto"
+
+    def set_ui_lang_code(self, code: str):
+        """Set UI language by code"""
+        if code in self._ui_lang_codes:
+            self.ui_lang_combo.setCurrentIndex(self._ui_lang_codes.index(code))
+
 
 class SettingsDialog(FluentWindow):
     """Fluent-style settings window"""
@@ -325,31 +336,30 @@ class SettingsDialog(FluentWindow):
         self.resize(700, 550)
 
         # Create pages
-        self._general_page = GeneralPage(self._config, self)
-        self._general_page.setObjectName("generalPage")
+        self._core_page = CorePage(self._config, self)
+        self._core_page.setObjectName("corePage")
         self._engine_page = EnginePage(self._config, self)
         self._engine_page.setObjectName("enginePage")
-        self._ui_page = UIPage(self._config, self)
-        self._ui_page.setObjectName("uiPage")
+        self._appearance_page = AppearancePage(self._config, self)
+        self._appearance_page.setObjectName("appearancePage")
 
         # Add pages to navigation
-        self.addSubInterface(self._general_page, FluentIcon.SETTING, t("tab_general"))
+        self.addSubInterface(self._core_page, FluentIcon.SETTING, t("tab_core"))
         self.addSubInterface(self._engine_page, FluentIcon.IOT, t("tab_engine"))
-        self.addSubInterface(self._ui_page, FluentIcon.PALETTE, t("tab_ui"))
+        self.addSubInterface(self._appearance_page, FluentIcon.PALETTE, t("tab_appearance"))
 
         # Connect save signals
-        self._general_page.save_clicked.connect(self._save_settings)
+        self._core_page.save_clicked.connect(self._save_settings)
         self._engine_page.save_clicked.connect(self._save_settings)
-        self._ui_page.save_clicked.connect(self._save_settings)
+        self._appearance_page.save_clicked.connect(self._save_settings)
 
     def _load_settings(self):
-        # General page
-        self._general_page.hotkey_combo.setCurrentText(self._config.get("hotkey", "ctrl"))
-        self._general_page.hold_time_spin.setValue(self._config.get("hotkey_hold_time", 1.0))
-        self._general_page.lang_combo.setCurrentText(self._config.get("language", "zh"))
-
-        ui_lang = self._config.get("ui_language", "auto")
-        self._general_page.set_ui_lang_code(ui_lang)
+        # Core page
+        self._core_page.hotkey_combo.setCurrentText(self._config.get("hotkey", "ctrl"))
+        self._core_page.hold_time_spin.setValue(self._config.get("hotkey_hold_time", 1.0))
+        self._core_page.lang_combo.setCurrentText(self._config.get("language", "zh"))
+        self._core_page.auto_start.setChecked(is_autostart_enabled())
+        self._core_page.streaming_mode.setChecked(self._config.get("ui.streaming_mode", True))
 
         # Engine page
         engine = self._config.get("engine", "whisper")
@@ -373,25 +383,28 @@ class SettingsDialog(FluentWindow):
         self._engine_page.aliyun_appkey.setText(self._config.get("aliyun.app_key", ""))
         self._engine_page.aliyun_token.setText(self._config.get("aliyun.access_token", ""))
 
-        # UI page
+        # Appearance page
         theme = self._config.get("ui.theme", "auto")
-        for i in range(self._ui_page.theme_combo.count()):
-            if self._ui_page.theme_combo.itemData(i) == theme:
-                self._ui_page.theme_combo.setCurrentIndex(i)
+        for i in range(self._appearance_page.theme_combo.count()):
+            if self._appearance_page.theme_combo.itemData(i) == theme:
+                self._appearance_page.theme_combo.setCurrentIndex(i)
                 break
-        self._ui_page.show_waveform.setChecked(self._config.get("ui.show_waveform", True))
-        self._ui_page.streaming_mode.setChecked(self._config.get("ui.streaming_mode", True))
-        self._ui_page.auto_start.setChecked(is_autostart_enabled())
+        ui_lang = self._config.get("ui_language", "auto")
+        self._appearance_page.set_ui_lang_code(ui_lang)
+        self._appearance_page.show_waveform.setChecked(self._config.get("ui.show_waveform", True))
         opacity = int(self._config.get("ui.window_opacity", 0.9) * 100)
-        self._ui_page.opacity_slider.setValue(opacity)
-        self._ui_page._opacity_label.setText(f"{opacity}%")
+        self._appearance_page.opacity_slider.setValue(opacity)
+        self._appearance_page._opacity_label.setText(f"{opacity}%")
 
     def _save_settings(self):
-        # General settings
-        self._config.set("hotkey", self._general_page.hotkey_combo.currentText())
-        self._config.set("hotkey_hold_time", self._general_page.hold_time_spin.value())
-        self._config.set("language", self._general_page.lang_combo.currentText())
-        self._config.set("ui_language", self._general_page.get_ui_lang_code())
+        # Core settings
+        self._config.set("hotkey", self._core_page.hotkey_combo.currentText())
+        self._config.set("hotkey_hold_time", self._core_page.hold_time_spin.value())
+        self._config.set("language", self._core_page.lang_combo.currentText())
+        self._config.set("ui.streaming_mode", self._core_page.streaming_mode.isChecked())
+
+        # Set auto-start
+        set_autostart(self._core_page.auto_start.isChecked())
 
         # Engine settings
         self._config.set("engine", self._engine_page.engine_combo.currentText())
@@ -413,20 +426,17 @@ class SettingsDialog(FluentWindow):
         self._config.set("aliyun.app_key", self._engine_page.aliyun_appkey.text())
         self._config.set("aliyun.access_token", self._engine_page.aliyun_token.text())
 
-        # UI settings
-        theme = self._ui_page.theme_combo.currentData()
+        # Appearance settings
+        theme = self._appearance_page.theme_combo.currentData()
         self._config.set("ui.theme", theme)
-        self._config.set("ui.show_waveform", self._ui_page.show_waveform.isChecked())
-        self._config.set("ui.streaming_mode", self._ui_page.streaming_mode.isChecked())
-        self._config.set("ui.window_opacity", self._ui_page.opacity_slider.value() / 100)
-
-        # Set auto-start
-        set_autostart(self._ui_page.auto_start.isChecked())
+        self._config.set("ui_language", self._appearance_page.get_ui_lang_code())
+        self._config.set("ui.show_waveform", self._appearance_page.show_waveform.isChecked())
+        self._config.set("ui.window_opacity", self._appearance_page.opacity_slider.value() / 100)
 
         self._config.save()
 
         # Update i18n language
-        i18n.set_language(self._general_page.get_ui_lang_code())
+        i18n.set_language(self._appearance_page.get_ui_lang_code())
 
         # Apply theme
         apply_theme(theme)

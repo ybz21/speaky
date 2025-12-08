@@ -15,8 +15,10 @@ quit: "Выход"
 # Диалог настроек
 settings_title: "Настройки голосового ввода"
 tab_general: "Общие"
+tab_core: "Основные"
 tab_engine: "Движок"
 tab_ui: "Интерфейс"
+tab_appearance: "Оформление"
 save: "Сохранить"
 cancel: "Отмена"
 saved_message: "Настройки сохранены"
@@ -33,6 +35,7 @@ language_group: "Язык"
 recognition_lang: "Язык распознавания:"
 ui_lang: "Язык интерфейса:"
 auto: "Авто (Система)"
+system_group: "Система"
 
 # Вкладка Движок
 engine_group: "Движок распознавания"
@@ -56,10 +59,15 @@ secret_id: "Секретный ID:"
 
 # Вкладка UI
 ui_group: "Настройки интерфейса"
+theme: "Тема:"
+theme_light: "Светлая"
+theme_dark: "Тёмная"
+theme_auto: "Авто (Система)"
 show_waveform: "Показать волну"
 window_opacity: "Прозрачность окна:"
 streaming_mode: "Режим потоковой передачи"
 streaming_tooltip: "Показывать результаты распознавания в реальном времени во время записи"
+auto_start: "Запускать при старте"
 
 # Названия языков
 lang_name_auto: "Авто (Система)"
