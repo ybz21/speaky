@@ -1,0 +1,5 @@
+[console_scripts]
+speek-input = speek_input.main:main
+
+[gui_scripts]
+speek-input-gui = speek_input.main:main
