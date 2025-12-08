@@ -328,6 +328,8 @@ class SettingsDialog(FluentWindow):
     def __init__(self, config, parent=None):
         super().__init__(parent)
         self._config = config
+        # Disable mica effect to fix theme switching issue on Windows
+        self.setMicaEffectEnabled(False)
         self._setup_ui()
         self._load_settings()
 
