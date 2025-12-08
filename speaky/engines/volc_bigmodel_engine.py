@@ -580,6 +580,7 @@ class VolcRealtimeSession(RealtimeSession):
         self._is_running = False
         self._session_future = None
         self._seq = 1
+        self._final_received = False  # Track if on_final was called
 
     def start(self):
         """Start the session using the persistent connection manager."""
@@ -588,6 +589,7 @@ class VolcRealtimeSession(RealtimeSession):
         self._is_running = True
         self._result_text = ""
         self._seq = 1
+        self._final_received = False
 
         # Clear any stale data in queue
         while not self._audio_queue.empty():
@@ -613,12 +615,15 @@ class VolcRealtimeSession(RealtimeSession):
         # Signal end of audio
         self._audio_queue.put(None)
 
-        # Wait for session to complete
+        # Wait for session to complete with shorter timeout
+        # If on_final was already called, don't wait long
         if self._session_future:
             try:
-                self._session_future.result(timeout=10)
+                timeout = 1 if self._final_received else 5
+                self._session_future.result(timeout=timeout)
             except Exception as e:
-                logger.error(f"Session finish error: {e}")
+                if not self._final_received:
+                    logger.error(f"Session finish error: {e}")
 
         self._is_running = False
         logger.info(f"VolcRealtimeSession finished: {self._result_text}")
@@ -766,6 +771,7 @@ class VolcRealtimeSession(RealtimeSession):
 
                     if resp["is_last"]:
                         logger.info(f"Final result: {self._result_text}")
+                        self._final_received = True
                         if self._on_final:
                             self._on_final(self._result_text)
                         break
