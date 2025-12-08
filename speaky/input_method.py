@@ -153,6 +153,36 @@ class InputMethod:
             logger.error(f"Failed to copy to clipboard: {e}")
             return False
 
+    def _clear_clipboard(self):
+        """Clear the system clipboard"""
+        try:
+            if self._system == "Darwin":
+                # macOS: use pbcopy with empty string
+                process = subprocess.Popen(
+                    ["pbcopy"],
+                    stdin=subprocess.PIPE,
+                    env={"LANG": "en_US.UTF-8"}
+                )
+                process.communicate(b"")
+            elif self._system == "Linux":
+                # Linux: use xclip with empty string
+                xclip = shutil.which("xclip")
+                if xclip:
+                    process = subprocess.Popen(
+                        ["xclip", "-selection", "clipboard"],
+                        stdin=subprocess.PIPE
+                    )
+                    process.communicate(b"")
+            elif self._system == "Windows":
+                # Windows: use PowerShell to clear clipboard
+                subprocess.run(
+                    ["powershell", "-command", "Set-Clipboard -Value $null"],
+                    check=False, capture_output=True
+                )
+            logger.info("Clipboard cleared")
+        except Exception as e:
+            logger.error(f"Failed to clear clipboard: {e}")
+
     def _paste(self):
         """Simulate paste shortcut (Cmd+V on macOS, Ctrl+V on others)"""
         try:
@@ -193,6 +223,9 @@ class InputMethod:
             # macOS/Windows: use clipboard + paste
             if self._copy_to_clipboard(text):
                 self._paste()
+                # Wait for paste to complete, then clear clipboard
+                time.sleep(0.3)
+                self._clear_clipboard()
                 logger.info("Text pasted successfully")
             else:
                 logger.error("Failed to copy text to clipboard")
