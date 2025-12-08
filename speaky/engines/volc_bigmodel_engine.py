@@ -160,9 +160,11 @@ class VolcBigModelEngine(BaseEngine):
         segment_size = size_per_sec * self._segment_duration // 1000
 
         # Build headers
+        connect_id = str(uuid.uuid4())
         headers = {
             "X-Api-Resource-Id": "volc.bigasr.sauc.duration",
             "X-Api-Request-Id": request_id,
+            "X-Api-Connect-Id": connect_id,
             "X-Api-Access-Key": self._access_key,
             "X-Api-App-Key": self._app_key,
         }
