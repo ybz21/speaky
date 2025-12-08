@@ -310,12 +310,15 @@ class SpeakyApp:
         threading.Thread(target=recognize, daemon=True).start()
 
     def _on_recognition_done(self, text: str):
+        logger.info(f"_on_recognition_done called, ai_mode={self._ai_mode}, text={text[:50] if text else 'None'}...")
         self._floating_window.show_result(text)
         # Check if we're in AI mode
         if self._ai_mode:
+            logger.info("AI mode: Emitting ai_recognition_done signal")
             self._ai_mode = False
             self._signals.ai_recognition_done.emit(text)
         else:
+            logger.info("Normal mode: Scheduling type_text")
             QTimer.singleShot(100, lambda: input_method.type_text(text))
 
     def _on_recognition_error(self, error: str):
