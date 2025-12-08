@@ -14,12 +14,17 @@ logger = logging.getLogger(__name__)
 
 
 def force_window_to_top(hwnd):
-    """Windows: Force window to top using Win32 API"""
+    """Windows: Force window to top using Win32 API
+
+    使用多种方法确保窗口置顶：
+    1. SetWindowPos with HWND_TOPMOST - 设置为最顶层
+    2. SetForegroundWindow - 尝试获取前台焦点（可能失败）
+    3. BringWindowToTop - 将窗口带到Z序顶部
+    """
     if platform.system() != "Windows":
         return
     try:
         import ctypes
-        from ctypes import wintypes
 
         user32 = ctypes.windll.user32
 
@@ -28,14 +33,24 @@ def force_window_to_top(hwnd):
         SWP_NOMOVE = 0x0002
         SWP_NOSIZE = 0x0001
         SWP_SHOWWINDOW = 0x0040
+        SWP_NOACTIVATE = 0x0010  # 不激活窗口（避免抢焦点）
 
-        # SetWindowPos to make it topmost
-        user32.SetWindowPos(
+        # 方法1: SetWindowPos - 设置为 TOPMOST 层级
+        result = user32.SetWindowPos(
             hwnd,
             HWND_TOPMOST,
             0, 0, 0, 0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW
+            SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE
         )
+        logger.debug(f"SetWindowPos result: {result}")
+
+        # 方法2: BringWindowToTop - 将窗口带到顶部
+        user32.BringWindowToTop(hwnd)
+
+        # 方法3: ShowWindow - 确保窗口可见
+        SW_SHOWNOACTIVATE = 4
+        user32.ShowWindow(hwnd, SW_SHOWNOACTIVATE)
+
     except Exception as e:
         logger.debug(f"force_window_to_top failed: {e}")
 
@@ -332,12 +347,17 @@ class FloatingWindow(QWidget):
 
     def force_to_top(self):
         """Force window to stay on top (Windows specific)"""
-        if platform.system() == "Windows":
-            # Get native window handle
-            hwnd = int(self.winId())
-            force_window_to_top(hwnd)
-        else:
-            self.raise_()
+        try:
+            if platform.system() == "Windows":
+                # Get native window handle
+                hwnd = int(self.winId())
+                logger.debug(f"force_to_top: hwnd={hwnd}, visible={self.isVisible()}")
+                force_window_to_top(hwnd)
+            else:
+                self.raise_()
+                self.activateWindow()
+        except Exception as e:
+            logger.exception(f"force_to_top failed: {e}")
 
     def show_recognizing(self):
         self._cancel_hide_timer()

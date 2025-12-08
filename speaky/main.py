@@ -336,30 +336,36 @@ class SpeakyApp:
         2. 延迟 300ms 后打开浏览器（让浮窗先稳定显示）
         3. 启动定时 raise，确保浮窗始终在浏览器之上
         """
-        logger.info("AI mode: Starting recording in main thread")
+        try:
+            logger.info("AI mode: Starting recording in main thread")
 
-        self._ai_mode = True
-        self._ai_browser_open_time = time.time()
+            self._ai_mode = True
+            self._ai_browser_open_time = time.time()
 
-        # 1. 先开始录音（会显示浮窗和设置流式回调）
-        self._on_start_recording()
+            # 1. 先开始录音（会显示浮窗和设置流式回调）
+            self._on_start_recording()
 
-        # 2. 启动定时 raise，确保浮窗始终在最前面
-        self._start_ai_raise_timer()
+            # 2. 启动定时 raise，确保浮窗始终在最前面
+            self._start_ai_raise_timer()
 
-        # 3. 延迟打开浏览器（让浮窗先稳定显示）
-        QTimer.singleShot(300, self._ai_open_browser)
+            # 3. 延迟打开浏览器（让浮窗先稳定显示）
+            QTimer.singleShot(300, self._ai_open_browser)
+        except Exception as e:
+            logger.exception(f"AI mode: Exception in _on_ai_start_recording: {e}")
 
     def _ai_open_browser(self):
         """延迟打开浏览器"""
-        import webbrowser
-        ai_url = config.get("ai_url", "https://chatgpt.com")
-        logger.info(f"AI mode: Opening {ai_url}")
-        webbrowser.open(ai_url)
-        # 打开浏览器后立即强制置顶浮窗
-        QTimer.singleShot(200, self._floating_window.force_to_top)
-        QTimer.singleShot(500, self._floating_window.force_to_top)
-        QTimer.singleShot(1000, self._floating_window.force_to_top)
+        try:
+            import webbrowser
+            ai_url = config.get("ai_url", "https://chatgpt.com")
+            logger.info(f"AI mode: Opening {ai_url}")
+            webbrowser.open(ai_url)
+            # 打开浏览器后立即强制置顶浮窗
+            QTimer.singleShot(200, self._floating_window.force_to_top)
+            QTimer.singleShot(500, self._floating_window.force_to_top)
+            QTimer.singleShot(1000, self._floating_window.force_to_top)
+        except Exception as e:
+            logger.exception(f"AI mode: Exception in _ai_open_browser: {e}")
 
     def _start_ai_raise_timer(self):
         """启动定时器，每 300ms raise 浮窗一次"""
@@ -371,8 +377,12 @@ class SpeakyApp:
 
     def _ai_raise_window(self):
         """raise 浮窗确保在最前面"""
-        if self._floating_window.isVisible():
-            self._floating_window.force_to_top()
+        try:
+            if self._floating_window.isVisible():
+                logger.debug("AI mode: Raising floating window")
+                self._floating_window.force_to_top()
+        except Exception as e:
+            logger.exception(f"AI mode: Exception in _ai_raise_window: {e}")
 
     def _stop_ai_raise_timer(self):
         """停止 raise 定时器"""
@@ -388,7 +398,12 @@ class SpeakyApp:
 
     def _on_ai_stop_recording(self):
         """AI 模式停止录音"""
-        self._on_stop_recording()
+        try:
+            logger.info("AI mode: _on_ai_stop_recording called")
+            self._on_stop_recording()
+            logger.info("AI mode: _on_stop_recording completed")
+        except Exception as e:
+            logger.exception(f"AI mode: Exception in _on_ai_stop_recording: {e}")
 
     def _on_ai_recognition_done(self, text: str):
         """识别完成：智能等待页面加载后输入
@@ -398,41 +413,59 @@ class SpeakyApp:
         - 确保至少等待 ai_page_load_delay 秒（默认3秒）
         - 如果识别耗时已经超过等待时间，则立即输入
         """
-        if not text or not text.strip():
-            logger.warning("AI mode: Empty recognition result, skipping input")
-            return
+        try:
+            logger.info(f"AI mode: _on_ai_recognition_done called with text: {text[:50] if text else 'None'}...")
 
-        page_load_delay = config.get("ai_page_load_delay", 3.0)
-        elapsed = time.time() - getattr(self, '_ai_browser_open_time', time.time())
-        remaining = max(0, page_load_delay - elapsed)
+            if not text or not text.strip():
+                logger.warning("AI mode: Empty recognition result, skipping input")
+                return
 
-        logger.info(f"AI mode: Recognition done. Elapsed: {elapsed:.1f}s, waiting {remaining:.1f}s more before input")
-        logger.info(f"AI mode: Text to input: {text}")
+            page_load_delay = config.get("ai_page_load_delay", 3.0)
+            elapsed = time.time() - getattr(self, '_ai_browser_open_time', time.time())
+            remaining = max(0, page_load_delay - elapsed)
 
-        # 等待剩余时间后输入
-        QTimer.singleShot(int(remaining * 1000), lambda: self._ai_do_input(text))
+            logger.info(f"AI mode: Recognition done. Elapsed: {elapsed:.1f}s, waiting {remaining:.1f}s more before input")
+            logger.info(f"AI mode: Text to input: {text}")
+
+            # 等待剩余时间后输入
+            QTimer.singleShot(int(remaining * 1000), lambda: self._ai_do_input(text))
+        except Exception as e:
+            logger.exception(f"AI mode: Exception in _on_ai_recognition_done: {e}")
 
     def _ai_do_input(self, text: str):
         """执行文字输入和回车"""
-        logger.info(f"AI mode: Now inputting text: {text}")
+        try:
+            logger.info(f"AI mode: _ai_do_input called with text: {text}")
 
-        # 隐藏浮窗（输入前隐藏，避免遮挡）
-        self._floating_window.hide()
+            # 隐藏浮窗（输入前隐藏，避免遮挡）
+            logger.info("AI mode: Hiding floating window")
+            self._floating_window.hide()
 
-        # 输入文字
-        input_method.type_text(text)
+            # 输入文字
+            logger.info("AI mode: Calling input_method.type_text()")
+            input_method.type_text(text)
+            logger.info("AI mode: type_text completed")
 
-        # 如果配置了自动回车，则发送
-        if config.get("ai_auto_enter", True):
-            QTimer.singleShot(300, self._press_enter)
+            # 如果配置了自动回车，则发送
+            if config.get("ai_auto_enter", True):
+                logger.info("AI mode: Scheduling Enter key press")
+                QTimer.singleShot(300, self._press_enter)
+            else:
+                logger.info("AI mode: Auto enter disabled, skipping Enter press")
+        except Exception as e:
+            logger.exception(f"AI mode: Exception in _ai_do_input: {e}")
 
     def _press_enter(self):
         """按回车键发送消息"""
-        from pynput.keyboard import Controller, Key
-        keyboard = Controller()
-        keyboard.press(Key.enter)
-        keyboard.release(Key.enter)
-        logger.info("AI mode: Enter pressed, message sent")
+        try:
+            logger.info("AI mode: _press_enter called")
+            from pynput.keyboard import Controller, Key
+            keyboard = Controller()
+            keyboard.press(Key.enter)
+            keyboard.release(Key.enter)
+            logger.info("AI mode: Enter pressed, message sent")
+        except Exception as e:
+            logger.exception(f"AI mode: Exception in _press_enter: {e}")
 
     def _show_settings(self):
         if self._settings_dialog is None:
