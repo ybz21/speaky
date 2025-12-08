@@ -199,15 +199,23 @@ class InputMethod:
         except Exception as e:
             logger.error(f"Failed to paste: {e}")
 
-    def type_text(self, text: str):
+    def type_text(self, text: str, restore_focus: bool = True):
+        """Type text via clipboard + paste
+
+        Args:
+            text: The text to type
+            restore_focus: Whether to restore focus to saved window before typing.
+                          Set to False for AI mode where we want to type in browser.
+        """
         if not text:
             logger.warning("Empty text, nothing to type")
             return
 
-        logger.info(f"Typing text via clipboard: {text}")
+        logger.info(f"Typing text via clipboard: {text[:50]}...")
 
-        # Restore focus to the original window first
-        self.restore_focus()
+        # Restore focus to the original window first (unless disabled)
+        if restore_focus:
+            self.restore_focus()
 
         if self._system == "Linux" and self._xdotool:
             # Linux with xdotool: use direct typing

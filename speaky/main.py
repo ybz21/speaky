@@ -1,5 +1,7 @@
+import faulthandler
 import logging
 import platform
+import signal
 import sys
 import threading
 import time
@@ -18,12 +20,24 @@ from .ui.tray_icon import TrayIcon
 from .ui.settings_dialog import SettingsDialog, apply_theme
 from .i18n import t, i18n
 
+# Enable faulthandler to dump traceback on segfault
+faulthandler.enable()
+
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # Changed to DEBUG for more info
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Global exception handler
+def global_exception_handler(exctype, value, tb):
+    import traceback
+    logger.error("Uncaught exception:")
+    logger.error(''.join(traceback.format_exception(exctype, value, tb)))
+    sys.__excepthook__(exctype, value, tb)
+
+sys.excepthook = global_exception_handler
 
 
 def set_macos_accessory_mode():
@@ -444,9 +458,9 @@ class SpeakyApp:
             logger.info("AI mode: Hiding floating window")
             self._floating_window.hide()
 
-            # 输入文字
-            logger.info("AI mode: Calling input_method.type_text()")
-            input_method.type_text(text)
+            # 输入文字（AI 模式不恢复焦点，保持在浏览器）
+            logger.info("AI mode: Calling input_method.type_text(restore_focus=False)")
+            input_method.type_text(text, restore_focus=False)
             logger.info("AI mode: type_text completed")
 
             # 如果配置了自动回车，则发送
