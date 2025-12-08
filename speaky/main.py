@@ -199,7 +199,19 @@ class SpeakyApp:
                         logger.warning("Real-time session is None")
                         self._signals.recognition_error.emit(t("empty_result"))
                         return
-                    result = sess.finish()
+
+                    # Add timeout wrapper for finish
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(sess.finish)
+                        try:
+                            result = future.result(timeout=5)  # 5 second timeout
+                        except concurrent.futures.TimeoutError:
+                            logger.error("Real-time finish timed out")
+                            sess.cancel()
+                            self._signals.recognition_error.emit("识别超时")
+                            return
+
                     if result:
                         logger.info(f"Real-time result: {result}")
                         # Emit recognition_done to ensure window hides

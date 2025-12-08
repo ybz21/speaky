@@ -262,10 +262,12 @@ class FloatingWindow(QWidget):
             padding: 2px 0;
         """)
         self._text_label.setWordWrap(True)
-        self._text_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-        self._text_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        # Center vertically when text is short, align top when long
+        self._text_label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        self._text_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         scroll_area.setWidget(self._text_label)
+        scroll_area.setAlignment(Qt.AlignVCenter)  # Center content vertically
         right_layout.addWidget(scroll_area, 1)
 
         h_layout.addWidget(right_panel, 1)
