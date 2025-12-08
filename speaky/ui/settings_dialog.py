@@ -15,6 +15,7 @@ from qfluentwidgets import FluentWindow
 
 from ..i18n import t, i18n
 from ..autostart import is_autostart_enabled, set_autostart
+from .tray_icon import get_app_icon
 
 
 def apply_theme(theme: str):
@@ -335,6 +336,7 @@ class SettingsDialog(FluentWindow):
 
     def _setup_ui(self):
         self.setWindowTitle(t("settings_title"))
+        self.setWindowIcon(get_app_icon())
         self.resize(700, 550)
 
         # Create pages
