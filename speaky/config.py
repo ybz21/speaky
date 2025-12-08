@@ -31,10 +31,6 @@ DEFAULT_CONFIG = {
         "app_key": "",
         "access_token": "",
     },
-    "tencent": {
-        "secret_id": "",
-        "secret_key": "",
-    },
     "ui": {
         "show_waveform": True,
         "window_opacity": 0.9,

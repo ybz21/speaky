@@ -92,7 +92,7 @@ class SettingsDialog(QDialog):
 
         self._engine_combo = QComboBox()
         self._engine_combo.addItems([
-            "whisper", "openai", "volcengine", "volc_bigmodel", "aliyun", "tencent"
+            "whisper", "openai", "volcengine", "volc_bigmodel", "aliyun"
         ])
         self._engine_combo.currentTextChanged.connect(self._on_engine_changed)
         engine_layout.addRow(t("engine_label"), self._engine_combo)
@@ -174,19 +174,6 @@ class SettingsDialog(QDialog):
 
         layout.addWidget(self._aliyun_group)
 
-        # Tencent settings
-        self._tencent_group = QGroupBox(t("tencent_settings"))
-        tencent_layout = QFormLayout(self._tencent_group)
-
-        self._tencent_id = QLineEdit()
-        tencent_layout.addRow(t("secret_id"), self._tencent_id)
-
-        self._tencent_key = QLineEdit()
-        self._tencent_key.setEchoMode(QLineEdit.Password)
-        tencent_layout.addRow(t("secret_key"), self._tencent_key)
-
-        layout.addWidget(self._tencent_group)
-
         layout.addStretch()
         return widget
 
@@ -216,7 +203,6 @@ class SettingsDialog(QDialog):
         self._volc_group.setVisible(engine == "volcengine")
         self._volc_bigmodel_group.setVisible(engine == "volc_bigmodel")
         self._aliyun_group.setVisible(engine == "aliyun")
-        self._tencent_group.setVisible(engine == "tencent")
 
     def _load_settings(self):
         self._hotkey_combo.setCurrentText(self._config.get("hotkey", "ctrl"))
@@ -249,9 +235,6 @@ class SettingsDialog(QDialog):
         self._aliyun_appkey.setText(self._config.get("aliyun.app_key", ""))
         self._aliyun_token.setText(self._config.get("aliyun.access_token", ""))
 
-        self._tencent_id.setText(self._config.get("tencent.secret_id", ""))
-        self._tencent_key.setText(self._config.get("tencent.secret_key", ""))
-
         self._show_waveform.setChecked(self._config.get("ui.show_waveform", True))
         self._opacity_slider.setValue(int(self._config.get("ui.window_opacity", 0.9) * 100))
 
@@ -280,9 +263,6 @@ class SettingsDialog(QDialog):
 
         self._config.set("aliyun.app_key", self._aliyun_appkey.text())
         self._config.set("aliyun.access_token", self._aliyun_token.text())
-
-        self._config.set("tencent.secret_id", self._tencent_id.text())
-        self._config.set("tencent.secret_key", self._tencent_key.text())
 
         self._config.set("ui.show_waveform", self._show_waveform.isChecked())
         self._config.set("ui.window_opacity", self._opacity_slider.value() / 100)

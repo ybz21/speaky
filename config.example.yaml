@@ -18,13 +18,14 @@ volcengine:
   access_key: ""
   secret_key: ""
 
+volc_bigmodel:
+  app_key: ""
+  access_key: ""
+  model: bigmodel  # bigmodel, bigmodel_async, bigmodel_nostream
+
 aliyun:
   app_key: ""
   access_token: ""
-
-tencent:
-  secret_id: ""
-  secret_key: ""
 
 ui:
   show_waveform: true

@@ -88,12 +88,6 @@ class SpeakyApp:
                 app_key=config.get("aliyun.app_key", ""),
                 access_token=config.get("aliyun.access_token", ""),
             )
-        elif engine_name == "tencent":
-            from .engines.tencent_engine import TencentEngine
-            self._engine = TencentEngine(
-                secret_id=config.get("tencent.secret_id", ""),
-                secret_key=config.get("tencent.secret_key", ""),
-            )
 
     def _setup_hotkey(self):
         self._hotkey_listener = HotkeyListener(
