@@ -487,6 +487,8 @@ class VolcConnectionManager:
         self._warm_ws = None
         self._warm_ws_ready = threading.Event()
         self._warming_up = False
+        self._warm_ws_created_at = 0  # 预热连接创建时间
+        self._warm_ws_max_age = 30  # 预热连接最大存活时间（秒）
 
         # Start background loop
         self._start_loop()
@@ -582,6 +584,7 @@ class VolcConnectionManager:
                     heartbeat=30,
                 )
                 self._warm_ws = ws
+                self._warm_ws_created_at = _time.time()
                 self._warm_ws_ready.set()
                 logger.info(f"[WebSocket预热] 连接就绪，耗时 {_time.time()-t0:.2f}s")
             except Exception as e:
@@ -589,6 +592,39 @@ class VolcConnectionManager:
                 self._warming_up = False
 
         self.run_coroutine(do_warmup())
+
+    def _is_warm_ws_valid(self) -> bool:
+        """检查预热连接是否仍然有效"""
+        import time as _time
+        if not self._warm_ws_ready.is_set():
+            return False
+        if self._warm_ws is None:
+            return False
+        # 检查连接是否超时
+        age = _time.time() - self._warm_ws_created_at
+        if age > self._warm_ws_max_age:
+            logger.info(f"[WebSocket预热] 连接已过期（{age:.1f}s > {self._warm_ws_max_age}s），将重新预热")
+            return False
+        # 检查连接是否已关闭
+        if self._warm_ws.closed:
+            logger.info("[WebSocket预热] 连接已关闭，将重新预热")
+            return False
+        return True
+
+    def _invalidate_warm_ws(self):
+        """使当前预热连接失效并关闭"""
+        if self._warm_ws:
+            async def close_ws():
+                try:
+                    if not self._warm_ws.closed:
+                        await self._warm_ws.close()
+                except:
+                    pass
+            if self._loop:
+                asyncio.run_coroutine_threadsafe(close_ws(), self._loop)
+        self._warm_ws = None
+        self._warm_ws_ready.clear()
+        self._warming_up = False
 
     def get_warm_websocket(self, timeout: float = 2.0):
         """Get the pre-warmed WebSocket connection if available.
@@ -715,34 +751,38 @@ class VolcRealtimeSession(RealtimeSession):
         import time as _time
         session_start = _time.time()
         ws = None
-        use_warm_ws = False
 
-        # Try to get pre-warmed WebSocket (non-blocking check)
-        warm_ready = self._manager._warm_ws_ready.is_set()
-        logger.info(f"[会话循环] 检查预热连接: ready={warm_ready}, warming_up={self._manager._warming_up}")
+        # 检查预热连接是否有效（包括超时检测）
+        warm_valid = self._manager._is_warm_ws_valid()
+        logger.info(f"[会话循环] 检查预热连接: valid={warm_valid}, warming_up={self._manager._warming_up}")
 
-        if warm_ready:
+        if warm_valid:
             ws = self._manager._warm_ws
             self._manager._warm_ws = None
             self._manager._warm_ws_ready.clear()
             self._manager._warming_up = False
-            use_warm_ws = True
-            logger.info(f"[会话循环] 使用预热的 WebSocket 连接")
+            age = _time.time() - self._manager._warm_ws_created_at
+            logger.info(f"[会话循环] 使用预热的 WebSocket 连接（age={age:.1f}s）")
             # Start warming up next connection
             self._manager.warmup_websocket()
+        else:
+            # 预热连接无效，清理并准备新建
+            self._manager._invalidate_warm_ws()
 
         try:
             if ws is None:
-                # No pre-warmed connection, create new one
+                # No valid pre-warmed connection, create new one
                 t0 = _time.time()
                 headers = self._manager.get_headers()
-                logger.info(f"[会话循环] 无预热连接，开始新建连接...")
+                logger.info(f"[会话循环] 无有效预热连接，开始新建连接...")
                 ws = await self._manager.session.ws_connect(
                     self._manager.ws_url,
                     headers=headers,
                     heartbeat=30,
                 )
                 logger.info(f"[会话循环] 新建连接完成，耗时 {_time.time()-t0:.2f}s")
+                # 新建连接成功后，启动下一个预热
+                self._manager.warmup_websocket()
 
             # Send initial full request
             t0 = _time.time()

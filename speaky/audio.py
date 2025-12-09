@@ -1,9 +1,13 @@
 import io
 import wave
+import time
+import logging
 import threading
 from typing import Callable, Optional
 from queue import Queue, Full
 import pyaudio
+
+logger = logging.getLogger(__name__)
 
 CHUNK = 1024
 FORMAT = pyaudio.paInt16
@@ -26,6 +30,10 @@ class AudioRecorder:
         self._worker_thread: Optional[threading.Thread] = None
         self._level_counter = 0  # Only compute level every N frames
 
+        # Pre-opened stream for faster start
+        self._warm_stream: Optional[pyaudio.Stream] = None
+        self._warm_stream_ready = threading.Event()
+
     def set_audio_level_callback(self, callback: Callable[[float], None]):
         self._on_audio_level = callback
 
@@ -33,7 +41,35 @@ class AudioRecorder:
         """Set callback for real-time audio data (for streaming ASR)"""
         self._on_audio_data = callback
 
+    def warmup(self):
+        """预热音频流，加速首次启动"""
+        def do_warmup():
+            t0 = time.time()
+            try:
+                logger.info("[录音器预热] 开始预热音频流...")
+                stream = self._audio.open(
+                    format=FORMAT,
+                    channels=CHANNELS,
+                    rate=RATE,
+                    input=True,
+                    frames_per_buffer=CHUNK,
+                    stream_callback=self._warmup_callback,
+                    start=False,  # 不立即启动
+                )
+                self._warm_stream = stream
+                self._warm_stream_ready.set()
+                logger.info(f"[录音器预热] 音频流就绪，耗时 {time.time()-t0:.2f}s")
+            except Exception as e:
+                logger.error(f"[录音器预热] 失败: {e}")
+
+        threading.Thread(target=do_warmup, daemon=True).start()
+
+    def _warmup_callback(self, in_data, frame_count, time_info, status):
+        """预热流的空回调"""
+        return (in_data, pyaudio.paContinue)
+
     def start(self):
+        t0 = time.time()
         with self._lock:
             if self._is_recording:
                 return
@@ -48,6 +84,17 @@ class AudioRecorder:
                 )
                 self._worker_thread.start()
 
+            # 尝试使用预热的流
+            if self._warm_stream_ready.is_set() and self._warm_stream:
+                logger.info("[录音器] 使用预热的音频流")
+                # 关闭预热流，重新打开（因为回调函数需要更换）
+                try:
+                    self._warm_stream.close()
+                except:
+                    pass
+                self._warm_stream = None
+                self._warm_stream_ready.clear()
+
             self._stream = self._audio.open(
                 format=FORMAT,
                 channels=CHANNELS,
@@ -57,6 +104,7 @@ class AudioRecorder:
                 stream_callback=self._callback,
             )
             self._stream.start_stream()
+            logger.info(f"[录音器] 启动完成，耗时 {time.time()-t0:.3f}s")
 
     def stop(self) -> bytes:
         with self._lock:

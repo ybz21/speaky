@@ -1732,6 +1732,15 @@
         "documentation": {}
     },
     {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "speaky.audio",
+        "description": "speaky.audio",
+        "peekOfCode": "logger = logging.getLogger(__name__)\nCHUNK = 1024\nFORMAT = pyaudio.paInt16\nCHANNELS = 1\nRATE = 16000\nclass AudioRecorder:\n    def __init__(self):\n        self._audio = pyaudio.PyAudio()\n        self._stream: Optional[pyaudio.Stream] = None\n        self._frames: list[bytes] = []",
+        "detail": "speaky.audio",
+        "documentation": {}
+    },
+    {
         "label": "CHUNK",
         "kind": 5,
         "importPath": "speaky.audio",

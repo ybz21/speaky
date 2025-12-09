@@ -162,6 +162,8 @@ class SpeakyApp:
         self._recorder.set_audio_level_callback(
             lambda level: self._signals.audio_level.emit(level)
         )
+        # 预热录音器
+        self._recorder.warmup()
 
     def _setup_ai_hotkey(self):
         """Setup AI hotkey listener"""
