@@ -152,7 +152,10 @@ class VolcBigModelEngine(BaseEngine):
     def warmup(self):
         """Pre-initialize connection for faster first request."""
         logger.info("Warming up connection...")
-        self._get_connection_manager().ensure_ready()
+        manager = self._get_connection_manager()
+        manager.ensure_ready()
+        # Pre-warm WebSocket connection
+        manager.warmup_websocket()
 
     def transcribe(self, audio_data: bytes, language: str = "zh") -> str:
         loop = asyncio.new_event_loop()
@@ -457,6 +460,7 @@ class VolcConnectionManager:
     1. Pre-establishes connection in background thread
     2. Keeps event loop running between sessions
     3. Reuses aiohttp ClientSession
+    4. Pre-warms WebSocket connection for instant response
     """
 
     SAMPLE_RATE = 16000
@@ -474,6 +478,11 @@ class VolcConnectionManager:
         self._session: Optional[aiohttp.ClientSession] = None
         self._is_ready = threading.Event()
         self._lock = threading.Lock()
+
+        # Pre-warmed WebSocket connection
+        self._warm_ws = None
+        self._warm_ws_ready = threading.Event()
+        self._warming_up = False
 
         # Start background loop
         self._start_loop()
@@ -542,8 +551,63 @@ class VolcConnectionManager:
     def ws_url(self) -> str:
         return self._ws_url
 
+    def warmup_websocket(self):
+        """Pre-establish WebSocket connection for faster first request.
+
+        This creates a WebSocket connection in advance so that when the user
+        presses the hotkey, the connection is already ready.
+        """
+        if self._warming_up:
+            return
+        self._warming_up = True
+        self._warm_ws_ready.clear()
+
+        async def do_warmup():
+            try:
+                headers = self.get_headers()
+                logger.info(f"Warming up WebSocket connection to {self._ws_url}")
+                ws = await self._session.ws_connect(
+                    self._ws_url,
+                    headers=headers,
+                    heartbeat=30,
+                )
+                self._warm_ws = ws
+                self._warm_ws_ready.set()
+                logger.info("WebSocket connection pre-warmed and ready")
+            except Exception as e:
+                logger.error(f"WebSocket warmup failed: {e}")
+                self._warming_up = False
+
+        self.run_coroutine(do_warmup())
+
+    def get_warm_websocket(self, timeout: float = 2.0):
+        """Get the pre-warmed WebSocket connection if available.
+
+        Returns the pre-warmed WebSocket or None if not ready.
+        After returning, starts warming up a new connection.
+        """
+        ws = None
+        if self._warm_ws_ready.wait(timeout=timeout):
+            ws = self._warm_ws
+            self._warm_ws = None
+            self._warm_ws_ready.clear()
+            self._warming_up = False
+            # Start warming up next connection in background
+            self.warmup_websocket()
+        return ws
+
     def shutdown(self):
         """Shutdown the connection manager."""
+        # Close warm WebSocket if exists
+        if self._warm_ws:
+            async def close_ws():
+                try:
+                    await self._warm_ws.close()
+                except:
+                    pass
+            if self._loop:
+                asyncio.run_coroutine_threadsafe(close_ws(), self._loop)
+
         if self._loop:
             self._loop.call_soon_threadsafe(self._loop.stop)
         if self._loop_thread:
@@ -638,43 +702,64 @@ class VolcRealtimeSession(RealtimeSession):
 
     async def _session_loop(self):
         """Main async session loop."""
-        headers = self._manager.get_headers()
-        logger.info(f"Connecting to {self._manager.ws_url}")
+        ws = None
+        use_warm_ws = False
+
+        # Try to get pre-warmed WebSocket (non-blocking check)
+        if self._manager._warm_ws_ready.is_set():
+            ws = self._manager._warm_ws
+            self._manager._warm_ws = None
+            self._manager._warm_ws_ready.clear()
+            self._manager._warming_up = False
+            use_warm_ws = True
+            logger.info("Using pre-warmed WebSocket connection")
+            # Start warming up next connection
+            self._manager.warmup_websocket()
 
         try:
-            async with self._manager.session.ws_connect(
-                self._manager.ws_url,
-                headers=headers,
-                heartbeat=30,
-            ) as ws:
-                logger.info("WebSocket connected")
+            if ws is None:
+                # No pre-warmed connection, create new one
+                headers = self._manager.get_headers()
+                logger.info(f"Connecting to {self._manager.ws_url} (no warm connection)")
+                ws = await self._manager.session.ws_connect(
+                    self._manager.ws_url,
+                    headers=headers,
+                    heartbeat=30,
+                )
+                logger.info("WebSocket connected (new connection)")
 
-                # Send initial full request
-                full_request = self._build_full_request()
-                await ws.send_bytes(full_request)
-                self._seq += 1
+            # Send initial full request
+            full_request = self._build_full_request()
+            await ws.send_bytes(full_request)
+            self._seq += 1
+            logger.info("Sent initial full request")
 
-                # Wait for initial response
-                msg = await ws.receive()
-                if msg.type == aiohttp.WSMsgType.BINARY:
-                    resp = parse_response(msg.data)
-                    if resp["code"] != 0:
-                        logger.error(f"Initial request failed: {resp}")
-                        if self._on_error:
-                            self._on_error(f"Connection failed: {resp}")
-                        return
+            # Wait for initial response
+            msg = await ws.receive()
+            if msg.type == aiohttp.WSMsgType.BINARY:
+                resp = parse_response(msg.data)
+                if resp["code"] != 0:
+                    logger.error(f"Initial request failed: {resp}")
+                    if self._on_error:
+                        self._on_error(f"Connection failed: {resp}")
+                    return
+                logger.info("Initial response received, starting audio streaming")
 
-                # Start sender and receiver tasks
-                sender_task = asyncio.create_task(self._send_audio_loop(ws))
-                receiver_task = asyncio.create_task(self._receive_loop(ws))
+            # Start sender and receiver tasks
+            sender_task = asyncio.create_task(self._send_audio_loop(ws))
+            receiver_task = asyncio.create_task(self._receive_loop(ws))
 
-                # Wait for both to complete
-                await asyncio.gather(sender_task, receiver_task)
+            # Wait for both to complete
+            await asyncio.gather(sender_task, receiver_task)
 
         except Exception as e:
             logger.error(f"WebSocket error: {e}", exc_info=True)
             if self._on_error:
                 self._on_error(str(e))
+        finally:
+            # Close WebSocket if we created it (warm WS is managed separately)
+            if ws and not ws.closed:
+                await ws.close()
 
     async def _send_audio_loop(self, ws):
         """Send audio data from queue to WebSocket."""

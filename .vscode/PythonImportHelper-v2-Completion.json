@@ -1412,7 +1412,7 @@
         "kind": 6,
         "importPath": "speaky.engines.volc_bigmodel_engine",
         "description": "speaky.engines.volc_bigmodel_engine",
-        "peekOfCode": "class VolcConnectionManager:\n    \"\"\"Manages persistent WebSocket connections for faster session startup.\n    Key optimizations:\n    1. Pre-establishes connection in background thread\n    2. Keeps event loop running between sessions\n    3. Reuses aiohttp ClientSession\n    \"\"\"\n    SAMPLE_RATE = 16000\n    CHANNELS = 1\n    SAMPLE_WIDTH = 2  # 16-bit",
+        "peekOfCode": "class VolcConnectionManager:\n    \"\"\"Manages persistent WebSocket connections for faster session startup.\n    Key optimizations:\n    1. Pre-establishes connection in background thread\n    2. Keeps event loop running between sessions\n    3. Reuses aiohttp ClientSession\n    4. Pre-warms WebSocket connection for instant response\n    \"\"\"\n    SAMPLE_RATE = 16000\n    CHANNELS = 1",
         "detail": "speaky.engines.volc_bigmodel_engine",
         "documentation": {}
     },
