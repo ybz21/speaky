@@ -419,6 +419,8 @@ class FloatingWindow(QWidget):
             self._schedule_scroll()
 
     def show_result(self, text: str):
+        import time
+        self._result_show_time = time.time()  # 记录结果显示时间
         self._cancel_all_timers()
         text_preview = repr(text[:50]) if text else 'None'
         text_len = len(text) if text else 0
@@ -434,14 +436,20 @@ class FloatingWindow(QWidget):
         self._schedule_scroll()
         # Stop animation after brief transition to show "done" color
         self._schedule_stop_animation(500)
-        # Display time based on text length, then hide (500ms ~ 2000ms)
-        display_time = max(500, min(2000, 300 + text_len * 10))
+        # 固定显示 1 秒后隐藏
+        display_time = 1000
         logger.info(f"[浮窗] 计划: 500ms后停止动画, {display_time}ms后隐藏")
         self._schedule_hide(display_time)
 
     def _do_hide(self):
         """执行隐藏操作"""
-        logger.info("[浮窗] 定时器触发：隐藏窗口")
+        import time
+        if hasattr(self, '_result_show_time') and self._result_show_time:
+            elapsed = time.time() - self._result_show_time
+            logger.info(f"[浮窗] 定时器触发：隐藏窗口，距离显示结果 {elapsed:.2f}s")
+            self._result_show_time = None
+        else:
+            logger.info("[浮窗] 定时器触发：隐藏窗口")
         self.hide()
 
     def show_error(self, error: str):
