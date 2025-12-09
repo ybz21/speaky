@@ -142,10 +142,12 @@ class VolcBigModelEngine(BaseEngine):
     def _get_connection_manager(self) -> "VolcConnectionManager":
         """Get or create connection manager for persistent connections."""
         if self._connection_manager is None:
+            # 使用原始双向流式模式 bigmodel（每包返回一包）
+            # bigmodel_async 在某些情况下可能不返回结果
             self._connection_manager = VolcConnectionManager(
                 app_key=self._app_key,
                 access_key=self._access_key,
-                ws_url=self._ws_url_async,
+                ws_url=self._ws_url_streaming,  # 改用 bigmodel 而不是 bigmodel_async
             )
         return self._connection_manager
 
