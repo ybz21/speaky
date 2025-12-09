@@ -210,8 +210,25 @@ class FloatingWindow(QWidget):
 
     def __init__(self):
         super().__init__()
-        self._hide_timer = None  # Track hide timer
+        self._setup_timers()
         self._setup_ui()
+
+    def _setup_timers(self):
+        """初始化所有定时器（复用而非每次创建）"""
+        # 隐藏窗口定时器
+        self._hide_timer = QTimer(self)
+        self._hide_timer.setSingleShot(True)
+        self._hide_timer.timeout.connect(self._do_hide)
+
+        # 停止动画定时器
+        self._stop_animation_timer = QTimer(self)
+        self._stop_animation_timer.setSingleShot(True)
+        # timeout 连接会在后面动态设置
+
+        # 滚动定时器
+        self._scroll_timer = QTimer(self)
+        self._scroll_timer.setSingleShot(True)
+        self._scroll_timer.timeout.connect(self._scroll_to_bottom)
 
     def _setup_ui(self):
         self.setWindowFlags(
@@ -327,14 +344,32 @@ class FloatingWindow(QWidget):
         scrollbar = self._scroll_area.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
 
-    def _cancel_hide_timer(self):
-        """Cancel any pending hide timer"""
-        if self._hide_timer is not None:
-            self._hide_timer.stop()
-            self._hide_timer = None
+    def _schedule_scroll(self):
+        """安排滚动到底部（可取消）"""
+        self._scroll_timer.start(10)
+
+    def _cancel_all_timers(self):
+        """取消所有待执行的定时器"""
+        self._hide_timer.stop()
+        self._stop_animation_timer.stop()
+        self._scroll_timer.stop()
+
+    def _schedule_hide(self, delay_ms: int):
+        """安排延迟隐藏窗口"""
+        self._hide_timer.start(delay_ms)
+
+    def _schedule_stop_animation(self, delay_ms: int = 500):
+        """安排延迟停止动画"""
+        # 断开旧连接，重新连接（确保只有一个连接）
+        try:
+            self._stop_animation_timer.timeout.disconnect()
+        except RuntimeError:
+            pass  # 没有连接时会抛出异常
+        self._stop_animation_timer.timeout.connect(self._wave_widget.stop_animation)
+        self._stop_animation_timer.start(delay_ms)
 
     def show_recording(self):
-        self._cancel_hide_timer()
+        self._cancel_all_timers()
         self._status_label.setText(t("listening"))
         self._status_label.setStyleSheet("color: #00D4FF; background: transparent;")
         self._text_label.setText("")
@@ -360,10 +395,12 @@ class FloatingWindow(QWidget):
             logger.exception(f"force_to_top failed: {e}")
 
     def show_recognizing(self):
-        self._cancel_hide_timer()
+        self._cancel_all_timers()
         self._status_label.setText(t("recognizing"))
         self._status_label.setStyleSheet("color: #FFB347; background: transparent;")
         self._wave_widget.set_mode("recognizing")
+        # 确保动画在运行（可能之前被停止了）
+        self._wave_widget.start_animation()
 
     def update_partial_result(self, text: str):
         if text:
@@ -373,10 +410,10 @@ class FloatingWindow(QWidget):
                 background: transparent;
             """)
             # Auto scroll to see latest text
-            QTimer.singleShot(10, self._scroll_to_bottom)
+            self._schedule_scroll()
 
     def show_result(self, text: str):
-        self._cancel_hide_timer()
+        self._cancel_all_timers()
         logger.info(f"FloatingWindow.show_result called: {text[:50]}...")
         self._status_label.setText(t("done"))
         self._status_label.setStyleSheet("color: #00E676; background: transparent;")
@@ -386,17 +423,13 @@ class FloatingWindow(QWidget):
             background: transparent;
         """)
         self._wave_widget.set_mode("done")
-        QTimer.singleShot(10, self._scroll_to_bottom)
+        self._schedule_scroll()
         # Stop animation after brief transition to show "done" color
-        QTimer.singleShot(500, self._wave_widget.stop_animation)
-        # Display time based on text length, then hide
-        # 缩短显示时间：最短500ms，最长2000ms
+        self._schedule_stop_animation(500)
+        # Display time based on text length, then hide (500ms ~ 2000ms)
         display_time = max(500, min(2000, 300 + len(text) * 10))
         logger.info(f"FloatingWindow: Will hide in {display_time}ms")
-        self._hide_timer = QTimer(self)  # 设置 parent 防止被垃圾回收
-        self._hide_timer.setSingleShot(True)
-        self._hide_timer.timeout.connect(self._do_hide)
-        self._hide_timer.start(display_time)
+        self._schedule_hide(display_time)
 
     def _do_hide(self):
         """执行隐藏操作"""
@@ -404,7 +437,7 @@ class FloatingWindow(QWidget):
         self.hide()
 
     def show_error(self, error: str):
-        self._cancel_hide_timer()
+        self._cancel_all_timers()
         logger.info(f"FloatingWindow.show_error called: {error}")
         self._status_label.setText(t("error"))
         self._status_label.setStyleSheet("color: #FF5252; background: transparent;")
@@ -412,12 +445,9 @@ class FloatingWindow(QWidget):
         self._text_label.setStyleSheet("color: rgba(255,255,255,0.7); background: transparent;")
         self._wave_widget.set_mode("error")
         # Stop animation after brief transition to show "error" color
-        QTimer.singleShot(500, self._wave_widget.stop_animation)
+        self._schedule_stop_animation(500)
         logger.info("FloatingWindow: Will hide error in 2000ms")
-        self._hide_timer = QTimer(self)  # 设置 parent 防止被垃圾回收
-        self._hide_timer.setSingleShot(True)
-        self._hide_timer.timeout.connect(self._do_hide)
-        self._hide_timer.start(2000)
+        self._schedule_hide(2000)
 
     def update_audio_level(self, level: float):
         self._wave_widget.set_audio_level(level * 3)
@@ -439,5 +469,5 @@ class FloatingWindow(QWidget):
     def hideEvent(self, event):
         logger.info("FloatingWindow hiding")
         self._wave_widget.stop_animation()
-        self._cancel_hide_timer()
+        self._cancel_all_timers()
         super().hideEvent(event)
