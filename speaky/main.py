@@ -377,7 +377,11 @@ class SpeakyApp:
             self._signals.ai_recognition_done.emit(text)
         else:
             logger.info("[识别完成] 普通模式，100ms后输入文本")
-            QTimer.singleShot(100, lambda: input_method.type_text(text))
+            # 在后台线程执行输入，避免阻塞主线程导致定时器延迟
+            def do_type():
+                time.sleep(0.1)  # 等待 100ms
+                input_method.type_text(text)
+            threading.Thread(target=do_type, daemon=True).start()
 
     def _on_recognition_error(self, error: str):
         logger.info(f"[识别错误] {error}")
