@@ -202,7 +202,8 @@ class SpeakyApp:
         self._signals.stop_recording.emit()
 
     def _on_start_recording(self):
-        logger.info("Starting recording, showing floating window")
+        self._recording_start_time = time.time()
+        logger.info(f"[按键按下] 开始录音，显示浮窗")
         self._floating_window.show_recording()
 
         # Check if we should use real-time streaming
@@ -214,25 +215,39 @@ class SpeakyApp:
         )
 
         if use_realtime:
-            logger.info("Using real-time streaming ASR")
+            logger.info(f"[流式识别] 使用实时流式 ASR")
             # Track if final result was received via callback
             self._realtime_final_received = False
+            self._first_partial_received = False
+
+            def on_partial_callback(text):
+                if not self._first_partial_received:
+                    self._first_partial_received = True
+                    elapsed = time.time() - self._recording_start_time
+                    logger.info(f"[首次识别结果] 耗时 {elapsed:.2f}s: {text[:30] if text else 'None'}...")
+                self._signals.partial_result.emit(text)
 
             def on_final_callback(text):
                 self._realtime_final_received = True
-                logger.info(f"on_final callback called with text: {repr(text[:50]) if text else 'None'}")
-                logger.info(f"on_final callback: emitting recognition_done signal")
+                elapsed = time.time() - self._recording_start_time
+                logger.info(f"[最终识别结果] 耗时 {elapsed:.2f}s: {repr(text[:50]) if text else 'None'}")
                 self._signals.recognition_done.emit(text)
-                logger.info(f"on_final callback: signal emitted")
 
             # Create and start real-time session
+            t0 = time.time()
+            logger.info(f"[创建会话] 开始创建实时会话...")
             self._realtime_session = self._engine.create_realtime_session(
                 language=config.language,
-                on_partial=lambda text: self._signals.partial_result.emit(text),
+                on_partial=on_partial_callback,
                 on_final=on_final_callback,
                 on_error=lambda err: self._signals.recognition_error.emit(err),
             )
+            logger.info(f"[创建会话] 会话创建完成，耗时 {time.time()-t0:.3f}s")
+
+            t0 = time.time()
+            logger.info(f"[启动会话] 开始启动会话...")
             self._realtime_session.start()
+            logger.info(f"[启动会话] 会话启动完成，耗时 {time.time()-t0:.3f}s")
 
             # Set up audio data callback to feed real-time session
             def on_audio_data(data: bytes):
@@ -245,6 +260,7 @@ class SpeakyApp:
             self._recorder.set_audio_data_callback(None)
 
         self._recorder.start()
+        logger.info(f"[录音开始] 录音器已启动，总初始化耗时 {time.time()-self._recording_start_time:.3f}s")
 
     def _on_stop_recording(self):
         logger.info("Stopping recording")

@@ -151,11 +151,15 @@ class VolcBigModelEngine(BaseEngine):
 
     def warmup(self):
         """Pre-initialize connection for faster first request."""
-        logger.info("Warming up connection...")
+        import time as _time
+        t0 = _time.time()
+        logger.info("[引擎预热] 开始预热连接...")
         manager = self._get_connection_manager()
         manager.ensure_ready()
+        logger.info(f"[引擎预热] ConnectionManager 就绪，耗时 {_time.time()-t0:.2f}s")
         # Pre-warm WebSocket connection
         manager.warmup_websocket()
+        logger.info(f"[引擎预热] 已启动 WebSocket 预热任务")
 
     def transcribe(self, audio_data: bytes, language: str = "zh") -> str:
         loop = asyncio.new_event_loop()
@@ -493,16 +497,19 @@ class VolcConnectionManager:
             return
 
         def run_loop():
+            import time as _time
+            t0 = _time.time()
             self._loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self._loop)
 
             # Create persistent session
             async def setup():
                 self._session = aiohttp.ClientSession()
-                logger.info("ConnectionManager: aiohttp session created")
+                logger.info(f"[ConnectionManager] aiohttp session 创建完成，耗时 {_time.time()-t0:.2f}s")
 
             self._loop.run_until_complete(setup())
             self._is_ready.set()
+            logger.info(f"[ConnectionManager] 事件循环就绪")
 
             # Keep loop running
             self._loop.run_forever()
@@ -518,7 +525,7 @@ class VolcConnectionManager:
 
         self._loop_thread = threading.Thread(target=run_loop, daemon=True)
         self._loop_thread.start()
-        logger.info("ConnectionManager: background loop started")
+        logger.info("[ConnectionManager] 后台事件循环线程已启动")
 
     def ensure_ready(self):
         """Ensure the connection manager is ready."""
@@ -558,14 +565,17 @@ class VolcConnectionManager:
         presses the hotkey, the connection is already ready.
         """
         if self._warming_up:
+            logger.info("[WebSocket预热] 已在预热中，跳过")
             return
         self._warming_up = True
         self._warm_ws_ready.clear()
 
         async def do_warmup():
+            import time as _time
+            t0 = _time.time()
             try:
                 headers = self.get_headers()
-                logger.info(f"Warming up WebSocket connection to {self._ws_url}")
+                logger.info(f"[WebSocket预热] 开始连接 {self._ws_url}")
                 ws = await self._session.ws_connect(
                     self._ws_url,
                     headers=headers,
@@ -573,9 +583,9 @@ class VolcConnectionManager:
                 )
                 self._warm_ws = ws
                 self._warm_ws_ready.set()
-                logger.info("WebSocket connection pre-warmed and ready")
+                logger.info(f"[WebSocket预热] 连接就绪，耗时 {_time.time()-t0:.2f}s")
             except Exception as e:
-                logger.error(f"WebSocket warmup failed: {e}")
+                logger.error(f"[WebSocket预热] 连接失败: {e}，耗时 {_time.time()-t0:.2f}s")
                 self._warming_up = False
 
         self.run_coroutine(do_warmup())
@@ -702,48 +712,57 @@ class VolcRealtimeSession(RealtimeSession):
 
     async def _session_loop(self):
         """Main async session loop."""
+        import time as _time
+        session_start = _time.time()
         ws = None
         use_warm_ws = False
 
         # Try to get pre-warmed WebSocket (non-blocking check)
-        if self._manager._warm_ws_ready.is_set():
+        warm_ready = self._manager._warm_ws_ready.is_set()
+        logger.info(f"[会话循环] 检查预热连接: ready={warm_ready}, warming_up={self._manager._warming_up}")
+
+        if warm_ready:
             ws = self._manager._warm_ws
             self._manager._warm_ws = None
             self._manager._warm_ws_ready.clear()
             self._manager._warming_up = False
             use_warm_ws = True
-            logger.info("Using pre-warmed WebSocket connection")
+            logger.info(f"[会话循环] 使用预热的 WebSocket 连接")
             # Start warming up next connection
             self._manager.warmup_websocket()
 
         try:
             if ws is None:
                 # No pre-warmed connection, create new one
+                t0 = _time.time()
                 headers = self._manager.get_headers()
-                logger.info(f"Connecting to {self._manager.ws_url} (no warm connection)")
+                logger.info(f"[会话循环] 无预热连接，开始新建连接...")
                 ws = await self._manager.session.ws_connect(
                     self._manager.ws_url,
                     headers=headers,
                     heartbeat=30,
                 )
-                logger.info("WebSocket connected (new connection)")
+                logger.info(f"[会话循环] 新建连接完成，耗时 {_time.time()-t0:.2f}s")
 
             # Send initial full request
+            t0 = _time.time()
             full_request = self._build_full_request()
             await ws.send_bytes(full_request)
             self._seq += 1
-            logger.info("Sent initial full request")
+            logger.info(f"[会话循环] 发送初始请求完成，耗时 {_time.time()-t0:.3f}s")
 
             # Wait for initial response
+            t0 = _time.time()
             msg = await ws.receive()
             if msg.type == aiohttp.WSMsgType.BINARY:
                 resp = parse_response(msg.data)
                 if resp["code"] != 0:
-                    logger.error(f"Initial request failed: {resp}")
+                    logger.error(f"[会话循环] 初始请求失败: {resp}")
                     if self._on_error:
                         self._on_error(f"Connection failed: {resp}")
                     return
-                logger.info("Initial response received, starting audio streaming")
+                logger.info(f"[会话循环] 收到初始响应，耗时 {_time.time()-t0:.3f}s，开始音频流")
+                logger.info(f"[会话循环] 会话就绪，总耗时 {_time.time()-session_start:.2f}s")
 
             # Start sender and receiver tasks
             sender_task = asyncio.create_task(self._send_audio_loop(ws))
@@ -753,7 +772,7 @@ class VolcRealtimeSession(RealtimeSession):
             await asyncio.gather(sender_task, receiver_task)
 
         except Exception as e:
-            logger.error(f"WebSocket error: {e}", exc_info=True)
+            logger.error(f"[会话循环] WebSocket 错误: {e}", exc_info=True)
             if self._on_error:
                 self._on_error(str(e))
         finally:
