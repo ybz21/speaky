@@ -839,7 +839,7 @@ class VolcRealtimeSession(RealtimeSession):
                         await self._send_audio_packet(ws, bytes(audio_buffer), is_last=True)
                     else:
                         await self._send_audio_packet(ws, b"", is_last=True)
-                    logger.info("Sent last audio packet")
+                    logger.info(f"[音频发送] 发送最后一个音频包，总共发送 {self._seq} 个包")
                     break
 
                 audio_buffer.extend(audio_data)
@@ -853,7 +853,7 @@ class VolcRealtimeSession(RealtimeSession):
             except Empty:
                 continue
             except Exception as e:
-                logger.error(f"Send error: {e}")
+                logger.error(f"[音频发送] 发送错误: {e}")
                 break
 
     async def _send_audio_packet(self, ws, audio_data: bytes, is_last: bool):
@@ -880,18 +880,23 @@ class VolcRealtimeSession(RealtimeSession):
         request.extend(compressed)
 
         await ws.send_bytes(bytes(request))
-        logger.debug(f"Sent audio packet: seq={seq}, size={len(audio_data)}, last={is_last}")
+        if is_last or seq % 10 == 0:  # 每10个包或最后一个包记录日志
+            logger.debug(f"[音频发送] seq={seq}, 原始={len(audio_data)}字节, 压缩={len(compressed)}字节, last={is_last}")
 
     async def _receive_loop(self, ws):
         """Receive results from WebSocket."""
+        import time as _time
+        first_result_time = None
+        result_count = 0
+        loop_start = _time.time()
+
         try:
             async for msg in ws:
                 if msg.type == aiohttp.WSMsgType.BINARY:
                     resp = parse_response(msg.data)
-                    logger.debug(f"Received: seq={resp['sequence']}, last={resp['is_last']}")
 
                     if resp["code"] != 0:
-                        logger.error(f"Error response: {resp}")
+                        logger.error(f"[识别接收] 错误响应: code={resp['code']}")
                         if self._on_error:
                             self._on_error(f"ASR error: {resp['code']}")
                         break
@@ -908,24 +913,28 @@ class VolcRealtimeSession(RealtimeSession):
                                 text = ""
 
                             if text:
+                                result_count += 1
+                                if first_result_time is None:
+                                    first_result_time = _time.time()
+                                    logger.info(f"[识别接收] 首次结果，延迟 {first_result_time - loop_start:.2f}s: {text[:30]}...")
                                 self._result_text = text
-                                logger.debug(f"Partial result: {text}")
                                 if self._on_partial:
                                     self._on_partial(text)
 
                     if resp["is_last"]:
-                        logger.info(f"Final result: {self._result_text}")
+                        elapsed = _time.time() - loop_start
+                        logger.info(f"[识别接收] 最终结果，总耗时 {elapsed:.2f}s，收到 {result_count} 次结果: {self._result_text[:50] if self._result_text else 'None'}...")
                         self._final_received = True
                         if self._on_final:
                             self._on_final(self._result_text)
                         break
 
                 elif msg.type in (aiohttp.WSMsgType.ERROR, aiohttp.WSMsgType.CLOSED):
-                    logger.warning(f"WebSocket closed: {msg.type}")
+                    logger.warning(f"[识别接收] WebSocket 关闭: {msg.type}")
                     break
 
         except Exception as e:
-            logger.error(f"Receive error: {e}", exc_info=True)
+            logger.error(f"[识别接收] 错误: {e}", exc_info=True)
 
     def _build_full_request(self) -> bytes:
         """Build full client request."""

@@ -90,6 +90,7 @@ class WaveOrbWidget(QWidget):
         self._target_level = min(1.0, max(0.0, level))
 
     def set_mode(self, mode: str):
+        logger.info(f"[动画] 切换模式: {self._mode} -> {mode}")
         self._mode = mode
         # Set target colors for smooth transition
         colors = self._colors.get(mode, self._colors["idle"])
@@ -98,10 +99,13 @@ class WaveOrbWidget(QWidget):
 
     def start_animation(self):
         if not self._is_animating:
+            logger.info(f"[动画] 启动动画 (模式={self._mode})")
             self._is_animating = True
             self._timer.start(33)  # ~30 FPS
 
     def stop_animation(self):
+        if self._is_animating:
+            logger.info(f"[动画] 停止动画 (模式={self._mode})")
         self._is_animating = False
         self._timer.stop()
         self._audio_level = 0.0
@@ -364,10 +368,11 @@ class FloatingWindow(QWidget):
 
     def _do_stop_animation(self):
         """执行停止动画"""
-        logger.info("_do_stop_animation called")
+        logger.info("[浮窗] 定时器触发：停止动画")
         self._wave_widget.stop_animation()
 
     def show_recording(self):
+        logger.info("[浮窗] 显示录音状态")
         self._cancel_all_timers()
         self._status_label.setText(t("listening"))
         self._status_label.setStyleSheet("color: #00D4FF; background: transparent;")
@@ -385,15 +390,16 @@ class FloatingWindow(QWidget):
             if platform.system() == "Windows":
                 # Get native window handle
                 hwnd = int(self.winId())
-                logger.debug(f"force_to_top: hwnd={hwnd}, visible={self.isVisible()}")
+                logger.debug(f"[浮窗] 置顶窗口: hwnd={hwnd}")
                 force_window_to_top(hwnd)
             else:
                 self.raise_()
                 self.activateWindow()
         except Exception as e:
-            logger.exception(f"force_to_top failed: {e}")
+            logger.exception(f"[浮窗] 置顶失败: {e}")
 
     def show_recognizing(self):
+        logger.info("[浮窗] 显示识别中状态")
         self._cancel_all_timers()
         self._status_label.setText(t("recognizing"))
         self._status_label.setStyleSheet("color: #FFB347; background: transparent;")
@@ -403,6 +409,7 @@ class FloatingWindow(QWidget):
 
     def update_partial_result(self, text: str):
         if text:
+            logger.debug(f"[浮窗] 更新部分结果: {text[:30]}...")
             self._text_label.setText(text)
             self._text_label.setStyleSheet("""
                 color: #FFE066;
@@ -413,7 +420,9 @@ class FloatingWindow(QWidget):
 
     def show_result(self, text: str):
         self._cancel_all_timers()
-        logger.info(f"FloatingWindow.show_result called: text={repr(text[:50]) if text else 'None'}...")
+        text_preview = repr(text[:50]) if text else 'None'
+        text_len = len(text) if text else 0
+        logger.info(f"[浮窗] 显示最终结果: {text_preview}... (长度={text_len})")
         self._status_label.setText(t("done"))
         self._status_label.setStyleSheet("color: #00E676; background: transparent;")
         self._text_label.setText(text)
@@ -426,18 +435,18 @@ class FloatingWindow(QWidget):
         # Stop animation after brief transition to show "done" color
         self._schedule_stop_animation(500)
         # Display time based on text length, then hide (500ms ~ 2000ms)
-        display_time = max(500, min(2000, 300 + len(text) * 10))
-        logger.info(f"FloatingWindow: Will hide in {display_time}ms")
+        display_time = max(500, min(2000, 300 + text_len * 10))
+        logger.info(f"[浮窗] 计划: 500ms后停止动画, {display_time}ms后隐藏")
         self._schedule_hide(display_time)
 
     def _do_hide(self):
         """执行隐藏操作"""
-        logger.info("FloatingWindow._do_hide called")
+        logger.info("[浮窗] 定时器触发：隐藏窗口")
         self.hide()
 
     def show_error(self, error: str):
         self._cancel_all_timers()
-        logger.info(f"FloatingWindow.show_error called: {error}")
+        logger.info(f"[浮窗] 显示错误: {error}")
         self._status_label.setText(t("error"))
         self._status_label.setStyleSheet("color: #FF5252; background: transparent;")
         self._text_label.setText(error)
@@ -445,7 +454,7 @@ class FloatingWindow(QWidget):
         self._wave_widget.set_mode("error")
         # Stop animation after brief transition to show "error" color
         self._schedule_stop_animation(500)
-        logger.info("FloatingWindow: Will hide error in 2000ms")
+        logger.info("[浮窗] 计划: 500ms后停止动画, 2000ms后隐藏")
         self._schedule_hide(2000)
 
     def update_audio_level(self, level: float):
@@ -461,12 +470,13 @@ class FloatingWindow(QWidget):
     def keyPressEvent(self, event: QKeyEvent):
         """Handle ESC key to close window"""
         if event.key() == Qt.Key.Key_Escape:
+            logger.info("[浮窗] ESC键按下，隐藏窗口")
             self.hide()
         else:
             super().keyPressEvent(event)
 
     def hideEvent(self, event):
-        logger.info("FloatingWindow hiding")
+        logger.info("[浮窗] 窗口隐藏事件触发")
         self._wave_widget.stop_animation()
         self._cancel_all_timers()
         super().hideEvent(event)

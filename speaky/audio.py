@@ -107,8 +107,10 @@ class AudioRecorder:
             logger.info(f"[录音器] 启动完成，耗时 {time.time()-t0:.3f}s")
 
     def stop(self) -> bytes:
+        t0 = time.time()
         with self._lock:
             if not self._is_recording:
+                logger.info("[录音器] 停止调用，但未在录音")
                 return b""
             self._is_recording = False
             if self._stream:
@@ -133,7 +135,11 @@ class AudioRecorder:
                 except:
                     break
 
-            return self._get_wav_data()
+            wav_data = self._get_wav_data()
+            frame_count = len(self._frames)
+            duration = frame_count * CHUNK / RATE if frame_count > 0 else 0
+            logger.info(f"[录音器] 停止完成，录制 {frame_count} 帧，时长 {duration:.2f}s，数据 {len(wav_data)} 字节，耗时 {time.time()-t0:.3f}s")
+            return wav_data
 
     def _callback(self, in_data, frame_count, time_info, status):
         """Audio callback - must be fast and non-blocking"""

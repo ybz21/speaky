@@ -265,7 +265,9 @@ class SpeakyApp:
         logger.info(f"[录音开始] 录音器已启动，总初始化耗时 {time.time()-self._recording_start_time:.3f}s")
 
     def _on_stop_recording(self):
-        logger.info("Stopping recording")
+        stop_time = time.time()
+        elapsed = stop_time - self._recording_start_time
+        logger.info(f"[按键松开] 停止录音，录音时长 {elapsed:.2f}s")
         audio_data = self._recorder.stop()
 
         # Clear audio data callback
@@ -273,7 +275,7 @@ class SpeakyApp:
 
         # Check if we were using real-time streaming
         if self._realtime_session is not None:
-            logger.info("Finishing real-time streaming session")
+            logger.info("[流式识别] 结束流式会话")
             self._floating_window.show_recognizing()
 
             # Capture session reference before starting thread
@@ -283,19 +285,20 @@ class SpeakyApp:
             def finish_realtime(sess):
                 try:
                     if sess is None:
-                        logger.warning("Real-time session is None")
+                        logger.warning("[流式识别] 会话为空")
                         if not self._realtime_final_received:
                             self._signals.recognition_error.emit(t("empty_result"))
                         return
 
                     # Add timeout wrapper for finish
                     import concurrent.futures
+                    t0 = time.time()
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         future = executor.submit(sess.finish)
                         try:
                             result = future.result(timeout=5)  # 5 second timeout
                         except concurrent.futures.TimeoutError:
-                            logger.error("Real-time finish timed out")
+                            logger.error(f"[流式识别] 等待结果超时 (5s)")
                             sess.cancel()
                             if not self._realtime_final_received:
                                 self._signals.recognition_error.emit("识别超时")
@@ -304,13 +307,13 @@ class SpeakyApp:
                     # Only emit if on_final callback wasn't called
                     if not self._realtime_final_received:
                         if result:
-                            logger.info(f"Real-time result from finish: {result}")
+                            logger.info(f"[流式识别] finish() 返回结果: {result[:50]}...")
                             self._signals.recognition_done.emit(result)
                         else:
-                            logger.warning("Real-time result is empty")
+                            logger.warning("[流式识别] finish() 返回空结果")
                             self._signals.recognition_error.emit(t("empty_result"))
                     else:
-                        logger.info("Final result already received via callback")
+                        logger.info(f"[流式识别] 已通过回调收到结果，finish() 耗时 {time.time()-t0:.2f}s")
                 except Exception as e:
                     logger.error(f"Real-time finish error: {e}", exc_info=True)
                     if not self._realtime_final_received:
@@ -362,18 +365,22 @@ class SpeakyApp:
         threading.Thread(target=recognize, daemon=True).start()
 
     def _on_recognition_done(self, text: str):
-        logger.info(f"_on_recognition_done called, ai_mode={self._ai_mode}, text={text[:50] if text else 'None'}...")
+        elapsed = time.time() - self._recording_start_time
+        text_preview = text[:50] if text else 'None'
+        text_len = len(text) if text else 0
+        logger.info(f"[识别完成] 总耗时 {elapsed:.2f}s，文本长度={text_len}: {text_preview}...")
         self._floating_window.show_result(text)
         # Check if we're in AI mode
         if self._ai_mode:
-            logger.info("AI mode: Emitting ai_recognition_done signal")
+            logger.info("[识别完成] AI模式，发送 ai_recognition_done 信号")
             self._ai_mode = False
             self._signals.ai_recognition_done.emit(text)
         else:
-            logger.info("Normal mode: Scheduling type_text")
+            logger.info("[识别完成] 普通模式，100ms后输入文本")
             QTimer.singleShot(100, lambda: input_method.type_text(text))
 
     def _on_recognition_error(self, error: str):
+        logger.info(f"[识别错误] {error}")
         self._floating_window.show_error(error)
         self._ai_mode = False  # Reset AI mode on error
 
