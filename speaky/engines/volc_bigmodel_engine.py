@@ -825,46 +825,10 @@ class VolcRealtimeSession(RealtimeSession):
             if ws and not ws.closed:
                 await ws.close()
 
-    def _build_wav_header(self, data_size: int = 0) -> bytes:
-        """Build a WAV header for streaming PCM data.
-
-        For streaming, we use a placeholder data_size since we don't know
-        the final size upfront. The server should handle this.
-        """
-        import struct
-        # WAV header for 16kHz, 16-bit, mono PCM
-        sample_rate = self.SAMPLE_RATE
-        bits_per_sample = self.SAMPLE_WIDTH * 8
-        num_channels = self.CHANNELS
-        byte_rate = sample_rate * num_channels * self.SAMPLE_WIDTH
-        block_align = num_channels * self.SAMPLE_WIDTH
-
-        # Use a large placeholder size for streaming (server should ignore)
-        if data_size == 0:
-            data_size = 0x7FFFFFFF  # Max int32, indicates streaming
-
-        header = bytearray()
-        header.extend(b'RIFF')
-        header.extend(struct.pack('<I', data_size + 36))  # File size - 8
-        header.extend(b'WAVE')
-        header.extend(b'fmt ')
-        header.extend(struct.pack('<I', 16))  # fmt chunk size
-        header.extend(struct.pack('<H', 1))   # Audio format (1 = PCM)
-        header.extend(struct.pack('<H', num_channels))
-        header.extend(struct.pack('<I', sample_rate))
-        header.extend(struct.pack('<I', byte_rate))
-        header.extend(struct.pack('<H', block_align))
-        header.extend(struct.pack('<H', bits_per_sample))
-        header.extend(b'data')
-        header.extend(struct.pack('<I', data_size))
-
-        return bytes(header)
-
     async def _send_audio_loop(self, ws):
         """Send audio data from queue to WebSocket."""
         audio_buffer = bytearray()
         bytes_per_200ms = self.SAMPLE_RATE * self.CHANNELS * self.SAMPLE_WIDTH * 200 // 1000
-        first_packet = True  # Track if this is the first audio packet
         logger.info(f"[音频发送] 开始发送循环，每包 {bytes_per_200ms} 字节 (200ms)")
 
         while self._is_running:
@@ -890,14 +854,6 @@ class VolcRealtimeSession(RealtimeSession):
                 while len(audio_buffer) >= bytes_per_200ms:
                     chunk = bytes(audio_buffer[:bytes_per_200ms])
                     audio_buffer = audio_buffer[bytes_per_200ms:]
-
-                    # Prepend WAV header to first packet
-                    if first_packet:
-                        wav_header = self._build_wav_header()
-                        chunk = wav_header + chunk
-                        first_packet = False
-                        logger.info(f"[音频发送] 首个包添加 WAV 头 ({len(wav_header)} 字节)")
-
                     await self._send_audio_packet(ws, chunk, is_last=False)
 
             except Empty:
@@ -1010,7 +966,7 @@ class VolcRealtimeSession(RealtimeSession):
         payload = {
             "user": {"uid": "speaky"},
             "audio": {
-                "format": "wav",  # 使用 wav 格式，首个音频包会包含 WAV 头
+                "format": "pcm",
                 "codec": "raw",
                 "rate": self.SAMPLE_RATE,
                 "bits": self.SAMPLE_WIDTH * 8,
