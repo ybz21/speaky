@@ -436,8 +436,8 @@ class FloatingWindow(QWidget):
         self._schedule_scroll()
         # Stop animation after brief transition to show "done" color
         self._schedule_stop_animation(500)
-        # 固定显示 1 秒后隐藏
-        display_time = 1000
+        # 固定显示 500ms 后隐藏
+        display_time = 500
         logger.info(f"[浮窗] 计划: 500ms后停止动画, {display_time}ms后隐藏")
         self._schedule_hide(display_time)
 
