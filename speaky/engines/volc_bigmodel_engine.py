@@ -142,12 +142,11 @@ class VolcBigModelEngine(BaseEngine):
     def _get_connection_manager(self) -> "VolcConnectionManager":
         """Get or create connection manager for persistent connections."""
         if self._connection_manager is None:
-            # 使用 bigmodel_nostream 端点，与非流式模式一致
-            # bigmodel_async 在音量较低时可能不返回结果
+            # 使用 bigmodel_async 端点实现真正的流式输出
             self._connection_manager = VolcConnectionManager(
                 app_key=self._app_key,
                 access_key=self._access_key,
-                ws_url=self._ws_url_nostream,
+                ws_url=self._ws_url_async,
             )
         return self._connection_manager
 
@@ -827,10 +826,41 @@ class VolcRealtimeSession(RealtimeSession):
             if ws and not ws.closed:
                 await ws.close()
 
+    def _build_wav_header(self, data_size: int = 0) -> bytes:
+        """Build a WAV header for streaming PCM data."""
+        # WAV header for 16kHz, 16-bit, mono PCM
+        sample_rate = self.SAMPLE_RATE
+        bits_per_sample = self.SAMPLE_WIDTH * 8
+        num_channels = self.CHANNELS
+        byte_rate = sample_rate * num_channels * self.SAMPLE_WIDTH
+        block_align = num_channels * self.SAMPLE_WIDTH
+
+        # Use a large placeholder size for streaming
+        if data_size == 0:
+            data_size = 0x7FFFFFFF
+
+        header = bytearray()
+        header.extend(b'RIFF')
+        header.extend(struct.pack('<I', data_size + 36))
+        header.extend(b'WAVE')
+        header.extend(b'fmt ')
+        header.extend(struct.pack('<I', 16))
+        header.extend(struct.pack('<H', 1))  # PCM
+        header.extend(struct.pack('<H', num_channels))
+        header.extend(struct.pack('<I', sample_rate))
+        header.extend(struct.pack('<I', byte_rate))
+        header.extend(struct.pack('<H', block_align))
+        header.extend(struct.pack('<H', bits_per_sample))
+        header.extend(b'data')
+        header.extend(struct.pack('<I', data_size))
+
+        return bytes(header)
+
     async def _send_audio_loop(self, ws):
         """Send audio data from queue to WebSocket."""
         audio_buffer = bytearray()
         bytes_per_200ms = self.SAMPLE_RATE * self.CHANNELS * self.SAMPLE_WIDTH * 200 // 1000
+        first_packet = True
         logger.info(f"[音频发送] 开始发送循环，每包 {bytes_per_200ms} 字节 (200ms)")
 
         while self._is_running:
@@ -856,6 +886,14 @@ class VolcRealtimeSession(RealtimeSession):
                 while len(audio_buffer) >= bytes_per_200ms:
                     chunk = bytes(audio_buffer[:bytes_per_200ms])
                     audio_buffer = audio_buffer[bytes_per_200ms:]
+
+                    # 首个包添加 WAV 头
+                    if first_packet:
+                        wav_header = self._build_wav_header()
+                        chunk = wav_header + chunk
+                        first_packet = False
+                        logger.info(f"[音频发送] 首个包添加 WAV 头 ({len(wav_header)} 字节)")
+
                     await self._send_audio_packet(ws, chunk, is_last=False)
 
             except Empty:
@@ -968,7 +1006,7 @@ class VolcRealtimeSession(RealtimeSession):
         payload = {
             "user": {"uid": "speaky"},
             "audio": {
-                "format": "pcm",
+                "format": "wav",  # 首个音频包包含 WAV 头
                 "codec": "raw",
                 "rate": self.SAMPLE_RATE,
                 "bits": self.SAMPLE_WIDTH * 8,
