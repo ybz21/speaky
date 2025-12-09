@@ -223,7 +223,7 @@ class FloatingWindow(QWidget):
         # 停止动画定时器
         self._stop_animation_timer = QTimer(self)
         self._stop_animation_timer.setSingleShot(True)
-        # timeout 连接会在后面动态设置
+        self._stop_animation_timer.timeout.connect(self._do_stop_animation)
 
         # 滚动定时器
         self._scroll_timer = QTimer(self)
@@ -360,13 +360,12 @@ class FloatingWindow(QWidget):
 
     def _schedule_stop_animation(self, delay_ms: int = 500):
         """安排延迟停止动画"""
-        # 断开旧连接，重新连接（确保只有一个连接）
-        try:
-            self._stop_animation_timer.timeout.disconnect()
-        except RuntimeError:
-            pass  # 没有连接时会抛出异常
-        self._stop_animation_timer.timeout.connect(self._wave_widget.stop_animation)
         self._stop_animation_timer.start(delay_ms)
+
+    def _do_stop_animation(self):
+        """执行停止动画"""
+        logger.info("_do_stop_animation called")
+        self._wave_widget.stop_animation()
 
     def show_recording(self):
         self._cancel_all_timers()
@@ -414,7 +413,7 @@ class FloatingWindow(QWidget):
 
     def show_result(self, text: str):
         self._cancel_all_timers()
-        logger.info(f"FloatingWindow.show_result called: {text[:50]}...")
+        logger.info(f"FloatingWindow.show_result called: text={repr(text[:50]) if text else 'None'}...")
         self._status_label.setText(t("done"))
         self._status_label.setStyleSheet("color: #00E676; background: transparent;")
         self._text_label.setText(text)

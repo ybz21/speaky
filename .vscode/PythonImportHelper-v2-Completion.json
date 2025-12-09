@@ -1,0 +1,2175 @@
+[
+    {
+        "label": "runpy",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "runpy",
+        "description": "runpy",
+        "detail": "runpy",
+        "documentation": {}
+    },
+    {
+        "label": "annotations",
+        "importPath": "__future__",
+        "description": "__future__",
+        "isExtraImport": true,
+        "detail": "__future__",
+        "documentation": {}
+    },
+    {
+        "label": "os",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "os",
+        "description": "os",
+        "detail": "os",
+        "documentation": {}
+    },
+    {
+        "label": "site",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "site",
+        "description": "site",
+        "detail": "site",
+        "documentation": {}
+    },
+    {
+        "label": "sys",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "sys",
+        "description": "sys",
+        "detail": "sys",
+        "documentation": {}
+    },
+    {
+        "label": "subprocess",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "subprocess",
+        "description": "subprocess",
+        "detail": "subprocess",
+        "documentation": {}
+    },
+    {
+        "label": "asyncio",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "asyncio",
+        "description": "asyncio",
+        "detail": "asyncio",
+        "documentation": {}
+    },
+    {
+        "label": "aiohttp",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "aiohttp",
+        "description": "aiohttp",
+        "detail": "aiohttp",
+        "documentation": {}
+    },
+    {
+        "label": "json",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "json",
+        "description": "json",
+        "detail": "json",
+        "documentation": {}
+    },
+    {
+        "label": "struct",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "struct",
+        "description": "struct",
+        "detail": "struct",
+        "documentation": {}
+    },
+    {
+        "label": "gzip",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "gzip",
+        "description": "gzip",
+        "detail": "gzip",
+        "documentation": {}
+    },
+    {
+        "label": "uuid",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "uuid",
+        "description": "uuid",
+        "detail": "uuid",
+        "documentation": {}
+    },
+    {
+        "label": "logging",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "logging",
+        "description": "logging",
+        "detail": "logging",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "AsyncGenerator",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Callable",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "AsyncIterator",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Callable",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Callable",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Callable",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "time",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "time",
+        "description": "time",
+        "detail": "time",
+        "documentation": {}
+    },
+    {
+        "label": "threading",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "threading",
+        "description": "threading",
+        "detail": "threading",
+        "documentation": {}
+    },
+    {
+        "label": "VolcBigModelEngine",
+        "importPath": "speaky.engines.volc_bigmodel_engine",
+        "description": "speaky.engines.volc_bigmodel_engine",
+        "isExtraImport": true,
+        "detail": "speaky.engines.volc_bigmodel_engine",
+        "documentation": {}
+    },
+    {
+        "label": "VolcBigModelEngine",
+        "importPath": "speaky.engines.volc_bigmodel_engine",
+        "description": "speaky.engines.volc_bigmodel_engine",
+        "isExtraImport": true,
+        "detail": "speaky.engines.volc_bigmodel_engine",
+        "documentation": {}
+    },
+    {
+        "label": "VolcBigModelEngine",
+        "importPath": "speaky.engines.volc_bigmodel_engine",
+        "description": "speaky.engines.volc_bigmodel_engine",
+        "isExtraImport": true,
+        "detail": "speaky.engines.volc_bigmodel_engine",
+        "documentation": {}
+    },
+    {
+        "label": "AudioRecorder",
+        "importPath": "speaky.audio",
+        "description": "speaky.audio",
+        "isExtraImport": true,
+        "detail": "speaky.audio",
+        "documentation": {}
+    },
+    {
+        "label": "wave",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "wave",
+        "description": "wave",
+        "detail": "wave",
+        "documentation": {}
+    },
+    {
+        "label": "math",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "math",
+        "description": "math",
+        "detail": "math",
+        "documentation": {}
+    },
+    {
+        "label": "QApplication",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QTimer",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "FloatingWindow",
+        "importPath": "speaky.ui.floating_window",
+        "description": "speaky.ui.floating_window",
+        "isExtraImport": true,
+        "detail": "speaky.ui.floating_window",
+        "documentation": {}
+    },
+    {
+        "label": "requests",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "requests",
+        "description": "requests",
+        "detail": "requests",
+        "documentation": {}
+    },
+    {
+        "label": "ABC",
+        "importPath": "abc",
+        "description": "abc",
+        "isExtraImport": true,
+        "detail": "abc",
+        "documentation": {}
+    },
+    {
+        "label": "abstractmethod",
+        "importPath": "abc",
+        "description": "abc",
+        "isExtraImport": true,
+        "detail": "abc",
+        "documentation": {}
+    },
+    {
+        "label": "io",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "io",
+        "description": "io",
+        "detail": "io",
+        "documentation": {}
+    },
+    {
+        "label": "BytesIO",
+        "importPath": "io",
+        "description": "io",
+        "isExtraImport": true,
+        "detail": "io",
+        "documentation": {}
+    },
+    {
+        "label": "Queue",
+        "importPath": "queue",
+        "description": "queue",
+        "isExtraImport": true,
+        "detail": "queue",
+        "documentation": {}
+    },
+    {
+        "label": "Empty",
+        "importPath": "queue",
+        "description": "queue",
+        "isExtraImport": true,
+        "detail": "queue",
+        "documentation": {}
+    },
+    {
+        "label": "Queue",
+        "importPath": "queue",
+        "description": "queue",
+        "isExtraImport": true,
+        "detail": "queue",
+        "documentation": {}
+    },
+    {
+        "label": "Full",
+        "importPath": "queue",
+        "description": "queue",
+        "isExtraImport": true,
+        "detail": "queue",
+        "documentation": {}
+    },
+    {
+        "label": "base64",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "base64",
+        "description": "base64",
+        "detail": "base64",
+        "documentation": {}
+    },
+    {
+        "label": "websockets",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "websockets",
+        "description": "websockets",
+        "detail": "websockets",
+        "documentation": {}
+    },
+    {
+        "label": "tempfile",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "tempfile",
+        "description": "tempfile",
+        "detail": "tempfile",
+        "documentation": {}
+    },
+    {
+        "label": "platform",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "platform",
+        "description": "platform",
+        "detail": "platform",
+        "documentation": {}
+    },
+    {
+        "label": "QWidget",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QLabel",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QVBoxLayout",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QHBoxLayout",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QGraphicsDropShadowEffect",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QScrollArea",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QSizePolicy",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QWidget",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QVBoxLayout",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QHBoxLayout",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QStackedWidget",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QLabel",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QScrollArea",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QFrame",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QSystemTrayIcon",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QMenu",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QApplication",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QApplication",
+        "importPath": "PySide6.QtWidgets",
+        "description": "PySide6.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PySide6.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "Qt",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "Signal",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QTimer",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QPointF",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "Qt",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "Signal",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "Signal",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QObject",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QObject",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "Signal",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QTimer",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QPainter",
+        "importPath": "PySide6.QtGui",
+        "description": "PySide6.QtGui",
+        "isExtraImport": true,
+        "detail": "PySide6.QtGui",
+        "documentation": {}
+    },
+    {
+        "label": "QColor",
+        "importPath": "PySide6.QtGui",
+        "description": "PySide6.QtGui",
+        "isExtraImport": true,
+        "detail": "PySide6.QtGui",
+        "documentation": {}
+    },
+    {
+        "label": "QPainterPath",
+        "importPath": "PySide6.QtGui",
+        "description": "PySide6.QtGui",
+        "isExtraImport": true,
+        "detail": "PySide6.QtGui",
+        "documentation": {}
+    },
+    {
+        "label": "QRadialGradient",
+        "importPath": "PySide6.QtGui",
+        "description": "PySide6.QtGui",
+        "isExtraImport": true,
+        "detail": "PySide6.QtGui",
+        "documentation": {}
+    },
+    {
+        "label": "QPen",
+        "importPath": "PySide6.QtGui",
+        "description": "PySide6.QtGui",
+        "isExtraImport": true,
+        "detail": "PySide6.QtGui",
+        "documentation": {}
+    },
+    {
+        "label": "QFont",
+        "importPath": "PySide6.QtGui",
+        "description": "PySide6.QtGui",
+        "isExtraImport": true,
+        "detail": "PySide6.QtGui",
+        "documentation": {}
+    },
+    {
+        "label": "QKeyEvent",
+        "importPath": "PySide6.QtGui",
+        "description": "PySide6.QtGui",
+        "isExtraImport": true,
+        "detail": "PySide6.QtGui",
+        "documentation": {}
+    },
+    {
+        "label": "QIcon",
+        "importPath": "PySide6.QtGui",
+        "description": "PySide6.QtGui",
+        "isExtraImport": true,
+        "detail": "PySide6.QtGui",
+        "documentation": {}
+    },
+    {
+        "label": "QIcon",
+        "importPath": "PySide6.QtGui",
+        "description": "PySide6.QtGui",
+        "isExtraImport": true,
+        "detail": "PySide6.QtGui",
+        "documentation": {}
+    },
+    {
+        "label": "QAction",
+        "importPath": "PySide6.QtGui",
+        "description": "PySide6.QtGui",
+        "isExtraImport": true,
+        "detail": "PySide6.QtGui",
+        "documentation": {}
+    },
+    {
+        "label": "ComboBox",
+        "importPath": "qfluentwidgets",
+        "description": "qfluentwidgets",
+        "isExtraImport": true,
+        "detail": "qfluentwidgets",
+        "documentation": {}
+    },
+    {
+        "label": "EditableComboBox",
+        "importPath": "qfluentwidgets",
+        "description": "qfluentwidgets",
+        "isExtraImport": true,
+        "detail": "qfluentwidgets",
+        "documentation": {}
+    },
+    {
+        "label": "LineEdit",
+        "importPath": "qfluentwidgets",
+        "description": "qfluentwidgets",
+        "isExtraImport": true,
+        "detail": "qfluentwidgets",
+        "documentation": {}
+    },
+    {
+        "label": "PasswordLineEdit",
+        "importPath": "qfluentwidgets",
+        "description": "qfluentwidgets",
+        "isExtraImport": true,
+        "detail": "qfluentwidgets",
+        "documentation": {}
+    },
+    {
+        "label": "PrimaryPushButton",
+        "importPath": "qfluentwidgets",
+        "description": "qfluentwidgets",
+        "isExtraImport": true,
+        "detail": "qfluentwidgets",
+        "documentation": {}
+    },
+    {
+        "label": "SwitchButton",
+        "importPath": "qfluentwidgets",
+        "description": "qfluentwidgets",
+        "isExtraImport": true,
+        "detail": "qfluentwidgets",
+        "documentation": {}
+    },
+    {
+        "label": "Slider",
+        "importPath": "qfluentwidgets",
+        "description": "qfluentwidgets",
+        "isExtraImport": true,
+        "detail": "qfluentwidgets",
+        "documentation": {}
+    },
+    {
+        "label": "DoubleSpinBox",
+        "importPath": "qfluentwidgets",
+        "description": "qfluentwidgets",
+        "isExtraImport": true,
+        "detail": "qfluentwidgets",
+        "documentation": {}
+    },
+    {
+        "label": "BodyLabel",
+        "importPath": "qfluentwidgets",
+        "description": "qfluentwidgets",
+        "isExtraImport": true,
+        "detail": "qfluentwidgets",
+        "documentation": {}
+    },
+    {
+        "label": "SubtitleLabel",
+        "importPath": "qfluentwidgets",
+        "description": "qfluentwidgets",
+        "isExtraImport": true,
+        "detail": "qfluentwidgets",
+        "documentation": {}
+    },
+    {
+        "label": "CardWidget",
+        "importPath": "qfluentwidgets",
+        "description": "qfluentwidgets",
+        "isExtraImport": true,
+        "detail": "qfluentwidgets",
+        "documentation": {}
+    },
+    {
+        "label": "FluentIcon",
+        "importPath": "qfluentwidgets",
+        "description": "qfluentwidgets",
+        "isExtraImport": true,
+        "detail": "qfluentwidgets",
+        "documentation": {}
+    },
+    {
+        "label": "MessageBox",
+        "importPath": "qfluentwidgets",
+        "description": "qfluentwidgets",
+        "isExtraImport": true,
+        "detail": "qfluentwidgets",
+        "documentation": {}
+    },
+    {
+        "label": "setTheme",
+        "importPath": "qfluentwidgets",
+        "description": "qfluentwidgets",
+        "isExtraImport": true,
+        "detail": "qfluentwidgets",
+        "documentation": {}
+    },
+    {
+        "label": "Theme",
+        "importPath": "qfluentwidgets",
+        "description": "qfluentwidgets",
+        "isExtraImport": true,
+        "detail": "qfluentwidgets",
+        "documentation": {}
+    },
+    {
+        "label": "setThemeColor",
+        "importPath": "qfluentwidgets",
+        "description": "qfluentwidgets",
+        "isExtraImport": true,
+        "detail": "qfluentwidgets",
+        "documentation": {}
+    },
+    {
+        "label": "FluentWindow",
+        "importPath": "qfluentwidgets",
+        "description": "qfluentwidgets",
+        "isExtraImport": true,
+        "detail": "qfluentwidgets",
+        "documentation": {}
+    },
+    {
+        "label": "pyaudio",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "pyaudio",
+        "description": "pyaudio",
+        "detail": "pyaudio",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "yaml",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "yaml",
+        "description": "yaml",
+        "detail": "yaml",
+        "documentation": {}
+    },
+    {
+        "label": "keyboard",
+        "importPath": "pynput",
+        "description": "pynput",
+        "isExtraImport": true,
+        "detail": "pynput",
+        "documentation": {}
+    },
+    {
+        "label": "locale",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "locale",
+        "description": "locale",
+        "detail": "locale",
+        "documentation": {}
+    },
+    {
+        "label": "shutil",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "shutil",
+        "description": "shutil",
+        "detail": "shutil",
+        "documentation": {}
+    },
+    {
+        "label": "ctypes",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "ctypes",
+        "description": "ctypes",
+        "detail": "ctypes",
+        "documentation": {}
+    },
+    {
+        "label": "webbrowser",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "webbrowser",
+        "description": "webbrowser",
+        "detail": "webbrowser",
+        "documentation": {}
+    },
+    {
+        "label": "faulthandler",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "faulthandler",
+        "description": "faulthandler",
+        "detail": "faulthandler",
+        "documentation": {}
+    },
+    {
+        "label": "signal",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "signal",
+        "description": "signal",
+        "detail": "signal",
+        "documentation": {}
+    },
+    {
+        "label": "bin_dir",
+        "kind": 5,
+        "importPath": ".venv.bin.activate_this",
+        "description": ".venv.bin.activate_this",
+        "peekOfCode": "bin_dir = os.path.dirname(abs_file)\nbase = bin_dir[: -len(\"bin\") - 1]  # strip away the bin part from the __file__, plus the path separator\n# prepend bin to PATH (this file is inside the bin directory)\nos.environ[\"PATH\"] = os.pathsep.join([bin_dir, *os.environ.get(\"PATH\", \"\").split(os.pathsep)])\nos.environ[\"VIRTUAL_ENV\"] = base  # virtual env is right above bin directory\nos.environ[\"VIRTUAL_ENV_PROMPT\"] = \"speek-input\" or os.path.basename(base)  # noqa: SIM222\n# add the virtual environments libraries to the host python import mechanism\nprev_length = len(sys.path)\nfor lib in \"../lib/python3.11/site-packages\".split(os.pathsep):\n    path = os.path.realpath(os.path.join(bin_dir, lib))",
+        "detail": ".venv.bin.activate_this",
+        "documentation": {}
+    },
+    {
+        "label": "base",
+        "kind": 5,
+        "importPath": ".venv.bin.activate_this",
+        "description": ".venv.bin.activate_this",
+        "peekOfCode": "base = bin_dir[: -len(\"bin\") - 1]  # strip away the bin part from the __file__, plus the path separator\n# prepend bin to PATH (this file is inside the bin directory)\nos.environ[\"PATH\"] = os.pathsep.join([bin_dir, *os.environ.get(\"PATH\", \"\").split(os.pathsep)])\nos.environ[\"VIRTUAL_ENV\"] = base  # virtual env is right above bin directory\nos.environ[\"VIRTUAL_ENV_PROMPT\"] = \"speek-input\" or os.path.basename(base)  # noqa: SIM222\n# add the virtual environments libraries to the host python import mechanism\nprev_length = len(sys.path)\nfor lib in \"../lib/python3.11/site-packages\".split(os.pathsep):\n    path = os.path.realpath(os.path.join(bin_dir, lib))\n    site.addsitedir(path)",
+        "detail": ".venv.bin.activate_this",
+        "documentation": {}
+    },
+    {
+        "label": "os.environ[\"PATH\"]",
+        "kind": 5,
+        "importPath": ".venv.bin.activate_this",
+        "description": ".venv.bin.activate_this",
+        "peekOfCode": "os.environ[\"PATH\"] = os.pathsep.join([bin_dir, *os.environ.get(\"PATH\", \"\").split(os.pathsep)])\nos.environ[\"VIRTUAL_ENV\"] = base  # virtual env is right above bin directory\nos.environ[\"VIRTUAL_ENV_PROMPT\"] = \"speek-input\" or os.path.basename(base)  # noqa: SIM222\n# add the virtual environments libraries to the host python import mechanism\nprev_length = len(sys.path)\nfor lib in \"../lib/python3.11/site-packages\".split(os.pathsep):\n    path = os.path.realpath(os.path.join(bin_dir, lib))\n    site.addsitedir(path)\nsys.path[:] = sys.path[prev_length:] + sys.path[0:prev_length]\nsys.real_prefix = sys.prefix",
+        "detail": ".venv.bin.activate_this",
+        "documentation": {}
+    },
+    {
+        "label": "os.environ[\"VIRTUAL_ENV\"]",
+        "kind": 5,
+        "importPath": ".venv.bin.activate_this",
+        "description": ".venv.bin.activate_this",
+        "peekOfCode": "os.environ[\"VIRTUAL_ENV\"] = base  # virtual env is right above bin directory\nos.environ[\"VIRTUAL_ENV_PROMPT\"] = \"speek-input\" or os.path.basename(base)  # noqa: SIM222\n# add the virtual environments libraries to the host python import mechanism\nprev_length = len(sys.path)\nfor lib in \"../lib/python3.11/site-packages\".split(os.pathsep):\n    path = os.path.realpath(os.path.join(bin_dir, lib))\n    site.addsitedir(path)\nsys.path[:] = sys.path[prev_length:] + sys.path[0:prev_length]\nsys.real_prefix = sys.prefix\nsys.prefix = base",
+        "detail": ".venv.bin.activate_this",
+        "documentation": {}
+    },
+    {
+        "label": "os.environ[\"VIRTUAL_ENV_PROMPT\"]",
+        "kind": 5,
+        "importPath": ".venv.bin.activate_this",
+        "description": ".venv.bin.activate_this",
+        "peekOfCode": "os.environ[\"VIRTUAL_ENV_PROMPT\"] = \"speek-input\" or os.path.basename(base)  # noqa: SIM222\n# add the virtual environments libraries to the host python import mechanism\nprev_length = len(sys.path)\nfor lib in \"../lib/python3.11/site-packages\".split(os.pathsep):\n    path = os.path.realpath(os.path.join(bin_dir, lib))\n    site.addsitedir(path)\nsys.path[:] = sys.path[prev_length:] + sys.path[0:prev_length]\nsys.real_prefix = sys.prefix\nsys.prefix = base",
+        "detail": ".venv.bin.activate_this",
+        "documentation": {}
+    },
+    {
+        "label": "prev_length",
+        "kind": 5,
+        "importPath": ".venv.bin.activate_this",
+        "description": ".venv.bin.activate_this",
+        "peekOfCode": "prev_length = len(sys.path)\nfor lib in \"../lib/python3.11/site-packages\".split(os.pathsep):\n    path = os.path.realpath(os.path.join(bin_dir, lib))\n    site.addsitedir(path)\nsys.path[:] = sys.path[prev_length:] + sys.path[0:prev_length]\nsys.real_prefix = sys.prefix\nsys.prefix = base",
+        "detail": ".venv.bin.activate_this",
+        "documentation": {}
+    },
+    {
+        "label": "sys.path[:]",
+        "kind": 5,
+        "importPath": ".venv.bin.activate_this",
+        "description": ".venv.bin.activate_this",
+        "peekOfCode": "sys.path[:] = sys.path[prev_length:] + sys.path[0:prev_length]\nsys.real_prefix = sys.prefix\nsys.prefix = base",
+        "detail": ".venv.bin.activate_this",
+        "documentation": {}
+    },
+    {
+        "label": "sys.real_prefix",
+        "kind": 5,
+        "importPath": ".venv.bin.activate_this",
+        "description": ".venv.bin.activate_this",
+        "peekOfCode": "sys.real_prefix = sys.prefix\nsys.prefix = base",
+        "detail": ".venv.bin.activate_this",
+        "documentation": {}
+    },
+    {
+        "label": "sys.prefix",
+        "kind": 5,
+        "importPath": ".venv.bin.activate_this",
+        "description": ".venv.bin.activate_this",
+        "peekOfCode": "sys.prefix = base",
+        "detail": ".venv.bin.activate_this",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "demo.record_audio",
+        "description": "demo.record_audio",
+        "peekOfCode": "def main():\n    print(f\"开始录音 {RECORD_SECONDS} 秒，请说话...\")\n    # 使用 ffmpeg 从默认麦克风录制\n    # Linux: 使用 pulse 或 alsa\n    # macOS: 使用 avfoundation\n    # Windows: 使用 dshow\n    import platform\n    system = platform.system()\n    if system == \"Linux\":\n        input_device = [\"-f\", \"pulse\", \"-i\", \"default\"]",
+        "detail": "demo.record_audio",
+        "documentation": {}
+    },
+    {
+        "label": "RECORD_SECONDS",
+        "kind": 5,
+        "importPath": "demo.record_audio",
+        "description": "demo.record_audio",
+        "peekOfCode": "RECORD_SECONDS = 5\nOUTPUT_FILE = \"demo/recorded.wav\"\ndef main():\n    print(f\"开始录音 {RECORD_SECONDS} 秒，请说话...\")\n    # 使用 ffmpeg 从默认麦克风录制\n    # Linux: 使用 pulse 或 alsa\n    # macOS: 使用 avfoundation\n    # Windows: 使用 dshow\n    import platform\n    system = platform.system()",
+        "detail": "demo.record_audio",
+        "documentation": {}
+    },
+    {
+        "label": "OUTPUT_FILE",
+        "kind": 5,
+        "importPath": "demo.record_audio",
+        "description": "demo.record_audio",
+        "peekOfCode": "OUTPUT_FILE = \"demo/recorded.wav\"\ndef main():\n    print(f\"开始录音 {RECORD_SECONDS} 秒，请说话...\")\n    # 使用 ffmpeg 从默认麦克风录制\n    # Linux: 使用 pulse 或 alsa\n    # macOS: 使用 avfoundation\n    # Windows: 使用 dshow\n    import platform\n    system = platform.system()\n    if system == \"Linux\":",
+        "detail": "demo.record_audio",
+        "documentation": {}
+    },
+    {
+        "label": "ProtocolVersion",
+        "kind": 6,
+        "importPath": "demo.sauc_websocket_demo",
+        "description": "demo.sauc_websocket_demo",
+        "peekOfCode": "class ProtocolVersion:\n    V1 = 0b0001\nclass MessageType:\n    CLIENT_FULL_REQUEST = 0b0001\n    CLIENT_AUDIO_ONLY_REQUEST = 0b0010\n    SERVER_FULL_RESPONSE = 0b1001\n    SERVER_ERROR_RESPONSE = 0b1111\nclass MessageTypeSpecificFlags:\n    NO_SEQUENCE = 0b0000\n    POS_SEQUENCE = 0b0001",
+        "detail": "demo.sauc_websocket_demo",
+        "documentation": {}
+    },
+    {
+        "label": "MessageType",
+        "kind": 6,
+        "importPath": "demo.sauc_websocket_demo",
+        "description": "demo.sauc_websocket_demo",
+        "peekOfCode": "class MessageType:\n    CLIENT_FULL_REQUEST = 0b0001\n    CLIENT_AUDIO_ONLY_REQUEST = 0b0010\n    SERVER_FULL_RESPONSE = 0b1001\n    SERVER_ERROR_RESPONSE = 0b1111\nclass MessageTypeSpecificFlags:\n    NO_SEQUENCE = 0b0000\n    POS_SEQUENCE = 0b0001\n    NEG_SEQUENCE = 0b0010\n    NEG_WITH_SEQUENCE = 0b0011",
+        "detail": "demo.sauc_websocket_demo",
+        "documentation": {}
+    },
+    {
+        "label": "MessageTypeSpecificFlags",
+        "kind": 6,
+        "importPath": "demo.sauc_websocket_demo",
+        "description": "demo.sauc_websocket_demo",
+        "peekOfCode": "class MessageTypeSpecificFlags:\n    NO_SEQUENCE = 0b0000\n    POS_SEQUENCE = 0b0001\n    NEG_SEQUENCE = 0b0010\n    NEG_WITH_SEQUENCE = 0b0011\nclass SerializationType:\n    NO_SERIALIZATION = 0b0000\n    JSON = 0b0001\nclass CompressionType:\n    GZIP = 0b0001",
+        "detail": "demo.sauc_websocket_demo",
+        "documentation": {}
+    },
+    {
+        "label": "SerializationType",
+        "kind": 6,
+        "importPath": "demo.sauc_websocket_demo",
+        "description": "demo.sauc_websocket_demo",
+        "peekOfCode": "class SerializationType:\n    NO_SERIALIZATION = 0b0000\n    JSON = 0b0001\nclass CompressionType:\n    GZIP = 0b0001\nclass Config:\n    def __init__(self):\n        # 填入控制台获取的app id和access token\n        self.auth = {\n            \"app_key\": \"2400800346\",",
+        "detail": "demo.sauc_websocket_demo",
+        "documentation": {}
+    },
+    {
+        "label": "CompressionType",
+        "kind": 6,
+        "importPath": "demo.sauc_websocket_demo",
+        "description": "demo.sauc_websocket_demo",
+        "peekOfCode": "class CompressionType:\n    GZIP = 0b0001\nclass Config:\n    def __init__(self):\n        # 填入控制台获取的app id和access token\n        self.auth = {\n            \"app_key\": \"2400800346\",\n            \"access_key\": \"q1QiLqqZ-v4nKhuZbjP-cZT7mCMNt9YW\"\n        }\n    @property",
+        "detail": "demo.sauc_websocket_demo",
+        "documentation": {}
+    },
+    {
+        "label": "Config",
+        "kind": 6,
+        "importPath": "demo.sauc_websocket_demo",
+        "description": "demo.sauc_websocket_demo",
+        "peekOfCode": "class Config:\n    def __init__(self):\n        # 填入控制台获取的app id和access token\n        self.auth = {\n            \"app_key\": \"2400800346\",\n            \"access_key\": \"q1QiLqqZ-v4nKhuZbjP-cZT7mCMNt9YW\"\n        }\n    @property\n    def app_key(self) -> str:\n        return self.auth[\"app_key\"]",
+        "detail": "demo.sauc_websocket_demo",
+        "documentation": {}
+    },
+    {
+        "label": "CommonUtils",
+        "kind": 6,
+        "importPath": "demo.sauc_websocket_demo",
+        "description": "demo.sauc_websocket_demo",
+        "peekOfCode": "class CommonUtils:\n    @staticmethod\n    def gzip_compress(data: bytes) -> bytes:\n        return gzip.compress(data)\n    @staticmethod\n    def gzip_decompress(data: bytes) -> bytes:\n        return gzip.decompress(data)\n    @staticmethod\n    def judge_wav(data: bytes) -> bool:\n        if len(data) < 44:",
+        "detail": "demo.sauc_websocket_demo",
+        "documentation": {}
+    },
+    {
+        "label": "AsrRequestHeader",
+        "kind": 6,
+        "importPath": "demo.sauc_websocket_demo",
+        "description": "demo.sauc_websocket_demo",
+        "peekOfCode": "class AsrRequestHeader:\n    def __init__(self):\n        self.message_type = MessageType.CLIENT_FULL_REQUEST\n        self.message_type_specific_flags = MessageTypeSpecificFlags.POS_SEQUENCE\n        self.serialization_type = SerializationType.JSON\n        self.compression_type = CompressionType.GZIP\n        self.reserved_data = bytes([0x00])\n    def with_message_type(self, message_type: int) -> 'AsrRequestHeader':\n        self.message_type = message_type\n        return self",
+        "detail": "demo.sauc_websocket_demo",
+        "documentation": {}
+    },
+    {
+        "label": "RequestBuilder",
+        "kind": 6,
+        "importPath": "demo.sauc_websocket_demo",
+        "description": "demo.sauc_websocket_demo",
+        "peekOfCode": "class RequestBuilder:\n    @staticmethod\n    def new_auth_headers() -> Dict[str, str]:\n        reqid = str(uuid.uuid4())\n        return {\n            \"X-Api-Resource-Id\": \"volc.seedasr.sauc.duration\",  # 2.0小时版\n            \"X-Api-Request-Id\": reqid,\n            \"X-Api-Access-Key\": config.access_key,\n            \"X-Api-App-Key\": config.app_key\n        }",
+        "detail": "demo.sauc_websocket_demo",
+        "documentation": {}
+    },
+    {
+        "label": "AsrResponse",
+        "kind": 6,
+        "importPath": "demo.sauc_websocket_demo",
+        "description": "demo.sauc_websocket_demo",
+        "peekOfCode": "class AsrResponse:\n    def __init__(self):\n        self.code = 0\n        self.event = 0\n        self.is_last_package = False\n        self.payload_sequence = 0\n        self.payload_size = 0\n        self.payload_msg = None\n    def to_dict(self) -> Dict[str, Any]:\n        return {",
+        "detail": "demo.sauc_websocket_demo",
+        "documentation": {}
+    },
+    {
+        "label": "ResponseParser",
+        "kind": 6,
+        "importPath": "demo.sauc_websocket_demo",
+        "description": "demo.sauc_websocket_demo",
+        "peekOfCode": "class ResponseParser:\n    @staticmethod\n    def parse_response(msg: bytes) -> AsrResponse:\n        response = AsrResponse()\n        header_size = msg[0] & 0x0f\n        message_type = msg[1] >> 4\n        message_type_specific_flags = msg[1] & 0x0f\n        serialization_method = msg[2] >> 4\n        message_compression = msg[2] & 0x0f\n        payload = msg[header_size*4:]",
+        "detail": "demo.sauc_websocket_demo",
+        "documentation": {}
+    },
+    {
+        "label": "AsrWsClient",
+        "kind": 6,
+        "importPath": "demo.sauc_websocket_demo",
+        "description": "demo.sauc_websocket_demo",
+        "peekOfCode": "class AsrWsClient:\n    def __init__(self, url: str, segment_duration: int = 200):\n        self.seq = 1\n        self.url = url\n        self.segment_duration = segment_duration\n        self.conn = None\n        self.session = None  # 添加session引用\n    async def __aenter__(self):\n        self.session = aiohttp.ClientSession()\n        return self",
+        "detail": "demo.sauc_websocket_demo",
+        "documentation": {}
+    },
+    {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "demo.sauc_websocket_demo",
+        "description": "demo.sauc_websocket_demo",
+        "peekOfCode": "logger = logging.getLogger(__name__)\n# 常量定义\nDEFAULT_SAMPLE_RATE = 16000\nclass ProtocolVersion:\n    V1 = 0b0001\nclass MessageType:\n    CLIENT_FULL_REQUEST = 0b0001\n    CLIENT_AUDIO_ONLY_REQUEST = 0b0010\n    SERVER_FULL_RESPONSE = 0b1001\n    SERVER_ERROR_RESPONSE = 0b1111",
+        "detail": "demo.sauc_websocket_demo",
+        "documentation": {}
+    },
+    {
+        "label": "DEFAULT_SAMPLE_RATE",
+        "kind": 5,
+        "importPath": "demo.sauc_websocket_demo",
+        "description": "demo.sauc_websocket_demo",
+        "peekOfCode": "DEFAULT_SAMPLE_RATE = 16000\nclass ProtocolVersion:\n    V1 = 0b0001\nclass MessageType:\n    CLIENT_FULL_REQUEST = 0b0001\n    CLIENT_AUDIO_ONLY_REQUEST = 0b0010\n    SERVER_FULL_RESPONSE = 0b1001\n    SERVER_ERROR_RESPONSE = 0b1111\nclass MessageTypeSpecificFlags:\n    NO_SEQUENCE = 0b0000",
+        "detail": "demo.sauc_websocket_demo",
+        "documentation": {}
+    },
+    {
+        "label": "config",
+        "kind": 5,
+        "importPath": "demo.sauc_websocket_demo",
+        "description": "demo.sauc_websocket_demo",
+        "peekOfCode": "config = Config()\nclass CommonUtils:\n    @staticmethod\n    def gzip_compress(data: bytes) -> bytes:\n        return gzip.compress(data)\n    @staticmethod\n    def gzip_decompress(data: bytes) -> bytes:\n        return gzip.decompress(data)\n    @staticmethod\n    def judge_wav(data: bytes) -> bool:",
+        "detail": "demo.sauc_websocket_demo",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "demo.test_realtime_streaming",
+        "description": "demo.test_realtime_streaming",
+        "peekOfCode": "def main():\n    engine = VolcBigModelEngine(\n        app_key='2400800346',\n        access_key='q1QiLqqZ-v4nKhuZbjP-cZT7mCMNt9YW'\n    )\n    if not engine.supports_realtime_streaming():\n        print(\"Engine does not support real-time streaming\")\n        return\n    print(\"=\" * 60)\n    print(\"实时流式语音识别测试\")",
+        "detail": "demo.test_realtime_streaming",
+        "documentation": {}
+    },
+    {
+        "label": "run_session",
+        "kind": 2,
+        "importPath": "demo.test_realtime_with_file",
+        "description": "demo.test_realtime_with_file",
+        "peekOfCode": "def run_session(engine, frames, sample_rate, channels, sample_width, session_num=1):\n    \"\"\"运行一次识别会话\"\"\"\n    print(f\"\\n{'='*50}\")\n    print(f\"Session {session_num}\")\n    print('='*50)\n    partial_count = 0\n    start_time = time.time()\n    def on_partial(text: str):\n        nonlocal partial_count\n        partial_count += 1",
+        "detail": "demo.test_realtime_with_file",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "demo.test_realtime_with_file",
+        "description": "demo.test_realtime_with_file",
+        "peekOfCode": "def main():\n    engine = VolcBigModelEngine(\n        app_key='2400800346',\n        access_key='q1QiLqqZ-v4nKhuZbjP-cZT7mCMNt9YW'\n    )\n    audio_file = 'demo/recorded.wav'\n    if not os.path.exists(audio_file):\n        print(f\"Audio file not found: {audio_file}\")\n        return\n    # Read WAV file",
+        "detail": "demo.test_realtime_with_file",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "demo.test_streaming",
+        "description": "demo.test_streaming",
+        "peekOfCode": "def main():\n    engine = VolcBigModelEngine(\n        app_key='2400800346',\n        access_key='q1QiLqqZ-v4nKhuZbjP-cZT7mCMNt9YW'\n    )\n    audio_file = 'demo/recorded.wav'\n    if not os.path.exists(audio_file):\n        print(f\"Audio file not found: {audio_file}\")\n        return\n    with open(audio_file, 'rb') as f:",
+        "detail": "demo.test_streaming",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "demo.test_ui",
+        "description": "demo.test_ui",
+        "peekOfCode": "def main():\n    app = QApplication(sys.argv)\n    window = FloatingWindow()\n    # Simulate recording state\n    print(\"Showing recording state...\")\n    window.show_recording()\n    # Simulate varying audio levels\n    phase = 0\n    def update_level():\n        nonlocal phase",
+        "detail": "demo.test_ui",
+        "documentation": {}
+    },
+    {
+        "label": "AliyunEngine",
+        "kind": 6,
+        "importPath": "speaky.engines.aliyun_engine",
+        "description": "speaky.engines.aliyun_engine",
+        "peekOfCode": "class AliyunEngine(BaseEngine):\n    \"\"\"阿里云语音识别\"\"\"\n    def __init__(self, app_key: str, access_token: str):\n        self._app_key = app_key\n        self._access_token = access_token\n        self._api_url = \"https://nls-gateway.cn-shanghai.aliyuncs.com/stream/v1/asr\"\n    def transcribe(self, audio_data: bytes, language: str = \"zh\") -> str:\n        headers = {\n            \"Content-Type\": \"application/octet-stream\",\n            \"X-NLS-Token\": self._access_token,",
+        "detail": "speaky.engines.aliyun_engine",
+        "documentation": {}
+    },
+    {
+        "label": "BaseEngine",
+        "kind": 6,
+        "importPath": "speaky.engines.base",
+        "description": "speaky.engines.base",
+        "peekOfCode": "class BaseEngine(ABC):\n    @abstractmethod\n    def transcribe(self, audio_data: bytes, language: str = \"zh\") -> str:\n        \"\"\"Transcribe audio data to text.\"\"\"\n        pass\n    @abstractmethod\n    def is_available(self) -> bool:\n        \"\"\"Check if the engine is properly configured and available.\"\"\"\n        pass\n    @property",
+        "detail": "speaky.engines.base",
+        "documentation": {}
+    },
+    {
+        "label": "RealtimeSession",
+        "kind": 6,
+        "importPath": "speaky.engines.base",
+        "description": "speaky.engines.base",
+        "peekOfCode": "class RealtimeSession:\n    \"\"\"Base class for real-time streaming ASR session.\"\"\"\n    def start(self):\n        \"\"\"Start the session (connect to server).\"\"\"\n        raise NotImplementedError\n    def send_audio(self, audio_data: bytes):\n        \"\"\"Send audio data chunk.\"\"\"\n        raise NotImplementedError\n    def finish(self) -> str:\n        \"\"\"Signal end of audio and get final result.\"\"\"",
+        "detail": "speaky.engines.base",
+        "documentation": {}
+    },
+    {
+        "label": "OpenAIEngine",
+        "kind": 6,
+        "importPath": "speaky.engines.openai_engine",
+        "description": "speaky.engines.openai_engine",
+        "peekOfCode": "class OpenAIEngine(BaseEngine):\n    def __init__(self, api_key: str, model: str = \"whisper-1\", base_url: str = \"https://api.openai.com/v1\"):\n        self._api_key = api_key\n        self._model = model\n        self._base_url = base_url\n    def transcribe(self, audio_data: bytes, language: str = \"zh\") -> str:\n        from openai import OpenAI\n        client = OpenAI(api_key=self._api_key, base_url=self._base_url)\n        audio_file = io.BytesIO(audio_data)\n        audio_file.name = \"audio.wav\"",
+        "detail": "speaky.engines.openai_engine",
+        "documentation": {}
+    },
+    {
+        "label": "ProtocolVersion",
+        "kind": 6,
+        "importPath": "speaky.engines.volc_bigmodel_engine",
+        "description": "speaky.engines.volc_bigmodel_engine",
+        "peekOfCode": "class ProtocolVersion:\n    V1 = 0b0001\nclass MessageType:\n    CLIENT_FULL_REQUEST = 0b0001\n    CLIENT_AUDIO_ONLY_REQUEST = 0b0010\n    SERVER_FULL_RESPONSE = 0b1001\n    SERVER_ERROR_RESPONSE = 0b1111\nclass MessageTypeSpecificFlags:\n    NO_SEQUENCE = 0b0000\n    POS_SEQUENCE = 0b0001",
+        "detail": "speaky.engines.volc_bigmodel_engine",
+        "documentation": {}
+    },
+    {
+        "label": "MessageType",
+        "kind": 6,
+        "importPath": "speaky.engines.volc_bigmodel_engine",
+        "description": "speaky.engines.volc_bigmodel_engine",
+        "peekOfCode": "class MessageType:\n    CLIENT_FULL_REQUEST = 0b0001\n    CLIENT_AUDIO_ONLY_REQUEST = 0b0010\n    SERVER_FULL_RESPONSE = 0b1001\n    SERVER_ERROR_RESPONSE = 0b1111\nclass MessageTypeSpecificFlags:\n    NO_SEQUENCE = 0b0000\n    POS_SEQUENCE = 0b0001\n    NEG_SEQUENCE = 0b0010\n    NEG_WITH_SEQUENCE = 0b0011",
+        "detail": "speaky.engines.volc_bigmodel_engine",
+        "documentation": {}
+    },
+    {
+        "label": "MessageTypeSpecificFlags",
+        "kind": 6,
+        "importPath": "speaky.engines.volc_bigmodel_engine",
+        "description": "speaky.engines.volc_bigmodel_engine",
+        "peekOfCode": "class MessageTypeSpecificFlags:\n    NO_SEQUENCE = 0b0000\n    POS_SEQUENCE = 0b0001\n    NEG_SEQUENCE = 0b0010\n    NEG_WITH_SEQUENCE = 0b0011\nclass SerializationType:\n    NO_SERIALIZATION = 0b0000\n    JSON = 0b0001\nclass CompressionType:\n    NO_COMPRESSION = 0b0000",
+        "detail": "speaky.engines.volc_bigmodel_engine",
+        "documentation": {}
+    },
+    {
+        "label": "SerializationType",
+        "kind": 6,
+        "importPath": "speaky.engines.volc_bigmodel_engine",
+        "description": "speaky.engines.volc_bigmodel_engine",
+        "peekOfCode": "class SerializationType:\n    NO_SERIALIZATION = 0b0000\n    JSON = 0b0001\nclass CompressionType:\n    NO_COMPRESSION = 0b0000\n    GZIP = 0b0001\ndef build_header(\n    message_type: int = MessageType.CLIENT_FULL_REQUEST,\n    flags: int = MessageTypeSpecificFlags.POS_SEQUENCE,\n    serialization: int = SerializationType.JSON,",
+        "detail": "speaky.engines.volc_bigmodel_engine",
+        "documentation": {}
+    },
+    {
+        "label": "CompressionType",
+        "kind": 6,
+        "importPath": "speaky.engines.volc_bigmodel_engine",
+        "description": "speaky.engines.volc_bigmodel_engine",
+        "peekOfCode": "class CompressionType:\n    NO_COMPRESSION = 0b0000\n    GZIP = 0b0001\ndef build_header(\n    message_type: int = MessageType.CLIENT_FULL_REQUEST,\n    flags: int = MessageTypeSpecificFlags.POS_SEQUENCE,\n    serialization: int = SerializationType.JSON,\n    compression: int = CompressionType.GZIP,\n) -> bytes:\n    \"\"\"Build protocol header\"\"\"",
+        "detail": "speaky.engines.volc_bigmodel_engine",
+        "documentation": {}
+    },
+    {
+        "label": "VolcBigModelEngine",
+        "kind": 6,
+        "importPath": "speaky.engines.volc_bigmodel_engine",
+        "description": "speaky.engines.volc_bigmodel_engine",
+        "peekOfCode": "class VolcBigModelEngine(BaseEngine):\n    \"\"\"火山引擎语音大模型 (Bigmodel ASR)\n    使用语音大模型 WebSocket API v3\n    文档: https://www.volcengine.com/docs/6561/1354868\n    \"\"\"\n    def __init__(\n        self,\n        app_key: str,\n        access_key: str,\n        model: str = \"bigmodel\",",
+        "detail": "speaky.engines.volc_bigmodel_engine",
+        "documentation": {}
+    },
+    {
+        "label": "VolcConnectionManager",
+        "kind": 6,
+        "importPath": "speaky.engines.volc_bigmodel_engine",
+        "description": "speaky.engines.volc_bigmodel_engine",
+        "peekOfCode": "class VolcConnectionManager:\n    \"\"\"Manages persistent WebSocket connections for faster session startup.\n    Key optimizations:\n    1. Pre-establishes connection in background thread\n    2. Keeps event loop running between sessions\n    3. Reuses aiohttp ClientSession\n    \"\"\"\n    SAMPLE_RATE = 16000\n    CHANNELS = 1\n    SAMPLE_WIDTH = 2  # 16-bit",
+        "detail": "speaky.engines.volc_bigmodel_engine",
+        "documentation": {}
+    },
+    {
+        "label": "VolcRealtimeSession",
+        "kind": 6,
+        "importPath": "speaky.engines.volc_bigmodel_engine",
+        "description": "speaky.engines.volc_bigmodel_engine",
+        "peekOfCode": "class VolcRealtimeSession(RealtimeSession):\n    \"\"\"Real-time streaming ASR session for Volcengine BigModel.\n    Uses ConnectionManager for faster startup by:\n    1. Reusing persistent event loop\n    2. Reusing aiohttp session\n    \"\"\"\n    SAMPLE_RATE = 16000\n    CHANNELS = 1\n    SAMPLE_WIDTH = 2  # 16-bit\n    def __init__(",
+        "detail": "speaky.engines.volc_bigmodel_engine",
+        "documentation": {}
+    },
+    {
+        "label": "build_header",
+        "kind": 2,
+        "importPath": "speaky.engines.volc_bigmodel_engine",
+        "description": "speaky.engines.volc_bigmodel_engine",
+        "peekOfCode": "def build_header(\n    message_type: int = MessageType.CLIENT_FULL_REQUEST,\n    flags: int = MessageTypeSpecificFlags.POS_SEQUENCE,\n    serialization: int = SerializationType.JSON,\n    compression: int = CompressionType.GZIP,\n) -> bytes:\n    \"\"\"Build protocol header\"\"\"\n    header = bytearray()\n    header.append((ProtocolVersion.V1 << 4) | 1)  # version + header size\n    header.append((message_type << 4) | flags)",
+        "detail": "speaky.engines.volc_bigmodel_engine",
+        "documentation": {}
+    },
+    {
+        "label": "parse_response",
+        "kind": 2,
+        "importPath": "speaky.engines.volc_bigmodel_engine",
+        "description": "speaky.engines.volc_bigmodel_engine",
+        "peekOfCode": "def parse_response(msg: bytes) -> dict:\n    \"\"\"Parse server response\"\"\"\n    result = {\n        \"code\": 0,\n        \"is_last\": False,\n        \"sequence\": 0,\n        \"payload\": None,\n    }\n    if len(msg) < 4:\n        return result",
+        "detail": "speaky.engines.volc_bigmodel_engine",
+        "documentation": {}
+    },
+    {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "speaky.engines.volc_bigmodel_engine",
+        "description": "speaky.engines.volc_bigmodel_engine",
+        "peekOfCode": "logger = logging.getLogger(__name__)\n# Protocol constants\nclass ProtocolVersion:\n    V1 = 0b0001\nclass MessageType:\n    CLIENT_FULL_REQUEST = 0b0001\n    CLIENT_AUDIO_ONLY_REQUEST = 0b0010\n    SERVER_FULL_RESPONSE = 0b1001\n    SERVER_ERROR_RESPONSE = 0b1111\nclass MessageTypeSpecificFlags:",
+        "detail": "speaky.engines.volc_bigmodel_engine",
+        "documentation": {}
+    },
+    {
+        "label": "VolcEngineEngine",
+        "kind": 6,
+        "importPath": "speaky.engines.volcengine_engine",
+        "description": "speaky.engines.volcengine_engine",
+        "peekOfCode": "class VolcEngineEngine(BaseEngine):\n    \"\"\"火山引擎语音识别 (豆包语音 ASR)\n    使用一句话识别 WebSocket API v2\n    文档: https://www.volcengine.com/docs/6561/80818\n    \"\"\"\n    def __init__(self, app_id: str, access_key: str, secret_key: str, cluster: str = \"volcengine_input_common\"):\n        self._app_id = app_id\n        self._access_key = access_key\n        self._secret_key = secret_key\n        self._cluster = cluster",
+        "detail": "speaky.engines.volcengine_engine",
+        "documentation": {}
+    },
+    {
+        "label": "generate_header",
+        "kind": 2,
+        "importPath": "speaky.engines.volcengine_engine",
+        "description": "speaky.engines.volcengine_engine",
+        "peekOfCode": "def generate_header(\n    message_type=CLIENT_FULL_REQUEST,\n    message_type_specific_flags=NO_SEQUENCE,\n):\n    header = bytearray()\n    header.append((PROTOCOL_VERSION << 4) | DEFAULT_HEADER_SIZE)\n    header.append((message_type << 4) | message_type_specific_flags)\n    header.append((JSON_SERIAL << 4) | GZIP_COMPRESS)\n    header.append(0x00)\n    return header",
+        "detail": "speaky.engines.volcengine_engine",
+        "documentation": {}
+    },
+    {
+        "label": "parse_response",
+        "kind": 2,
+        "importPath": "speaky.engines.volcengine_engine",
+        "description": "speaky.engines.volcengine_engine",
+        "peekOfCode": "def parse_response(res):\n    header_size = res[0] & 0x0f\n    message_type = res[1] >> 4\n    message_compression = res[2] & 0x0f\n    payload = res[header_size * 4:]\n    result = {}\n    payload_msg = None\n    if message_type == SERVER_FULL_RESPONSE:\n        payload_msg = payload[4:]\n    elif message_type == SERVER_ACK:",
+        "detail": "speaky.engines.volcengine_engine",
+        "documentation": {}
+    },
+    {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "speaky.engines.volcengine_engine",
+        "description": "speaky.engines.volcengine_engine",
+        "peekOfCode": "logger = logging.getLogger(__name__)\n# Protocol constants\nPROTOCOL_VERSION = 0b0001\nDEFAULT_HEADER_SIZE = 0b0001\n# Message Type\nCLIENT_FULL_REQUEST = 0b0001\nCLIENT_AUDIO_ONLY_REQUEST = 0b0010\nSERVER_FULL_RESPONSE = 0b1001\nSERVER_ACK = 0b1011\nSERVER_ERROR_RESPONSE = 0b1111",
+        "detail": "speaky.engines.volcengine_engine",
+        "documentation": {}
+    },
+    {
+        "label": "PROTOCOL_VERSION",
+        "kind": 5,
+        "importPath": "speaky.engines.volcengine_engine",
+        "description": "speaky.engines.volcengine_engine",
+        "peekOfCode": "PROTOCOL_VERSION = 0b0001\nDEFAULT_HEADER_SIZE = 0b0001\n# Message Type\nCLIENT_FULL_REQUEST = 0b0001\nCLIENT_AUDIO_ONLY_REQUEST = 0b0010\nSERVER_FULL_RESPONSE = 0b1001\nSERVER_ACK = 0b1011\nSERVER_ERROR_RESPONSE = 0b1111\n# Message Type Specific Flags\nNO_SEQUENCE = 0b0000",
+        "detail": "speaky.engines.volcengine_engine",
+        "documentation": {}
+    },
+    {
+        "label": "DEFAULT_HEADER_SIZE",
+        "kind": 5,
+        "importPath": "speaky.engines.volcengine_engine",
+        "description": "speaky.engines.volcengine_engine",
+        "peekOfCode": "DEFAULT_HEADER_SIZE = 0b0001\n# Message Type\nCLIENT_FULL_REQUEST = 0b0001\nCLIENT_AUDIO_ONLY_REQUEST = 0b0010\nSERVER_FULL_RESPONSE = 0b1001\nSERVER_ACK = 0b1011\nSERVER_ERROR_RESPONSE = 0b1111\n# Message Type Specific Flags\nNO_SEQUENCE = 0b0000\nNEG_SEQUENCE = 0b0010",
+        "detail": "speaky.engines.volcengine_engine",
+        "documentation": {}
+    },
+    {
+        "label": "CLIENT_FULL_REQUEST",
+        "kind": 5,
+        "importPath": "speaky.engines.volcengine_engine",
+        "description": "speaky.engines.volcengine_engine",
+        "peekOfCode": "CLIENT_FULL_REQUEST = 0b0001\nCLIENT_AUDIO_ONLY_REQUEST = 0b0010\nSERVER_FULL_RESPONSE = 0b1001\nSERVER_ACK = 0b1011\nSERVER_ERROR_RESPONSE = 0b1111\n# Message Type Specific Flags\nNO_SEQUENCE = 0b0000\nNEG_SEQUENCE = 0b0010\n# Message Serialization\nJSON_SERIAL = 0b0001",
+        "detail": "speaky.engines.volcengine_engine",
+        "documentation": {}
+    },
+    {
+        "label": "CLIENT_AUDIO_ONLY_REQUEST",
+        "kind": 5,
+        "importPath": "speaky.engines.volcengine_engine",
+        "description": "speaky.engines.volcengine_engine",
+        "peekOfCode": "CLIENT_AUDIO_ONLY_REQUEST = 0b0010\nSERVER_FULL_RESPONSE = 0b1001\nSERVER_ACK = 0b1011\nSERVER_ERROR_RESPONSE = 0b1111\n# Message Type Specific Flags\nNO_SEQUENCE = 0b0000\nNEG_SEQUENCE = 0b0010\n# Message Serialization\nJSON_SERIAL = 0b0001\n# Message Compression",
+        "detail": "speaky.engines.volcengine_engine",
+        "documentation": {}
+    },
+    {
+        "label": "SERVER_FULL_RESPONSE",
+        "kind": 5,
+        "importPath": "speaky.engines.volcengine_engine",
+        "description": "speaky.engines.volcengine_engine",
+        "peekOfCode": "SERVER_FULL_RESPONSE = 0b1001\nSERVER_ACK = 0b1011\nSERVER_ERROR_RESPONSE = 0b1111\n# Message Type Specific Flags\nNO_SEQUENCE = 0b0000\nNEG_SEQUENCE = 0b0010\n# Message Serialization\nJSON_SERIAL = 0b0001\n# Message Compression\nGZIP_COMPRESS = 0b0001",
+        "detail": "speaky.engines.volcengine_engine",
+        "documentation": {}
+    },
+    {
+        "label": "SERVER_ACK",
+        "kind": 5,
+        "importPath": "speaky.engines.volcengine_engine",
+        "description": "speaky.engines.volcengine_engine",
+        "peekOfCode": "SERVER_ACK = 0b1011\nSERVER_ERROR_RESPONSE = 0b1111\n# Message Type Specific Flags\nNO_SEQUENCE = 0b0000\nNEG_SEQUENCE = 0b0010\n# Message Serialization\nJSON_SERIAL = 0b0001\n# Message Compression\nGZIP_COMPRESS = 0b0001\ndef generate_header(",
+        "detail": "speaky.engines.volcengine_engine",
+        "documentation": {}
+    },
+    {
+        "label": "SERVER_ERROR_RESPONSE",
+        "kind": 5,
+        "importPath": "speaky.engines.volcengine_engine",
+        "description": "speaky.engines.volcengine_engine",
+        "peekOfCode": "SERVER_ERROR_RESPONSE = 0b1111\n# Message Type Specific Flags\nNO_SEQUENCE = 0b0000\nNEG_SEQUENCE = 0b0010\n# Message Serialization\nJSON_SERIAL = 0b0001\n# Message Compression\nGZIP_COMPRESS = 0b0001\ndef generate_header(\n    message_type=CLIENT_FULL_REQUEST,",
+        "detail": "speaky.engines.volcengine_engine",
+        "documentation": {}
+    },
+    {
+        "label": "NO_SEQUENCE",
+        "kind": 5,
+        "importPath": "speaky.engines.volcengine_engine",
+        "description": "speaky.engines.volcengine_engine",
+        "peekOfCode": "NO_SEQUENCE = 0b0000\nNEG_SEQUENCE = 0b0010\n# Message Serialization\nJSON_SERIAL = 0b0001\n# Message Compression\nGZIP_COMPRESS = 0b0001\ndef generate_header(\n    message_type=CLIENT_FULL_REQUEST,\n    message_type_specific_flags=NO_SEQUENCE,\n):",
+        "detail": "speaky.engines.volcengine_engine",
+        "documentation": {}
+    },
+    {
+        "label": "NEG_SEQUENCE",
+        "kind": 5,
+        "importPath": "speaky.engines.volcengine_engine",
+        "description": "speaky.engines.volcengine_engine",
+        "peekOfCode": "NEG_SEQUENCE = 0b0010\n# Message Serialization\nJSON_SERIAL = 0b0001\n# Message Compression\nGZIP_COMPRESS = 0b0001\ndef generate_header(\n    message_type=CLIENT_FULL_REQUEST,\n    message_type_specific_flags=NO_SEQUENCE,\n):\n    header = bytearray()",
+        "detail": "speaky.engines.volcengine_engine",
+        "documentation": {}
+    },
+    {
+        "label": "JSON_SERIAL",
+        "kind": 5,
+        "importPath": "speaky.engines.volcengine_engine",
+        "description": "speaky.engines.volcengine_engine",
+        "peekOfCode": "JSON_SERIAL = 0b0001\n# Message Compression\nGZIP_COMPRESS = 0b0001\ndef generate_header(\n    message_type=CLIENT_FULL_REQUEST,\n    message_type_specific_flags=NO_SEQUENCE,\n):\n    header = bytearray()\n    header.append((PROTOCOL_VERSION << 4) | DEFAULT_HEADER_SIZE)\n    header.append((message_type << 4) | message_type_specific_flags)",
+        "detail": "speaky.engines.volcengine_engine",
+        "documentation": {}
+    },
+    {
+        "label": "GZIP_COMPRESS",
+        "kind": 5,
+        "importPath": "speaky.engines.volcengine_engine",
+        "description": "speaky.engines.volcengine_engine",
+        "peekOfCode": "GZIP_COMPRESS = 0b0001\ndef generate_header(\n    message_type=CLIENT_FULL_REQUEST,\n    message_type_specific_flags=NO_SEQUENCE,\n):\n    header = bytearray()\n    header.append((PROTOCOL_VERSION << 4) | DEFAULT_HEADER_SIZE)\n    header.append((message_type << 4) | message_type_specific_flags)\n    header.append((JSON_SERIAL << 4) | GZIP_COMPRESS)\n    header.append(0x00)",
+        "detail": "speaky.engines.volcengine_engine",
+        "documentation": {}
+    },
+    {
+        "label": "WhisperEngine",
+        "kind": 6,
+        "importPath": "speaky.engines.whisper_engine",
+        "description": "speaky.engines.whisper_engine",
+        "peekOfCode": "class WhisperEngine(BaseEngine):\n    def __init__(self, model_name: str = \"base\", device: str = \"auto\"):\n        self._model_name = model_name\n        self._device = device\n        self._model = None\n    def _load_model(self):\n        if self._model is None:\n            import whisper\n            device = self._device\n            if device == \"auto\":",
+        "detail": "speaky.engines.whisper_engine",
+        "documentation": {}
+    },
+    {
+        "label": "WaveOrbWidget",
+        "kind": 6,
+        "importPath": "speaky.ui.floating_window",
+        "description": "speaky.ui.floating_window",
+        "peekOfCode": "class WaveOrbWidget(QWidget):\n    \"\"\"Optimized animated orb widget with smooth color transitions\"\"\"\n    def __init__(self, parent=None):\n        super().__init__(parent)\n        self.setFixedSize(60, 60)\n        self._audio_level = 0.0\n        self._target_level = 0.0\n        self._phase = 0.0\n        self._is_animating = False\n        self._mode = \"recording\"",
+        "detail": "speaky.ui.floating_window",
+        "documentation": {}
+    },
+    {
+        "label": "FloatingWindow",
+        "kind": 6,
+        "importPath": "speaky.ui.floating_window",
+        "description": "speaky.ui.floating_window",
+        "peekOfCode": "class FloatingWindow(QWidget):\n    \"\"\"Floating window with layout: [animation + status] | [text]\"\"\"\n    closed = Signal()\n    # Fixed size (reduced to 1/2)\n    WINDOW_WIDTH = 630\n    WINDOW_HEIGHT = 90\n    def __init__(self):\n        super().__init__()\n        self._setup_timers()\n        self._setup_ui()",
+        "detail": "speaky.ui.floating_window",
+        "documentation": {}
+    },
+    {
+        "label": "force_window_to_top",
+        "kind": 2,
+        "importPath": "speaky.ui.floating_window",
+        "description": "speaky.ui.floating_window",
+        "peekOfCode": "def force_window_to_top(hwnd):\n    \"\"\"Windows: Force window to top using Win32 API\n    使用多种方法确保窗口置顶：\n    1. SetWindowPos with HWND_TOPMOST - 设置为最顶层\n    2. SetForegroundWindow - 尝试获取前台焦点（可能失败）\n    3. BringWindowToTop - 将窗口带到Z序顶部\n    \"\"\"\n    if platform.system() != \"Windows\":\n        return\n    try:",
+        "detail": "speaky.ui.floating_window",
+        "documentation": {}
+    },
+    {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "speaky.ui.floating_window",
+        "description": "speaky.ui.floating_window",
+        "peekOfCode": "logger = logging.getLogger(__name__)\ndef force_window_to_top(hwnd):\n    \"\"\"Windows: Force window to top using Win32 API\n    使用多种方法确保窗口置顶：\n    1. SetWindowPos with HWND_TOPMOST - 设置为最顶层\n    2. SetForegroundWindow - 尝试获取前台焦点（可能失败）\n    3. BringWindowToTop - 将窗口带到Z序顶部\n    \"\"\"\n    if platform.system() != \"Windows\":\n        return",
+        "detail": "speaky.ui.floating_window",
+        "documentation": {}
+    },
+    {
+        "label": "SettingCard",
+        "kind": 6,
+        "importPath": "speaky.ui.settings_dialog",
+        "description": "speaky.ui.settings_dialog",
+        "peekOfCode": "class SettingCard(CardWidget):\n    \"\"\"Custom setting card with label and widget\"\"\"\n    def __init__(self, title: str, widget: QWidget, parent=None):\n        super().__init__(parent)\n        self.setFixedHeight(60)\n        layout = QHBoxLayout(self)\n        layout.setContentsMargins(20, 0, 20, 0)\n        self._label = BodyLabel(title, self)\n        layout.addWidget(self._label)\n        layout.addStretch()",
+        "detail": "speaky.ui.settings_dialog",
+        "documentation": {}
+    },
+    {
+        "label": "SettingsPage",
+        "kind": 6,
+        "importPath": "speaky.ui.settings_dialog",
+        "description": "speaky.ui.settings_dialog",
+        "peekOfCode": "class SettingsPage(QScrollArea):\n    \"\"\"Base class for settings pages\"\"\"\n    save_clicked = Signal()\n    def __init__(self, parent=None):\n        super().__init__(parent)\n        self.setWidgetResizable(True)\n        self.setFrameShape(QFrame.Shape.NoFrame)\n        self.setStyleSheet(\"background: transparent;\")\n        self._container = QWidget()\n        self._layout = QVBoxLayout(self._container)",
+        "detail": "speaky.ui.settings_dialog",
+        "documentation": {}
+    },
+    {
+        "label": "CorePage",
+        "kind": 6,
+        "importPath": "speaky.ui.settings_dialog",
+        "description": "speaky.ui.settings_dialog",
+        "peekOfCode": "class CorePage(SettingsPage):\n    \"\"\"Core settings page - hotkey, language, autostart, streaming\"\"\"\n    def __init__(self, config, parent=None):\n        super().__init__(parent)\n        self._config = config\n        self._setup_ui()\n    def _setup_ui(self):\n        # Voice input key settings (merged hotkey + language)\n        self.add_group_label(t(\"voice_input_group\"))\n        self.hotkey_combo = EditableComboBox()",
+        "detail": "speaky.ui.settings_dialog",
+        "documentation": {}
+    },
+    {
+        "label": "EnginePage",
+        "kind": 6,
+        "importPath": "speaky.ui.settings_dialog",
+        "description": "speaky.ui.settings_dialog",
+        "peekOfCode": "class EnginePage(SettingsPage):\n    \"\"\"Engine settings page\"\"\"\n    def __init__(self, config, parent=None):\n        super().__init__(parent)\n        self._config = config\n        self._setup_ui()\n    def _setup_ui(self):\n        # Engine selection\n        self.add_group_label(t(\"engine_group\"))\n        self.engine_combo = ComboBox()",
+        "detail": "speaky.ui.settings_dialog",
+        "documentation": {}
+    },
+    {
+        "label": "AppearancePage",
+        "kind": 6,
+        "importPath": "speaky.ui.settings_dialog",
+        "description": "speaky.ui.settings_dialog",
+        "peekOfCode": "class AppearancePage(SettingsPage):\n    \"\"\"Appearance settings page - theme, UI language, waveform, opacity\"\"\"\n    def __init__(self, config, parent=None):\n        super().__init__(parent)\n        self._config = config\n        self._setup_ui()\n    def _setup_ui(self):\n        self.add_group_label(t(\"ui_group\"))\n        # Theme selection\n        self.theme_combo = ComboBox()",
+        "detail": "speaky.ui.settings_dialog",
+        "documentation": {}
+    },
+    {
+        "label": "SettingsDialog",
+        "kind": 6,
+        "importPath": "speaky.ui.settings_dialog",
+        "description": "speaky.ui.settings_dialog",
+        "peekOfCode": "class SettingsDialog(FluentWindow):\n    \"\"\"Fluent-style settings window\"\"\"\n    settings_changed = Signal()\n    def __init__(self, config, parent=None):\n        super().__init__(parent)\n        self._config = config\n        # Disable mica effect to fix theme switching issue on Windows\n        self.setMicaEffectEnabled(False)\n        self._setup_ui()\n        self._load_settings()",
+        "detail": "speaky.ui.settings_dialog",
+        "documentation": {}
+    },
+    {
+        "label": "apply_theme",
+        "kind": 2,
+        "importPath": "speaky.ui.settings_dialog",
+        "description": "speaky.ui.settings_dialog",
+        "peekOfCode": "def apply_theme(theme: str):\n    \"\"\"Apply theme setting\"\"\"\n    if theme == \"light\":\n        setTheme(Theme.LIGHT)\n    elif theme == \"dark\":\n        setTheme(Theme.DARK)\n    else:  # auto\n        setTheme(Theme.AUTO)\nclass SettingCard(CardWidget):\n    \"\"\"Custom setting card with label and widget\"\"\"",
+        "detail": "speaky.ui.settings_dialog",
+        "documentation": {}
+    },
+    {
+        "label": "TrayIcon",
+        "kind": 6,
+        "importPath": "speaky.ui.tray_icon",
+        "description": "speaky.ui.tray_icon",
+        "peekOfCode": "class TrayIcon(QObject):\n    settings_clicked = Signal()\n    quit_clicked = Signal()\n    def __init__(self, parent=None):\n        super().__init__(parent)\n        self._tray = QSystemTrayIcon()\n        self._setup_icon()\n        self._setup_menu()\n        # Single click opens settings\n        self._tray.activated.connect(self._on_activated)",
+        "detail": "speaky.ui.tray_icon",
+        "documentation": {}
+    },
+    {
+        "label": "get_app_icon",
+        "kind": 2,
+        "importPath": "speaky.ui.tray_icon",
+        "description": "speaky.ui.tray_icon",
+        "peekOfCode": "def get_app_icon() -> QIcon:\n    \"\"\"Get the application icon, returns QIcon object\"\"\"\n    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))\n    resources_dir = os.path.join(base_dir, \"resources\")\n    # Try different icon formats\n    icon_files = [\"icon.png\", \"icon_64.png\", \"icon.ico\", \"icon.svg\"]\n    for icon_file in icon_files:\n        icon_path = os.path.join(resources_dir, icon_file)\n        if os.path.exists(icon_path):\n            return QIcon(icon_path)",
+        "detail": "speaky.ui.tray_icon",
+        "documentation": {}
+    },
+    {
+        "label": "get_tray_icon",
+        "kind": 2,
+        "importPath": "speaky.ui.tray_icon",
+        "description": "speaky.ui.tray_icon",
+        "peekOfCode": "def get_tray_icon() -> QIcon:\n    \"\"\"Get icon optimized for system tray (smaller size)\"\"\"\n    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))\n    resources_dir = os.path.join(base_dir, \"resources\")\n    # Prefer smaller sizes for tray\n    if platform.system() == \"Windows\":\n        # Windows tray prefers ICO\n        icon_files = [\"icon.ico\", \"icon_32.png\", \"icon_64.png\", \"icon.png\"]\n    else:\n        # macOS/Linux prefer PNG",
+        "detail": "speaky.ui.tray_icon",
+        "documentation": {}
+    },
+    {
+        "label": "AudioRecorder",
+        "kind": 6,
+        "importPath": "speaky.audio",
+        "description": "speaky.audio",
+        "peekOfCode": "class AudioRecorder:\n    def __init__(self):\n        self._audio = pyaudio.PyAudio()\n        self._stream: Optional[pyaudio.Stream] = None\n        self._frames: list[bytes] = []\n        self._is_recording = False\n        self._lock = threading.Lock()\n        self._on_audio_level: Optional[Callable[[float], None]] = None\n        self._on_audio_data: Optional[Callable[[bytes], None]] = None\n        # Non-blocking queue for audio data to avoid callback blocking",
+        "detail": "speaky.audio",
+        "documentation": {}
+    },
+    {
+        "label": "CHUNK",
+        "kind": 5,
+        "importPath": "speaky.audio",
+        "description": "speaky.audio",
+        "peekOfCode": "CHUNK = 1024\nFORMAT = pyaudio.paInt16\nCHANNELS = 1\nRATE = 16000\nclass AudioRecorder:\n    def __init__(self):\n        self._audio = pyaudio.PyAudio()\n        self._stream: Optional[pyaudio.Stream] = None\n        self._frames: list[bytes] = []\n        self._is_recording = False",
+        "detail": "speaky.audio",
+        "documentation": {}
+    },
+    {
+        "label": "FORMAT",
+        "kind": 5,
+        "importPath": "speaky.audio",
+        "description": "speaky.audio",
+        "peekOfCode": "FORMAT = pyaudio.paInt16\nCHANNELS = 1\nRATE = 16000\nclass AudioRecorder:\n    def __init__(self):\n        self._audio = pyaudio.PyAudio()\n        self._stream: Optional[pyaudio.Stream] = None\n        self._frames: list[bytes] = []\n        self._is_recording = False\n        self._lock = threading.Lock()",
+        "detail": "speaky.audio",
+        "documentation": {}
+    },
+    {
+        "label": "CHANNELS",
+        "kind": 5,
+        "importPath": "speaky.audio",
+        "description": "speaky.audio",
+        "peekOfCode": "CHANNELS = 1\nRATE = 16000\nclass AudioRecorder:\n    def __init__(self):\n        self._audio = pyaudio.PyAudio()\n        self._stream: Optional[pyaudio.Stream] = None\n        self._frames: list[bytes] = []\n        self._is_recording = False\n        self._lock = threading.Lock()\n        self._on_audio_level: Optional[Callable[[float], None]] = None",
+        "detail": "speaky.audio",
+        "documentation": {}
+    },
+    {
+        "label": "RATE",
+        "kind": 5,
+        "importPath": "speaky.audio",
+        "description": "speaky.audio",
+        "peekOfCode": "RATE = 16000\nclass AudioRecorder:\n    def __init__(self):\n        self._audio = pyaudio.PyAudio()\n        self._stream: Optional[pyaudio.Stream] = None\n        self._frames: list[bytes] = []\n        self._is_recording = False\n        self._lock = threading.Lock()\n        self._on_audio_level: Optional[Callable[[float], None]] = None\n        self._on_audio_data: Optional[Callable[[bytes], None]] = None",
+        "detail": "speaky.audio",
+        "documentation": {}
+    },
+    {
+        "label": "get_app_path",
+        "kind": 2,
+        "importPath": "speaky.autostart",
+        "description": "speaky.autostart",
+        "peekOfCode": "def get_app_path() -> str:\n    \"\"\"Get the path to the application executable\"\"\"\n    if getattr(sys, 'frozen', False):\n        # Running as compiled executable\n        return sys.executable\n    else:\n        # Running as script - use python + module\n        return f'\"{sys.executable}\" -m speaky'\ndef is_autostart_enabled() -> bool:\n    \"\"\"Check if auto-start is enabled\"\"\"",
+        "detail": "speaky.autostart",
+        "documentation": {}
+    },
+    {
+        "label": "is_autostart_enabled",
+        "kind": 2,
+        "importPath": "speaky.autostart",
+        "description": "speaky.autostart",
+        "peekOfCode": "def is_autostart_enabled() -> bool:\n    \"\"\"Check if auto-start is enabled\"\"\"\n    system = platform.system()\n    if system == \"Windows\":\n        return _windows_is_autostart()\n    elif system == \"Darwin\":\n        return _macos_is_autostart()\n    else:  # Linux\n        return _linux_is_autostart()\ndef set_autostart(enabled: bool):",
+        "detail": "speaky.autostart",
+        "documentation": {}
+    },
+    {
+        "label": "set_autostart",
+        "kind": 2,
+        "importPath": "speaky.autostart",
+        "description": "speaky.autostart",
+        "peekOfCode": "def set_autostart(enabled: bool):\n    \"\"\"Enable or disable auto-start\"\"\"\n    system = platform.system()\n    if system == \"Windows\":\n        _windows_set_autostart(enabled)\n    elif system == \"Darwin\":\n        _macos_set_autostart(enabled)\n    else:  # Linux\n        _linux_set_autostart(enabled)\n# Windows implementation",
+        "detail": "speaky.autostart",
+        "documentation": {}
+    },
+    {
+        "label": "Config",
+        "kind": 6,
+        "importPath": "speaky.config",
+        "description": "speaky.config",
+        "peekOfCode": "class Config:\n    def __init__(self):\n        self.config_dir = Path.home() / \".config\" / \"speaky\"\n        self.config_file = self.config_dir / \"config.yaml\"\n        self._config = DEFAULT_CONFIG.copy()\n        self._load_defaults()\n        self.load()\n    def _load_defaults(self):\n        \"\"\"Load from project directory config if exists\"\"\"\n        # Check project directory for config.yaml or config.example.yaml",
+        "detail": "speaky.config",
+        "documentation": {}
+    },
+    {
+        "label": "DEFAULT_CONFIG",
+        "kind": 5,
+        "importPath": "speaky.config",
+        "description": "speaky.config",
+        "peekOfCode": "DEFAULT_CONFIG = {\n    \"hotkey\": \"ctrl\",\n    \"hotkey_hold_time\": 1.0,  # seconds to hold before recording starts\n    \"ai_hotkey\": \"alt\",  # AI key: open AI website and input voice (avoid shift - conflicts with browser)\n    \"ai_hotkey_hold_time\": 0.5,  # shorter hold time for better UX\n    \"ai_url\": \"https://chatgpt.com\",  # AI website URL (also supports doubao.com/chat, claude.ai, etc.)\n    \"ai_enabled\": True,  # Enable AI key feature\n    \"ai_page_load_delay\": 3.0,  # seconds to wait for page to load before typing\n    \"ai_auto_enter\": True,  # automatically press Enter to send message\n    \"engine\": \"volcengine\",",
+        "detail": "speaky.config",
+        "documentation": {}
+    },
+    {
+        "label": "config",
+        "kind": 5,
+        "importPath": "speaky.config",
+        "description": "speaky.config",
+        "peekOfCode": "config = Config()",
+        "detail": "speaky.config",
+        "documentation": {}
+    },
+    {
+        "label": "HotkeyListener",
+        "kind": 6,
+        "importPath": "speaky.hotkey",
+        "description": "speaky.hotkey",
+        "peekOfCode": "class HotkeyListener:\n    def __init__(\n        self,\n        hotkey: str,\n        on_press: Callable[[], None],\n        on_release: Callable[[], None],\n        hold_time: float = 1.0,\n    ):\n        self._hotkey = hotkey.lower()\n        self._on_press = on_press",
+        "detail": "speaky.hotkey",
+        "documentation": {}
+    },
+    {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "speaky.hotkey",
+        "description": "speaky.hotkey",
+        "peekOfCode": "logger = logging.getLogger(__name__)\nKEY_MAP = {\n    # Modifier keys\n    \"ctrl\": keyboard.Key.ctrl,\n    \"ctrl_l\": keyboard.Key.ctrl_l,\n    \"ctrl_r\": keyboard.Key.ctrl_r,\n    \"alt\": keyboard.Key.alt,\n    \"alt_l\": keyboard.Key.alt_l,\n    \"alt_r\": keyboard.Key.alt_r,\n    \"alt_gr\": keyboard.Key.alt_gr,",
+        "detail": "speaky.hotkey",
+        "documentation": {}
+    },
+    {
+        "label": "KEY_MAP",
+        "kind": 5,
+        "importPath": "speaky.hotkey",
+        "description": "speaky.hotkey",
+        "peekOfCode": "KEY_MAP = {\n    # Modifier keys\n    \"ctrl\": keyboard.Key.ctrl,\n    \"ctrl_l\": keyboard.Key.ctrl_l,\n    \"ctrl_r\": keyboard.Key.ctrl_r,\n    \"alt\": keyboard.Key.alt,\n    \"alt_l\": keyboard.Key.alt_l,\n    \"alt_r\": keyboard.Key.alt_r,\n    \"alt_gr\": keyboard.Key.alt_gr,\n    \"shift\": keyboard.Key.shift,",
+        "detail": "speaky.hotkey",
+        "documentation": {}
+    },
+    {
+        "label": "I18n",
+        "kind": 6,
+        "importPath": "speaky.i18n",
+        "description": "speaky.i18n",
+        "peekOfCode": "class I18n:\n    def __init__(self):\n        self._current_lang = \"auto\"\n        self._system_lang = self._detect_system_language()\n        self._translations: Dict[str, Dict[str, str]] = {}\n        self._load_translations()\n    def _get_locales_dir(self) -> Path:\n        \"\"\"Get the locales directory path\"\"\"\n        return Path(__file__).parent / \"locales\"\n    def _load_translations(self):",
+        "detail": "speaky.i18n",
+        "documentation": {}
+    },
+    {
+        "label": "t",
+        "kind": 2,
+        "importPath": "speaky.i18n",
+        "description": "speaky.i18n",
+        "peekOfCode": "def t(key: str, **kwargs) -> str:\n    \"\"\"Shortcut for i18n.t()\"\"\"\n    return i18n.t(key, **kwargs)",
+        "detail": "speaky.i18n",
+        "documentation": {}
+    },
+    {
+        "label": "SUPPORTED_LANGUAGES",
+        "kind": 5,
+        "importPath": "speaky.i18n",
+        "description": "speaky.i18n",
+        "peekOfCode": "SUPPORTED_LANGUAGES = [\"en\", \"zh\", \"zh_TW\", \"ja\", \"ko\", \"de\", \"fr\", \"es\", \"pt\", \"ru\"]\nclass I18n:\n    def __init__(self):\n        self._current_lang = \"auto\"\n        self._system_lang = self._detect_system_language()\n        self._translations: Dict[str, Dict[str, str]] = {}\n        self._load_translations()\n    def _get_locales_dir(self) -> Path:\n        \"\"\"Get the locales directory path\"\"\"\n        return Path(__file__).parent / \"locales\"",
+        "detail": "speaky.i18n",
+        "documentation": {}
+    },
+    {
+        "label": "i18n",
+        "kind": 5,
+        "importPath": "speaky.i18n",
+        "description": "speaky.i18n",
+        "peekOfCode": "i18n = I18n()\ndef t(key: str, **kwargs) -> str:\n    \"\"\"Shortcut for i18n.t()\"\"\"\n    return i18n.t(key, **kwargs)",
+        "detail": "speaky.i18n",
+        "documentation": {}
+    },
+    {
+        "label": "InputMethod",
+        "kind": 6,
+        "importPath": "speaky.input_method",
+        "description": "speaky.input_method",
+        "peekOfCode": "class InputMethod:\n    \"\"\"Cross-platform text input using clipboard + paste\"\"\"\n    def __init__(self):\n        self._system = platform.system()\n        self._xdotool = shutil.which(\"xdotool\") if self._system == \"Linux\" else None\n        self._keyboard = None\n        self._saved_window = None\n        # Use pynput for simulating Cmd+V / Ctrl+V\n        try:\n            from pynput.keyboard import Controller, Key",
+        "detail": "speaky.input_method",
+        "documentation": {}
+    },
+    {
+        "label": "check_macos_accessibility",
+        "kind": 2,
+        "importPath": "speaky.input_method",
+        "description": "speaky.input_method",
+        "peekOfCode": "def check_macos_accessibility() -> bool:\n    \"\"\"Check if the app has macOS Accessibility permission.\"\"\"\n    if platform.system() != \"Darwin\":\n        return True\n    try:\n        # Try to use System Events - this requires Accessibility permission\n        result = subprocess.run(\n            [\"osascript\", \"-e\", 'tell application \"System Events\" to return (exists process 1)'],\n            capture_output=True,\n            text=True,",
+        "detail": "speaky.input_method",
+        "documentation": {}
+    },
+    {
+        "label": "open_macos_accessibility_settings",
+        "kind": 2,
+        "importPath": "speaky.input_method",
+        "description": "speaky.input_method",
+        "peekOfCode": "def open_macos_accessibility_settings():\n    \"\"\"Open macOS System Settings to Accessibility page.\"\"\"\n    if platform.system() != \"Darwin\":\n        return\n    # This URL scheme works on macOS Ventura and later\n    webbrowser.open(\"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility\")\nclass InputMethod:\n    \"\"\"Cross-platform text input using clipboard + paste\"\"\"\n    def __init__(self):\n        self._system = platform.system()",
+        "detail": "speaky.input_method",
+        "documentation": {}
+    },
+    {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "speaky.input_method",
+        "description": "speaky.input_method",
+        "peekOfCode": "logger = logging.getLogger(__name__)\ndef check_macos_accessibility() -> bool:\n    \"\"\"Check if the app has macOS Accessibility permission.\"\"\"\n    if platform.system() != \"Darwin\":\n        return True\n    try:\n        # Try to use System Events - this requires Accessibility permission\n        result = subprocess.run(\n            [\"osascript\", \"-e\", 'tell application \"System Events\" to return (exists process 1)'],\n            capture_output=True,",
+        "detail": "speaky.input_method",
+        "documentation": {}
+    },
+    {
+        "label": "input_method",
+        "kind": 5,
+        "importPath": "speaky.input_method",
+        "description": "speaky.input_method",
+        "peekOfCode": "input_method = InputMethod()",
+        "detail": "speaky.input_method",
+        "documentation": {}
+    },
+    {
+        "label": "SignalBridge",
+        "kind": 6,
+        "importPath": "speaky.main",
+        "description": "speaky.main",
+        "peekOfCode": "class SignalBridge(QObject):\n    start_recording = Signal()\n    stop_recording = Signal()\n    audio_level = Signal(float)\n    recognition_done = Signal(str)\n    recognition_error = Signal(str)\n    partial_result = Signal(str)  # For streaming ASR\n    # AI key signals\n    ai_start_recording = Signal()\n    ai_stop_recording = Signal()",
+        "detail": "speaky.main",
+        "documentation": {}
+    },
+    {
+        "label": "SpeakyApp",
+        "kind": 6,
+        "importPath": "speaky.main",
+        "description": "speaky.main",
+        "peekOfCode": "class SpeakyApp:\n    def __init__(self):\n        self._app = QApplication(sys.argv)\n        self._app.setQuitOnLastWindowClosed(False)\n        # Set macOS to accessory mode - won't appear in Dock or steal focus\n        set_macos_accessory_mode()\n        # Initialize i18n language from config\n        i18n.set_language(config.get(\"ui_language\", \"auto\"))\n        # Apply theme from config\n        apply_theme(config.get(\"ui.theme\", \"auto\"))",
+        "detail": "speaky.main",
+        "documentation": {}
+    },
+    {
+        "label": "global_exception_handler",
+        "kind": 2,
+        "importPath": "speaky.main",
+        "description": "speaky.main",
+        "peekOfCode": "def global_exception_handler(exctype, value, tb):\n    import traceback\n    logger.error(\"Uncaught exception:\")\n    logger.error(''.join(traceback.format_exception(exctype, value, tb)))\n    sys.__excepthook__(exctype, value, tb)\nsys.excepthook = global_exception_handler\ndef set_macos_accessory_mode():\n    \"\"\"Set macOS app to Accessory mode - won't appear in Dock or steal focus\"\"\"\n    if platform.system() != \"Darwin\":\n        return",
+        "detail": "speaky.main",
+        "documentation": {}
+    },
+    {
+        "label": "set_macos_accessory_mode",
+        "kind": 2,
+        "importPath": "speaky.main",
+        "description": "speaky.main",
+        "peekOfCode": "def set_macos_accessory_mode():\n    \"\"\"Set macOS app to Accessory mode - won't appear in Dock or steal focus\"\"\"\n    if platform.system() != \"Darwin\":\n        return\n    try:\n        from AppKit import NSApplication, NSApplicationActivationPolicyAccessory\n        NSApplication.sharedApplication().setActivationPolicy_(NSApplicationActivationPolicyAccessory)\n    except ImportError:\n        pass\nclass SignalBridge(QObject):",
+        "detail": "speaky.main",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "speaky.main",
+        "description": "speaky.main",
+        "peekOfCode": "def main():\n    # Check macOS Accessibility permission before starting\n    if platform.system() == \"Darwin\" and not check_macos_accessibility():\n        print(\"\\n⚠️  Speaky 需要辅助功能权限才能正常工作\")\n        print(\"   - 监听全局快捷键\")\n        print(\"   - 模拟键盘输入（粘贴）\")\n        print(\"\\n正在打开系统设置...\")\n        open_macos_accessibility_settings()\n        print(\"\\n📋 请在系统设置中：\")\n        print(\"   1. 找到你的终端应用（Terminal/iTerm 等）\")",
+        "detail": "speaky.main",
+        "documentation": {}
+    },
+    {
+        "label": "log_dir",
+        "kind": 5,
+        "importPath": "speaky.main",
+        "description": "speaky.main",
+        "peekOfCode": "log_dir = os.path.expanduser(\"~/.speaky\")\nos.makedirs(log_dir, exist_ok=True)\nlog_file = os.path.join(log_dir, \"speaky.log\")\n# Create handlers\nconsole_handler = logging.StreamHandler()\nconsole_handler.setLevel(logging.INFO)\nfile_handler = logging.FileHandler(log_file, encoding='utf-8')\nfile_handler.setLevel(logging.DEBUG)\n# Create formatters\nformatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')",
+        "detail": "speaky.main",
+        "documentation": {}
+    },
+    {
+        "label": "log_file",
+        "kind": 5,
+        "importPath": "speaky.main",
+        "description": "speaky.main",
+        "peekOfCode": "log_file = os.path.join(log_dir, \"speaky.log\")\n# Create handlers\nconsole_handler = logging.StreamHandler()\nconsole_handler.setLevel(logging.INFO)\nfile_handler = logging.FileHandler(log_file, encoding='utf-8')\nfile_handler.setLevel(logging.DEBUG)\n# Create formatters\nformatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')\nconsole_handler.setFormatter(formatter)\nfile_handler.setFormatter(formatter)",
+        "detail": "speaky.main",
+        "documentation": {}
+    },
+    {
+        "label": "console_handler",
+        "kind": 5,
+        "importPath": "speaky.main",
+        "description": "speaky.main",
+        "peekOfCode": "console_handler = logging.StreamHandler()\nconsole_handler.setLevel(logging.INFO)\nfile_handler = logging.FileHandler(log_file, encoding='utf-8')\nfile_handler.setLevel(logging.DEBUG)\n# Create formatters\nformatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')\nconsole_handler.setFormatter(formatter)\nfile_handler.setFormatter(formatter)\n# Setup root logger\nlogging.basicConfig(",
+        "detail": "speaky.main",
+        "documentation": {}
+    },
+    {
+        "label": "file_handler",
+        "kind": 5,
+        "importPath": "speaky.main",
+        "description": "speaky.main",
+        "peekOfCode": "file_handler = logging.FileHandler(log_file, encoding='utf-8')\nfile_handler.setLevel(logging.DEBUG)\n# Create formatters\nformatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')\nconsole_handler.setFormatter(formatter)\nfile_handler.setFormatter(formatter)\n# Setup root logger\nlogging.basicConfig(\n    level=logging.DEBUG,\n    handlers=[console_handler, file_handler]",
+        "detail": "speaky.main",
+        "documentation": {}
+    },
+    {
+        "label": "formatter",
+        "kind": 5,
+        "importPath": "speaky.main",
+        "description": "speaky.main",
+        "peekOfCode": "formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')\nconsole_handler.setFormatter(formatter)\nfile_handler.setFormatter(formatter)\n# Setup root logger\nlogging.basicConfig(\n    level=logging.DEBUG,\n    handlers=[console_handler, file_handler]\n)\nlogger = logging.getLogger(__name__)\nlogger.info(f\"Log file: {log_file}\")",
+        "detail": "speaky.main",
+        "documentation": {}
+    },
+    {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "speaky.main",
+        "description": "speaky.main",
+        "peekOfCode": "logger = logging.getLogger(__name__)\nlogger.info(f\"Log file: {log_file}\")\n# Global exception handler\ndef global_exception_handler(exctype, value, tb):\n    import traceback\n    logger.error(\"Uncaught exception:\")\n    logger.error(''.join(traceback.format_exception(exctype, value, tb)))\n    sys.__excepthook__(exctype, value, tb)\nsys.excepthook = global_exception_handler\ndef set_macos_accessory_mode():",
+        "detail": "speaky.main",
+        "documentation": {}
+    },
+    {
+        "label": "sys.excepthook",
+        "kind": 5,
+        "importPath": "speaky.main",
+        "description": "speaky.main",
+        "peekOfCode": "sys.excepthook = global_exception_handler\ndef set_macos_accessory_mode():\n    \"\"\"Set macOS app to Accessory mode - won't appear in Dock or steal focus\"\"\"\n    if platform.system() != \"Darwin\":\n        return\n    try:\n        from AppKit import NSApplication, NSApplicationActivationPolicyAccessory\n        NSApplication.sharedApplication().setActivationPolicy_(NSApplicationActivationPolicyAccessory)\n    except ImportError:\n        pass",
+        "detail": "speaky.main",
+        "documentation": {}
+    },
+    {
+        "label": "get_platform",
+        "kind": 2,
+        "importPath": "build",
+        "description": "build",
+        "peekOfCode": "def get_platform():\n    system = platform.system()\n    if system == \"Darwin\":\n        return \"macos\"\n    elif system == \"Windows\":\n        return \"windows\"\n    else:\n        return \"linux\"\ndef check_system_deps():\n    \"\"\"Check if system dependencies are installed\"\"\"",
+        "detail": "build",
+        "documentation": {}
+    },
+    {
+        "label": "check_system_deps",
+        "kind": 2,
+        "importPath": "build",
+        "description": "build",
+        "peekOfCode": "def check_system_deps():\n    \"\"\"Check if system dependencies are installed\"\"\"\n    plat = get_platform()\n    deps = SYSTEM_DEPS.get(plat, [])\n    if not deps:\n        return True\n    missing = []\n    if plat == \"linux\":\n        for dep in deps:\n            result = subprocess.run(",
+        "detail": "build",
+        "documentation": {}
+    },
+    {
+        "label": "clean",
+        "kind": 2,
+        "importPath": "build",
+        "description": "build",
+        "peekOfCode": "def clean():\n    \"\"\"Clean build directories\"\"\"\n    for d in [\"build\", \"dist\", f\"{APP_NAME}.spec\"]:\n        if os.path.isfile(d):\n            os.remove(d)\n        elif os.path.isdir(d):\n            shutil.rmtree(d)\n    print(\"Cleaned build directories\")\ndef install_deps():\n    \"\"\"Install build dependencies\"\"\"",
+        "detail": "build",
+        "documentation": {}
+    },
+    {
+        "label": "install_deps",
+        "kind": 2,
+        "importPath": "build",
+        "description": "build",
+        "peekOfCode": "def install_deps():\n    \"\"\"Install build dependencies\"\"\"\n    subprocess.run([sys.executable, \"-m\", \"pip\", \"install\", \"-q\",\n                    \"pyinstaller\", \"PyQt5\", \"pynput\", \"pyaudio\",\n                    \"numpy\", \"pyyaml\", \"openai\", \"requests\", \"websockets\"],\n                   check=True)\n    print(\"Installed dependencies\")\ndef get_macos_arch():\n    \"\"\"Get current macOS architecture\"\"\"\n    machine = platform.machine()",
+        "detail": "build",
+        "documentation": {}
+    },
+    {
+        "label": "get_macos_arch",
+        "kind": 2,
+        "importPath": "build",
+        "description": "build",
+        "peekOfCode": "def get_macos_arch():\n    \"\"\"Get current macOS architecture\"\"\"\n    machine = platform.machine()\n    if machine == \"arm64\":\n        return \"arm64\"\n    else:\n        return \"x86_64\"\ndef build_executable(target_arch=None):\n    \"\"\"Build executable with PyInstaller\n    Args:",
+        "detail": "build",
+        "documentation": {}
+    },
+    {
+        "label": "build_executable",
+        "kind": 2,
+        "importPath": "build",
+        "description": "build",
+        "peekOfCode": "def build_executable(target_arch=None):\n    \"\"\"Build executable with PyInstaller\n    Args:\n        target_arch: For macOS, can be 'x86_64', 'arm64', or 'universal2'\n    \"\"\"\n    plat = get_platform()\n    # Base PyInstaller args\n    args = [\n        sys.executable, \"-m\", \"PyInstaller\",\n        \"--name\", APP_NAME,",
+        "detail": "build",
+        "documentation": {}
+    },
+    {
+        "label": "package_linux",
+        "kind": 2,
+        "importPath": "build",
+        "description": "build",
+        "peekOfCode": "def package_linux():\n    \"\"\"Create .deb package for Linux\"\"\"\n    arch = \"amd64\" if platform.machine() == \"x86_64\" else platform.machine()\n    deb_dir = f\"build/{APP_NAME}_{VERSION}_{arch}\"\n    os.makedirs(f\"{deb_dir}/DEBIAN\", exist_ok=True)\n    os.makedirs(f\"{deb_dir}/usr/bin\", exist_ok=True)\n    os.makedirs(f\"{deb_dir}/usr/share/applications\", exist_ok=True)\n    os.makedirs(f\"{deb_dir}/usr/share/icons/hicolor/256x256/apps\", exist_ok=True)\n    # Copy binary\n    shutil.copy(f\"dist/{APP_NAME}\", f\"{deb_dir}/usr/bin/\")",
+        "detail": "build",
+        "documentation": {}
+    },
+    {
+        "label": "package_macos",
+        "kind": 2,
+        "importPath": "build",
+        "description": "build",
+        "peekOfCode": "def package_macos(arch=None):\n    \"\"\"Create .app bundle and .dmg for macOS\n    Args:\n        arch: Architecture name for the output file (x86_64, arm64, or universal2)\n    \"\"\"\n    app_dir = f\"dist/{APP_NAME}.app\"\n    if not arch:\n        arch = get_macos_arch()\n    # PyInstaller already creates .app bundle with --windowed on macOS\n    if os.path.isdir(app_dir):",
+        "detail": "build",
+        "documentation": {}
+    },
+    {
+        "label": "package_windows",
+        "kind": 2,
+        "importPath": "build",
+        "description": "build",
+        "peekOfCode": "def package_windows():\n    \"\"\"Package for Windows (executable is already standalone)\"\"\"\n    exe_file = f\"dist/{APP_NAME}.exe\"\n    if os.path.exists(exe_file):\n        # Rename with version\n        versioned = f\"dist/{APP_NAME}_{VERSION}_windows.exe\"\n        shutil.copy(exe_file, versioned)\n        print(f\"Created: {versioned}\")\n        # Optional: Create installer with NSIS if available\n        if shutil.which(\"makensis\"):",
+        "detail": "build",
+        "documentation": {}
+    },
+    {
+        "label": "create_nsis_installer",
+        "kind": 2,
+        "importPath": "build",
+        "description": "build",
+        "peekOfCode": "def create_nsis_installer():\n    \"\"\"Create Windows installer using NSIS\"\"\"\n    nsi_content = f\"\"\"\n!include \"MUI2.nsh\"\nName \"Speaky\"\nOutFile \"dist\\\\{APP_NAME}_{VERSION}_setup.exe\"\nInstallDir \"$PROGRAMFILES\\\\Speaky\"\nRequestExecutionLevel admin\n!insertmacro MUI_PAGE_DIRECTORY\n!insertmacro MUI_PAGE_INSTFILES",
+        "detail": "build",
+        "documentation": {}
+    },
+    {
+        "label": "build_macos_universal",
+        "kind": 2,
+        "importPath": "build",
+        "description": "build",
+        "peekOfCode": "def build_macos_universal():\n    \"\"\"Build universal binary for macOS (both Intel and Apple Silicon)\"\"\"\n    print(\"Building universal binary for macOS...\")\n    print(\"This requires building separately for each architecture.\\n\")\n    # Build for x86_64\n    print(\"=== Building for Intel (x86_64) ===\")\n    clean()\n    install_deps()\n    build_executable(target_arch=\"x86_64\")\n    # Save the x86_64 app",
+        "detail": "build",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "build",
+        "description": "build",
+        "peekOfCode": "def main():\n    import argparse\n    parser = argparse.ArgumentParser(description=\"Build Speaky for distribution\")\n    parser.add_argument(\"--universal\", action=\"store_true\",\n                        help=\"Build universal binary for macOS (both Intel and Apple Silicon)\")\n    parser.add_argument(\"--arch\", choices=[\"x86_64\", \"arm64\"],\n                        help=\"Target architecture for macOS build\")\n    args = parser.parse_args()\n    os.chdir(Path(__file__).parent)\n    plat = get_platform()",
+        "detail": "build",
+        "documentation": {}
+    },
+    {
+        "label": "APP_NAME",
+        "kind": 5,
+        "importPath": "build",
+        "description": "build",
+        "peekOfCode": "APP_NAME = \"speaky\"\nVERSION = \"1.0.0\"\n# System dependencies that cannot be bundled\nSYSTEM_DEPS = {\n    \"linux\": [\"libportaudio2\", \"xdotool\", \"xclip\"],\n    \"macos\": [\"portaudio\"],\n    \"windows\": [],\n}\ndef get_platform():\n    system = platform.system()",
+        "detail": "build",
+        "documentation": {}
+    },
+    {
+        "label": "VERSION",
+        "kind": 5,
+        "importPath": "build",
+        "description": "build",
+        "peekOfCode": "VERSION = \"1.0.0\"\n# System dependencies that cannot be bundled\nSYSTEM_DEPS = {\n    \"linux\": [\"libportaudio2\", \"xdotool\", \"xclip\"],\n    \"macos\": [\"portaudio\"],\n    \"windows\": [],\n}\ndef get_platform():\n    system = platform.system()\n    if system == \"Darwin\":",
+        "detail": "build",
+        "documentation": {}
+    },
+    {
+        "label": "SYSTEM_DEPS",
+        "kind": 5,
+        "importPath": "build",
+        "description": "build",
+        "peekOfCode": "SYSTEM_DEPS = {\n    \"linux\": [\"libportaudio2\", \"xdotool\", \"xclip\"],\n    \"macos\": [\"portaudio\"],\n    \"windows\": [],\n}\ndef get_platform():\n    system = platform.system()\n    if system == \"Darwin\":\n        return \"macos\"\n    elif system == \"Windows\":",
+        "detail": "build",
+        "documentation": {}
+    }
+]

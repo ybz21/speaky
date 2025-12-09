@@ -220,8 +220,10 @@ class SpeakyApp:
 
             def on_final_callback(text):
                 self._realtime_final_received = True
-                logger.info(f"on_final callback: {text}")
+                logger.info(f"on_final callback called with text: {repr(text[:50]) if text else 'None'}")
+                logger.info(f"on_final callback: emitting recognition_done signal")
                 self._signals.recognition_done.emit(text)
+                logger.info(f"on_final callback: signal emitted")
 
             # Create and start real-time session
             self._realtime_session = self._engine.create_realtime_session(
