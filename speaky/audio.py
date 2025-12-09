@@ -179,6 +179,7 @@ class AudioRecorder:
         """Worker thread to process audio data without blocking callback"""
         chunk_count = 0
         total_bytes = 0
+        max_level = 0
         while self._is_recording or not self._audio_queue.empty():
             try:
                 data = self._audio_queue.get(timeout=0.1)
@@ -187,10 +188,14 @@ class AudioRecorder:
                 if self._on_audio_data and self._is_recording:
                     chunk_count += 1
                     total_bytes += len(data)
+                    # 计算最大电平
+                    level = self._fast_level(data)
+                    if level > max_level:
+                        max_level = level
                     self._on_audio_data(data)
             except:
                 continue
-        logger.info(f"[录音器] 音频回调线程结束，总共处理 {chunk_count} 个chunk，{total_bytes} 字节")
+        logger.info(f"[录音器] 音频回调线程结束，总共处理 {chunk_count} 个chunk，{total_bytes} 字节，最大电平={max_level:.4f}")
 
     def _get_wav_data(self) -> bytes:
         if not self._frames:

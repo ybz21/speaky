@@ -889,6 +889,11 @@ class VolcRealtimeSession(RealtimeSession):
         # 第2个包详细记录数据头（跳过第1个包因为是初始请求后的第一个音频包，seq已经是2）
         if abs(seq) == 2 and audio_data:
             logger.info(f"[音频发送] 首个音频包头16字节: {audio_data[:16].hex()}")
+            # 计算音频电平
+            samples = [int.from_bytes(audio_data[i:i+2], 'little', signed=True) for i in range(0, min(len(audio_data), 200), 2)]
+            max_val = max(abs(s) for s in samples) if samples else 0
+            avg_val = sum(abs(s) for s in samples) // len(samples) if samples else 0
+            logger.info(f"[音频发送] 首个音频包电平: max={max_val}, avg={avg_val} (静音阈值约100)")
         if is_last or abs(seq) % 10 == 0:  # 每10个包或最后一个包记录日志
             logger.info(f"[音频发送] seq={seq}, 原始={len(audio_data)}字节, 压缩={len(compressed)}字节, last={is_last}")
 
