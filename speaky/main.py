@@ -185,6 +185,13 @@ class SpeakyApp:
                 app_key=config.get("aliyun.app_key", ""),
                 access_token=config.get("aliyun.access_token", ""),
             )
+        elif engine_name == "whisper_remote":
+            from .engines.whisper_remote_engine import WhisperRemoteEngine
+            self._engine = WhisperRemoteEngine(
+                server_url=config.get("whisper_remote.server_url", "http://localhost:8000"),
+                model=config.get("whisper_remote.model", "whisper-1"),
+                api_key=config.get("whisper_remote.api_key", ""),
+            )
 
     def _setup_hotkeys(self):
         """设置快捷键监听器"""
