@@ -179,12 +179,6 @@ class SpeakyApp:
             # Pre-warm connection for faster first request
             if hasattr(self._engine, 'warmup'):
                 threading.Thread(target=self._engine.warmup, daemon=True).start()
-        elif engine_name == "aliyun":
-            from .engines.aliyun_engine import AliyunEngine
-            self._engine = AliyunEngine(
-                app_key=config.get("aliyun.app_key", ""),
-                access_token=config.get("aliyun.access_token", ""),
-            )
         elif engine_name == "whisper_remote":
             from .engines.whisper_remote_engine import WhisperRemoteEngine
             self._engine = WhisperRemoteEngine(
