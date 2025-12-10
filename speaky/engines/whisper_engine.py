@@ -1,11 +1,16 @@
 """Local Whisper Engine using faster-whisper for optimized performance"""
 
 import logging
+import os
 import tempfile
+from pathlib import Path
 from typing import Optional
 from .base import BaseEngine
 
 logger = logging.getLogger(__name__)
+
+# 模型存储路径：项目目录下的 models 文件夹
+MODELS_DIR = Path(__file__).parent.parent.parent / "models"
 
 
 class WhisperEngine(BaseEngine):
@@ -62,11 +67,16 @@ class WhisperEngine(BaseEngine):
             else:
                 compute_type = "int8"  # CPU 用 int8 更快
 
+        # 确保模型目录存在
+        MODELS_DIR.mkdir(parents=True, exist_ok=True)
+
         logger.info(f"[Whisper] 加载模型: {self._model_name}, device={device}, compute_type={compute_type}")
+        logger.info(f"[Whisper] 模型目录: {MODELS_DIR}")
         self._model = WhisperModel(
             self._model_name,
             device=device,
             compute_type=compute_type,
+            download_root=str(MODELS_DIR),
         )
         logger.info(f"[Whisper] 模型加载完成")
 

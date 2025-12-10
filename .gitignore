@@ -7,3 +7,6 @@ build/
 *.egg
 .eggs/
 config.yaml
+
+# Whisper models
+models/

@@ -540,6 +540,38 @@
         "documentation": {}
     },
     {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
         "label": "webbrowser",
         "kind": 6,
         "isExtraImport": true,
@@ -1012,30 +1044,6 @@
         "importPath": "pyaudio",
         "description": "pyaudio",
         "detail": "pyaudio",
-        "documentation": {}
-    },
-    {
-        "label": "Path",
-        "importPath": "pathlib",
-        "description": "pathlib",
-        "isExtraImport": true,
-        "detail": "pathlib",
-        "documentation": {}
-    },
-    {
-        "label": "Path",
-        "importPath": "pathlib",
-        "description": "pathlib",
-        "isExtraImport": true,
-        "detail": "pathlib",
-        "documentation": {}
-    },
-    {
-        "label": "Path",
-        "importPath": "pathlib",
-        "description": "pathlib",
-        "isExtraImport": true,
-        "detail": "pathlib",
         "documentation": {}
     },
     {
@@ -1654,7 +1662,16 @@
         "kind": 5,
         "importPath": "speaky.engines.whisper_engine",
         "description": "speaky.engines.whisper_engine",
-        "peekOfCode": "logger = logging.getLogger(__name__)\nclass WhisperEngine(BaseEngine):\n    \"\"\"本地 Whisper 引擎 (使用 faster-whisper)\n    相比 openai-whisper:\n    - 速度快 4-5 倍\n    - 显存降低 50-75%\n    - 识别效果完全一致\n    \"\"\"\n    def __init__(\n        self,",
+        "peekOfCode": "logger = logging.getLogger(__name__)\n# 模型存储路径：项目目录下的 models 文件夹\nMODELS_DIR = Path(__file__).parent.parent.parent / \"models\"\nclass WhisperEngine(BaseEngine):\n    \"\"\"本地 Whisper 引擎 (使用 faster-whisper)\n    相比 openai-whisper:\n    - 速度快 4-5 倍\n    - 显存降低 50-75%\n    - 识别效果完全一致\n    \"\"\"",
+        "detail": "speaky.engines.whisper_engine",
+        "documentation": {}
+    },
+    {
+        "label": "MODELS_DIR",
+        "kind": 5,
+        "importPath": "speaky.engines.whisper_engine",
+        "description": "speaky.engines.whisper_engine",
+        "peekOfCode": "MODELS_DIR = Path(__file__).parent.parent.parent / \"models\"\nclass WhisperEngine(BaseEngine):\n    \"\"\"本地 Whisper 引擎 (使用 faster-whisper)\n    相比 openai-whisper:\n    - 速度快 4-5 倍\n    - 显存降低 50-75%\n    - 识别效果完全一致\n    \"\"\"\n    def __init__(\n        self,",
         "detail": "speaky.engines.whisper_engine",
         "documentation": {}
     },
