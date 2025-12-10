@@ -154,6 +154,7 @@ class SpeakyApp:
             self._engine = WhisperEngine(
                 model_name=config.get("whisper.model", "base"),
                 device=config.get("whisper.device", "auto"),
+                compute_type=config.get("whisper.compute_type", "auto"),
             )
         elif engine_name == "openai":
             from .engines.openai_engine import OpenAIEngine

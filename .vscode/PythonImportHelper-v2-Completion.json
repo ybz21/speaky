@@ -1645,7 +1645,16 @@
         "kind": 6,
         "importPath": "speaky.engines.whisper_engine",
         "description": "speaky.engines.whisper_engine",
-        "peekOfCode": "class WhisperEngine(BaseEngine):\n    def __init__(self, model_name: str = \"base\", device: str = \"auto\"):\n        self._model_name = model_name\n        self._device = device\n        self._model = None\n    def _load_model(self):\n        if self._model is None:\n            import whisper\n            device = self._device\n            if device == \"auto\":",
+        "peekOfCode": "class WhisperEngine(BaseEngine):\n    \"\"\"本地 Whisper 引擎 (使用 faster-whisper)\n    相比 openai-whisper:\n    - 速度快 4-5 倍\n    - 显存降低 50-75%\n    - 识别效果完全一致\n    \"\"\"\n    def __init__(\n        self,\n        model_name: str = \"base\",",
+        "detail": "speaky.engines.whisper_engine",
+        "documentation": {}
+    },
+    {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "speaky.engines.whisper_engine",
+        "description": "speaky.engines.whisper_engine",
+        "peekOfCode": "logger = logging.getLogger(__name__)\nclass WhisperEngine(BaseEngine):\n    \"\"\"本地 Whisper 引擎 (使用 faster-whisper)\n    相比 openai-whisper:\n    - 速度快 4-5 倍\n    - 显存降低 50-75%\n    - 识别效果完全一致\n    \"\"\"\n    def __init__(\n        self,",
         "detail": "speaky.engines.whisper_engine",
         "documentation": {}
     },
