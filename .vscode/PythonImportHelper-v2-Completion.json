@@ -220,6 +220,86 @@
         "documentation": {}
     },
     {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Callable",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "TYPE_CHECKING",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Callable",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "TYPE_CHECKING",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Callable",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "TYPE_CHECKING",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
         "label": "Callable",
         "importPath": "typing",
         "description": "typing",
@@ -368,15 +448,6 @@
         "documentation": {}
     },
     {
-        "label": "requests",
-        "kind": 6,
-        "isExtraImport": true,
-        "importPath": "requests",
-        "description": "requests",
-        "detail": "requests",
-        "documentation": {}
-    },
-    {
         "label": "ABC",
         "importPath": "abc",
         "description": "abc",
@@ -466,6 +537,135 @@
         "importPath": "tempfile",
         "description": "tempfile",
         "detail": "tempfile",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "webbrowser",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "webbrowser",
+        "description": "webbrowser",
+        "detail": "webbrowser",
+        "documentation": {}
+    },
+    {
+        "label": "QTimer",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "Qt",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "Signal",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QTimer",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QPointF",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "Qt",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "Signal",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "Signal",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QObject",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QObject",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "Signal",
+        "importPath": "PySide6.QtCore",
+        "description": "PySide6.QtCore",
+        "isExtraImport": true,
+        "detail": "PySide6.QtCore",
         "documentation": {}
     },
     {
@@ -619,94 +819,6 @@
         "description": "PySide6.QtWidgets",
         "isExtraImport": true,
         "detail": "PySide6.QtWidgets",
-        "documentation": {}
-    },
-    {
-        "label": "Qt",
-        "importPath": "PySide6.QtCore",
-        "description": "PySide6.QtCore",
-        "isExtraImport": true,
-        "detail": "PySide6.QtCore",
-        "documentation": {}
-    },
-    {
-        "label": "Signal",
-        "importPath": "PySide6.QtCore",
-        "description": "PySide6.QtCore",
-        "isExtraImport": true,
-        "detail": "PySide6.QtCore",
-        "documentation": {}
-    },
-    {
-        "label": "QTimer",
-        "importPath": "PySide6.QtCore",
-        "description": "PySide6.QtCore",
-        "isExtraImport": true,
-        "detail": "PySide6.QtCore",
-        "documentation": {}
-    },
-    {
-        "label": "QPointF",
-        "importPath": "PySide6.QtCore",
-        "description": "PySide6.QtCore",
-        "isExtraImport": true,
-        "detail": "PySide6.QtCore",
-        "documentation": {}
-    },
-    {
-        "label": "Qt",
-        "importPath": "PySide6.QtCore",
-        "description": "PySide6.QtCore",
-        "isExtraImport": true,
-        "detail": "PySide6.QtCore",
-        "documentation": {}
-    },
-    {
-        "label": "Signal",
-        "importPath": "PySide6.QtCore",
-        "description": "PySide6.QtCore",
-        "isExtraImport": true,
-        "detail": "PySide6.QtCore",
-        "documentation": {}
-    },
-    {
-        "label": "Signal",
-        "importPath": "PySide6.QtCore",
-        "description": "PySide6.QtCore",
-        "isExtraImport": true,
-        "detail": "PySide6.QtCore",
-        "documentation": {}
-    },
-    {
-        "label": "QObject",
-        "importPath": "PySide6.QtCore",
-        "description": "PySide6.QtCore",
-        "isExtraImport": true,
-        "detail": "PySide6.QtCore",
-        "documentation": {}
-    },
-    {
-        "label": "QObject",
-        "importPath": "PySide6.QtCore",
-        "description": "PySide6.QtCore",
-        "isExtraImport": true,
-        "detail": "PySide6.QtCore",
-        "documentation": {}
-    },
-    {
-        "label": "Signal",
-        "importPath": "PySide6.QtCore",
-        "description": "PySide6.QtCore",
-        "isExtraImport": true,
-        "detail": "PySide6.QtCore",
-        "documentation": {}
-    },
-    {
-        "label": "QTimer",
-        "importPath": "PySide6.QtCore",
-        "description": "PySide6.QtCore",
-        "isExtraImport": true,
-        "detail": "PySide6.QtCore",
         "documentation": {}
     },
     {
@@ -935,30 +1047,6 @@
         "documentation": {}
     },
     {
-        "label": "Path",
-        "importPath": "pathlib",
-        "description": "pathlib",
-        "isExtraImport": true,
-        "detail": "pathlib",
-        "documentation": {}
-    },
-    {
-        "label": "Path",
-        "importPath": "pathlib",
-        "description": "pathlib",
-        "isExtraImport": true,
-        "detail": "pathlib",
-        "documentation": {}
-    },
-    {
-        "label": "Path",
-        "importPath": "pathlib",
-        "description": "pathlib",
-        "isExtraImport": true,
-        "detail": "pathlib",
-        "documentation": {}
-    },
-    {
         "label": "yaml",
         "kind": 6,
         "isExtraImport": true,
@@ -1003,30 +1091,12 @@
         "documentation": {}
     },
     {
-        "label": "webbrowser",
-        "kind": 6,
-        "isExtraImport": true,
-        "importPath": "webbrowser",
-        "description": "webbrowser",
-        "detail": "webbrowser",
-        "documentation": {}
-    },
-    {
         "label": "faulthandler",
         "kind": 6,
         "isExtraImport": true,
         "importPath": "faulthandler",
         "description": "faulthandler",
         "detail": "faulthandler",
-        "documentation": {}
-    },
-    {
-        "label": "signal",
-        "kind": 6,
-        "isExtraImport": true,
-        "importPath": "signal",
-        "description": "signal",
-        "detail": "signal",
         "documentation": {}
     },
     {
@@ -1318,15 +1388,6 @@
         "documentation": {}
     },
     {
-        "label": "AliyunEngine",
-        "kind": 6,
-        "importPath": "speaky.engines.aliyun_engine",
-        "description": "speaky.engines.aliyun_engine",
-        "peekOfCode": "class AliyunEngine(BaseEngine):\n    \"\"\"阿里云语音识别\"\"\"\n    def __init__(self, app_key: str, access_token: str):\n        self._app_key = app_key\n        self._access_token = access_token\n        self._api_url = \"https://nls-gateway.cn-shanghai.aliyuncs.com/stream/v1/asr\"\n    def transcribe(self, audio_data: bytes, language: str = \"zh\") -> str:\n        headers = {\n            \"Content-Type\": \"application/octet-stream\",\n            \"X-NLS-Token\": self._access_token,",
-        "detail": "speaky.engines.aliyun_engine",
-        "documentation": {}
-    },
-    {
         "label": "BaseEngine",
         "kind": 6,
         "importPath": "speaky.engines.base",
@@ -1592,8 +1653,98 @@
         "kind": 6,
         "importPath": "speaky.engines.whisper_engine",
         "description": "speaky.engines.whisper_engine",
-        "peekOfCode": "class WhisperEngine(BaseEngine):\n    def __init__(self, model_name: str = \"base\", device: str = \"auto\"):\n        self._model_name = model_name\n        self._device = device\n        self._model = None\n    def _load_model(self):\n        if self._model is None:\n            import whisper\n            device = self._device\n            if device == \"auto\":",
+        "peekOfCode": "class WhisperEngine(BaseEngine):\n    \"\"\"本地 Whisper 引擎 (使用 faster-whisper)\n    相比 openai-whisper:\n    - 速度快 4-5 倍\n    - 显存降低 50-75%\n    - 识别效果完全一致\n    \"\"\"\n    def __init__(\n        self,\n        model_name: str = \"base\",",
         "detail": "speaky.engines.whisper_engine",
+        "documentation": {}
+    },
+    {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "speaky.engines.whisper_engine",
+        "description": "speaky.engines.whisper_engine",
+        "peekOfCode": "logger = logging.getLogger(__name__)\n# 模型存储路径：项目目录下的 models 文件夹\nMODELS_DIR = Path(__file__).parent.parent.parent / \"models\"\nclass WhisperEngine(BaseEngine):\n    \"\"\"本地 Whisper 引擎 (使用 faster-whisper)\n    相比 openai-whisper:\n    - 速度快 4-5 倍\n    - 显存降低 50-75%\n    - 识别效果完全一致\n    \"\"\"",
+        "detail": "speaky.engines.whisper_engine",
+        "documentation": {}
+    },
+    {
+        "label": "MODELS_DIR",
+        "kind": 5,
+        "importPath": "speaky.engines.whisper_engine",
+        "description": "speaky.engines.whisper_engine",
+        "peekOfCode": "MODELS_DIR = Path(__file__).parent.parent.parent / \"models\"\nclass WhisperEngine(BaseEngine):\n    \"\"\"本地 Whisper 引擎 (使用 faster-whisper)\n    相比 openai-whisper:\n    - 速度快 4-5 倍\n    - 显存降低 50-75%\n    - 识别效果完全一致\n    \"\"\"\n    def __init__(\n        self,",
+        "detail": "speaky.engines.whisper_engine",
+        "documentation": {}
+    },
+    {
+        "label": "WhisperRemoteEngine",
+        "kind": 6,
+        "importPath": "speaky.engines.whisper_remote_engine",
+        "description": "speaky.engines.whisper_remote_engine",
+        "peekOfCode": "class WhisperRemoteEngine(BaseEngine):\n    \"\"\"远程 Whisper 引擎\n    支持连接到标准 Whisper API 服务器，如：\n    - faster-whisper-server\n    - whisper.cpp server\n    - OpenAI 兼容的 Whisper API\n    API 格式：POST /v1/audio/transcriptions\n    - file: 音频文件 (multipart/form-data)\n    - model: 模型名称 (可选)\n    - language: 语言代码 (可选)",
+        "detail": "speaky.engines.whisper_remote_engine",
+        "documentation": {}
+    },
+    {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "speaky.engines.whisper_remote_engine",
+        "description": "speaky.engines.whisper_remote_engine",
+        "peekOfCode": "logger = logging.getLogger(__name__)\nclass WhisperRemoteEngine(BaseEngine):\n    \"\"\"远程 Whisper 引擎\n    支持连接到标准 Whisper API 服务器，如：\n    - faster-whisper-server\n    - whisper.cpp server\n    - OpenAI 兼容的 Whisper API\n    API 格式：POST /v1/audio/transcriptions\n    - file: 音频文件 (multipart/form-data)\n    - model: 模型名称 (可选)",
+        "detail": "speaky.engines.whisper_remote_engine",
+        "documentation": {}
+    },
+    {
+        "label": "AIModeHandler",
+        "kind": 6,
+        "importPath": "speaky.handlers.ai_handler",
+        "description": "speaky.handlers.ai_handler",
+        "peekOfCode": "class AIModeHandler(BaseModeHandler):\n    \"\"\"AI 对话模式处理器\n    处理 AI 模式语音输入：\n    1. 按下快捷键 -> 开始录音 -> 打开浏览器 -> 保持浮窗置顶\n    2. 松开快捷键 -> 停止录音 -> 识别\n    3. 识别完成 -> 等待页面加载 -> 输入文本 -> 发送回车\n    \"\"\"\n    def __init__(\n        self,\n        signals: \"QObject\",",
+        "detail": "speaky.handlers.ai_handler",
+        "documentation": {}
+    },
+    {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "speaky.handlers.ai_handler",
+        "description": "speaky.handlers.ai_handler",
+        "peekOfCode": "logger = logging.getLogger(__name__)\nclass AIModeHandler(BaseModeHandler):\n    \"\"\"AI 对话模式处理器\n    处理 AI 模式语音输入：\n    1. 按下快捷键 -> 开始录音 -> 打开浏览器 -> 保持浮窗置顶\n    2. 松开快捷键 -> 停止录音 -> 识别\n    3. 识别完成 -> 等待页面加载 -> 输入文本 -> 发送回车\n    \"\"\"\n    def __init__(\n        self,",
+        "detail": "speaky.handlers.ai_handler",
+        "documentation": {}
+    },
+    {
+        "label": "BaseModeHandler",
+        "kind": 6,
+        "importPath": "speaky.handlers.base",
+        "description": "speaky.handlers.base",
+        "peekOfCode": "class BaseModeHandler:\n    \"\"\"模式处理器基类\n    提供共享的录音逻辑和抽象接口。\n    子类需要实现具体的事件处理方法。\n    \"\"\"\n    def __init__(\n        self,\n        signals: \"QObject\",\n        recorder: \"AudioRecorder\",\n        engine_getter: Callable[[], Optional[\"BaseEngine\"]],",
+        "detail": "speaky.handlers.base",
+        "documentation": {}
+    },
+    {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "speaky.handlers.base",
+        "description": "speaky.handlers.base",
+        "peekOfCode": "logger = logging.getLogger(__name__)\nclass BaseModeHandler:\n    \"\"\"模式处理器基类\n    提供共享的录音逻辑和抽象接口。\n    子类需要实现具体的事件处理方法。\n    \"\"\"\n    def __init__(\n        self,\n        signals: \"QObject\",\n        recorder: \"AudioRecorder\",",
+        "detail": "speaky.handlers.base",
+        "documentation": {}
+    },
+    {
+        "label": "VoiceModeHandler",
+        "kind": 6,
+        "importPath": "speaky.handlers.voice_handler",
+        "description": "speaky.handlers.voice_handler",
+        "peekOfCode": "class VoiceModeHandler(BaseModeHandler):\n    \"\"\"语音输入模式处理器\n    处理普通语音输入：\n    1. 按下快捷键 -> 保存焦点 -> 开始录音\n    2. 松开快捷键 -> 停止录音 -> 识别\n    3. 识别完成 -> 显示结果 -> 输入文本到原窗口\n    \"\"\"\n    def __init__(\n        self,\n        signals: \"QObject\",",
+        "detail": "speaky.handlers.voice_handler",
+        "documentation": {}
+    },
+    {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "speaky.handlers.voice_handler",
+        "description": "speaky.handlers.voice_handler",
+        "peekOfCode": "logger = logging.getLogger(__name__)\nclass VoiceModeHandler(BaseModeHandler):\n    \"\"\"语音输入模式处理器\n    处理普通语音输入：\n    1. 按下快捷键 -> 保存焦点 -> 开始录音\n    2. 松开快捷键 -> 停止录音 -> 识别\n    3. 识别完成 -> 显示结果 -> 输入文本到原窗口\n    \"\"\"\n    def __init__(\n        self,",
+        "detail": "speaky.handlers.voice_handler",
         "documentation": {}
     },
     {
@@ -1943,7 +2094,7 @@
         "kind": 6,
         "importPath": "speaky.main",
         "description": "speaky.main",
-        "peekOfCode": "class SignalBridge(QObject):\n    start_recording = Signal()\n    stop_recording = Signal()\n    audio_level = Signal(float)\n    recognition_done = Signal(str)\n    recognition_error = Signal(str)\n    partial_result = Signal(str)  # For streaming ASR\n    # AI key signals\n    ai_start_recording = Signal()\n    ai_stop_recording = Signal()",
+        "peekOfCode": "class SignalBridge(QObject):\n    \"\"\"Qt 信号桥接器，用于跨线程通信\"\"\"\n    # 语音模式信号\n    start_recording = Signal()\n    stop_recording = Signal()\n    recognition_done = Signal(str)\n    recognition_error = Signal(str)\n    # AI 模式信号\n    ai_start_recording = Signal()\n    ai_stop_recording = Signal()",
         "detail": "speaky.main",
         "documentation": {}
     },
@@ -1952,7 +2103,7 @@
         "kind": 6,
         "importPath": "speaky.main",
         "description": "speaky.main",
-        "peekOfCode": "class SpeakyApp:\n    def __init__(self):\n        self._app = QApplication(sys.argv)\n        self._app.setQuitOnLastWindowClosed(False)\n        # Set macOS to accessory mode - won't appear in Dock or steal focus\n        set_macos_accessory_mode()\n        # Initialize i18n language from config\n        i18n.set_language(config.get(\"ui_language\", \"auto\"))\n        # Apply theme from config\n        apply_theme(config.get(\"ui.theme\", \"auto\"))",
+        "peekOfCode": "class SpeakyApp:\n    \"\"\"Speaky 应用主类\n    职责：\n    1. 初始化核心组件（录音器、引擎、UI）\n    2. 设置快捷键监听\n    3. 将事件路由到对应的 handler\n    4. 管理应用生命周期\n    \"\"\"\n    def __init__(self):\n        self._app = QApplication(sys.argv)",
         "detail": "speaky.main",
         "documentation": {}
     },

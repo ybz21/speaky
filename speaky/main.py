@@ -154,6 +154,7 @@ class SpeakyApp:
             self._engine = WhisperEngine(
                 model_name=config.get("whisper.model", "base"),
                 device=config.get("whisper.device", "auto"),
+                compute_type=config.get("whisper.compute_type", "auto"),
             )
         elif engine_name == "openai":
             from .engines.openai_engine import OpenAIEngine
@@ -179,11 +180,12 @@ class SpeakyApp:
             # Pre-warm connection for faster first request
             if hasattr(self._engine, 'warmup'):
                 threading.Thread(target=self._engine.warmup, daemon=True).start()
-        elif engine_name == "aliyun":
-            from .engines.aliyun_engine import AliyunEngine
-            self._engine = AliyunEngine(
-                app_key=config.get("aliyun.app_key", ""),
-                access_token=config.get("aliyun.access_token", ""),
+        elif engine_name == "whisper_remote":
+            from .engines.whisper_remote_engine import WhisperRemoteEngine
+            self._engine = WhisperRemoteEngine(
+                server_url=config.get("whisper_remote.server_url", "http://localhost:8000"),
+                model=config.get("whisper_remote.model", "whisper-1"),
+                api_key=config.get("whisper_remote.api_key", ""),
             )
 
     def _setup_hotkeys(self):
