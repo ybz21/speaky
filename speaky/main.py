@@ -6,6 +6,16 @@ import sys
 import threading
 from typing import Optional
 
+# 在导入任何 X11 相关库之前，初始化 X11 多线程支持
+# 这是为了避免 pynput (Xlib) 和 Qt (X11) 多线程冲突导致的 Segmentation fault
+if platform.system() == "Linux":
+    try:
+        import ctypes
+        x11 = ctypes.CDLL("libX11.so.6")
+        x11.XInitThreads()
+    except Exception:
+        pass  # 如果失败，继续运行
+
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QObject, Signal
 
@@ -17,7 +27,6 @@ from .engines.base import BaseEngine
 from .ui.floating_window import FloatingWindow
 from .ui.tray_icon import TrayIcon
 from .ui.settings_dialog import SettingsDialog, apply_theme
-from .ui.log_viewer import LogViewerDialog
 from .i18n import t, i18n
 from .handlers import VoiceModeHandler, AIModeHandler
 from .sound import set_sound_enabled
@@ -124,7 +133,6 @@ class SpeakyApp:
         self._floating_window = FloatingWindow()
         self._tray = TrayIcon()
         self._settings_dialog: Optional[SettingsDialog] = None
-        self._log_viewer: Optional[LogViewerDialog] = None
 
         # 初始化引擎
         self._setup_engine()
@@ -257,7 +265,6 @@ class SpeakyApp:
     def _setup_tray(self):
         """设置托盘图标"""
         self._tray.settings_clicked.connect(self._show_settings)
-        self._tray.log_viewer_clicked.connect(self._show_log_viewer)
         self._tray.quit_clicked.connect(self._quit)
 
     def _show_settings(self):
@@ -272,18 +279,6 @@ class SpeakyApp:
     def _on_settings_dialog_closed(self):
         """设置对话框关闭时重置引用，以便下次用新语言重建"""
         self._settings_dialog = None
-
-    def _show_log_viewer(self):
-        """显示日志查看器"""
-        if self._log_viewer is None:
-            self._log_viewer = LogViewerDialog()
-            self._log_viewer.destroyed.connect(self._on_log_viewer_closed)
-        self._log_viewer.show()
-        self._log_viewer.raise_()
-
-    def _on_log_viewer_closed(self):
-        """日志查看器关闭时重置引用"""
-        self._log_viewer = None
 
     def _on_settings_changed(self):
         """设置变更处理"""

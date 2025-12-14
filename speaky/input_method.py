@@ -189,8 +189,17 @@ class InputMethod:
                 script = 'tell application "System Events" to keystroke "v" using command down'
                 subprocess.run(["osascript", "-e", script], check=False, capture_output=True)
                 logger.info("Paste command sent via AppleScript")
+            elif self._system == "Linux" and self._xdotool:
+                # Linux: use xdotool for reliable Ctrl+V
+                time.sleep(0.1)
+                subprocess.run(
+                    [self._xdotool, "key", "--clearmodifiers", "ctrl+v"],
+                    check=False,
+                    capture_output=True,
+                )
+                logger.info("Paste command sent via xdotool")
             elif self._keyboard:
-                # Linux/Windows: Ctrl+V via pynput
+                # Windows: Ctrl+V via pynput
                 time.sleep(0.1)
                 with self._keyboard.pressed(self._Key.ctrl):
                     self._keyboard.press("v")
@@ -217,15 +226,8 @@ class InputMethod:
         if restore_focus:
             self.restore_focus()
 
-        if self._system == "Linux" and self._xdotool:
-            # Linux with xdotool: use direct typing
-            subprocess.run(
-                [self._xdotool, "type", "--clearmodifiers", "--", text],
-                check=False,
-                capture_output=True,
-            )
-        elif self._keyboard:
-            # macOS/Windows: use clipboard + paste
+        if self._keyboard:
+            # Use clipboard + paste (works on all platforms including Chinese input)
             if self._copy_to_clipboard(text):
                 self._paste()
                 # Wait for paste to complete, then clear clipboard

@@ -1,8 +1,9 @@
 """AI chat mode handler"""
 
 import logging
+import platform
+import subprocess
 import time
-import webbrowser
 from typing import Optional, Callable, TYPE_CHECKING
 
 from PySide6.QtCore import QTimer
@@ -132,11 +133,33 @@ class AIModeHandler(BaseModeHandler):
         self._floating_window.show_error(error)
 
     def _open_browser(self):
-        """延迟打开浏览器"""
+        """延迟打开浏览器（使用 subprocess 避免 X11 冲突）"""
         try:
             ai_url = self._config.get("core.ai.url", "https://chatgpt.com")
             logger.info(f"AI mode: Opening {ai_url}")
-            webbrowser.open(ai_url)
+
+            # 使用 subprocess 在后台打开浏览器，避免与 pynput 的 Xlib 冲突
+            system = platform.system()
+            if system == "Linux":
+                subprocess.Popen(
+                    ["xdg-open", ai_url],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+            elif system == "Darwin":
+                subprocess.Popen(
+                    ["open", ai_url],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+            elif system == "Windows":
+                subprocess.Popen(
+                    ["start", "", ai_url],
+                    shell=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+
             # 打开浏览器后立即强制置顶浮窗
             QTimer.singleShot(200, self._floating_window.force_to_top)
             QTimer.singleShot(500, self._floating_window.force_to_top)
@@ -176,9 +199,21 @@ class AIModeHandler(BaseModeHandler):
             logger.info("AI mode: Hiding floating window")
             self._floating_window.hide()
 
-            # 等待焦点正确转移到浏览器
-            import time
-            time.sleep(0.3)
+            # 保存文本，延迟执行实际输入（让焦点正确转移到浏览器）
+            self._pending_text = text
+            QTimer.singleShot(500, self._do_actual_input)
+        except Exception as e:
+            logger.exception(f"AI mode: Exception in _do_input: {e}")
+
+    def _do_actual_input(self):
+        """实际执行文字输入（延迟后执行）"""
+        try:
+            text = getattr(self, '_pending_text', '')
+            if not text:
+                logger.warning("AI mode: No pending text to input")
+                return
+
+            logger.info(f"AI mode: _do_actual_input with text: {text[:50]}...")
 
             # 输入文字（AI 模式不恢复焦点，保持在浏览器）
             logger.info("AI mode: Calling input_method.type_text(restore_focus=False)")
@@ -192,17 +227,34 @@ class AIModeHandler(BaseModeHandler):
             else:
                 logger.info("AI mode: Auto enter disabled, skipping Enter press")
         except Exception as e:
-            logger.exception(f"AI mode: Exception in _do_input: {e}")
+            logger.exception(f"AI mode: Exception in _do_actual_input: {e}")
 
     def _press_enter(self):
         """按回车键发送消息"""
         try:
             logger.info("AI mode: _press_enter called")
-            from pynput.keyboard import Controller, Key
-            keyboard = Controller()
-            keyboard.press(Key.enter)
-            keyboard.release(Key.enter)
-            logger.info("AI mode: Enter pressed, message sent")
+            import shutil
+
+            system = platform.system()
+            if system == "Linux":
+                # Linux: 使用 xdotool 避免 pynput X11 冲突
+                xdotool = shutil.which("xdotool")
+                if xdotool:
+                    subprocess.run(
+                        [xdotool, "key", "Return"],
+                        check=False,
+                        capture_output=True
+                    )
+                    logger.info("AI mode: Enter pressed via xdotool")
+                else:
+                    logger.warning("AI mode: xdotool not found, cannot press Enter")
+            else:
+                # macOS/Windows: 使用 pynput
+                from pynput.keyboard import Controller, Key
+                keyboard = Controller()
+                keyboard.press(Key.enter)
+                keyboard.release(Key.enter)
+                logger.info("AI mode: Enter pressed via pynput")
         except Exception as e:
             logger.exception(f"AI mode: Exception in _press_enter: {e}")
 

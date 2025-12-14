@@ -1,32 +1,60 @@
-hotkey: "ctrl"
-hotkey_hold_time: 1.0
-engine: volcengine
-language: zh
-ui_language: auto  # auto, en, zh, ja, ko
+# Speaky 配置文件示例
+# 复制此文件为 config.yaml 并填入您的配置
 
-whisper:
-  model: base
-  device: auto
+# ========== 核心设置 ==========
+core:
+  # 语音识别 (ASR)
+  asr:
+    hotkey: ctrl              # 唤醒键: ctrl, alt, shift, cmd, f1-f12, space, tab, caps_lock
+    hotkey_hold_time: 1.0     # 长按延迟(秒)，0 表示立即开始
+    language: zh              # 识别语言: zh, en, ja, ko
+    streaming_mode: true      # 流式识别，边说边显示结果
 
-openai:
-  api_key: ""
-  model: whisper-1
-  base_url: https://api.openai.com/v1
+  # AI 键
+  ai:
+    enabled: true             # 是否启用 AI 键
+    hotkey: alt               # AI 热键
+    hotkey_hold_time: 0.5     # AI 键长按延迟(秒)
+    url: https://chatgpt.com  # AI 网站地址，支持 doubao.com/chat, claude.ai 等
+    page_load_delay: 3.0      # 页面加载等待时间(秒)
+    auto_enter: true          # 自动发送(回车)
 
-volcengine:
-  app_id: ""
-  access_key: ""
-  secret_key: ""
+# ========== 引擎设置 ==========
+engine:
+  current: volc_bigmodel      # 当前使用的引擎
 
-volc_bigmodel:
-  app_key: ""
-  access_key: ""
-  model: bigmodel  # bigmodel, bigmodel_async, bigmodel_nostream
+  # 1. 火山引擎-语音识别大模型 (推荐)
+  volc_bigmodel:
+    app_key: ""               # 应用 Key
+    access_key: ""            # Access Key
+    model: bigmodel           # 模型: bigmodel, bigmodel_async, bigmodel_nostream
 
-aliyun:
-  app_key: ""
-  access_token: ""
+  # 2. 火山引擎-一句话识别
+  volcengine:
+    app_id: ""                # App ID
+    access_key: ""            # Access Key
+    secret_key: ""            # Secret Key
 
-ui:
-  show_waveform: true
-  window_opacity: 0.9
+  # 3. OpenAI Whisper
+  openai:
+    api_key: ""               # OpenAI API Key
+    model: whisper-1          # 模型名称
+    base_url: https://api.openai.com/v1
+
+  # 4. Whisper 兼容接口 (如 faster-whisper-server)
+  whisper_remote:
+    server_url: http://localhost:8000
+    model: whisper-1
+    api_key: ""               # 可选，如果服务器需要认证
+
+  # 5. 本地 Whisper 模型
+  whisper:
+    model: base               # 模型: tiny, base, small, medium, large
+    device: auto              # 设备: auto, cpu, cuda
+
+# ========== 外观设置 ==========
+appearance:
+  theme: auto                 # 主题: light, dark, auto
+  ui_language: auto           # 界面语言: auto, en, zh, zh_TW, ja, ko, de, fr, es, pt, ru
+  show_waveform: true         # 显示波形
+  window_opacity: 0.9         # 窗口透明度 (0.5-1.0)

@@ -25,7 +25,7 @@ VERSION = "1.0.0"
 
 # System dependencies that cannot be bundled
 SYSTEM_DEPS = {
-    "linux": ["libportaudio2", "xdotool", "xclip"],
+    "linux": ["libportaudio2", "libxcb-cursor0", "xdotool", "xclip"],
     "macos": ["portaudio"],
     "windows": [],
 }
@@ -87,8 +87,9 @@ def clean():
 def install_deps():
     """Install build dependencies"""
     subprocess.run([sys.executable, "-m", "pip", "install", "-q",
-                    "pyinstaller", "PyQt5", "pynput", "pyaudio",
-                    "numpy", "pyyaml", "openai", "requests", "websockets"],
+                    "pyinstaller", "PySide6", "PySide6-Fluent-Widgets",
+                    "pynput", "pyaudio", "numpy", "pyyaml", "openai",
+                    "requests", "websockets", "aiohttp", "faster-whisper"],
                    check=True)
     print("Installed dependencies")
 
@@ -126,17 +127,29 @@ def build_executable(target_arch=None):
 
     # Hidden imports
     hidden_imports = [
-        "PyQt5.sip",
-        "PyQt5.QtWidgets",
-        "PyQt5.QtCore",
-        "PyQt5.QtGui",
+        # PySide6
+        "PySide6.QtWidgets",
+        "PySide6.QtCore",
+        "PySide6.QtGui",
+        "PySide6.QtSvg",
+        "PySide6.QtSvgWidgets",
+        "PySide6.QtXml",
+        "shiboken6",
+        # PySide6-Fluent-Widgets
+        "qfluentwidgets",
+        # pynput
         "pynput.keyboard",
         "pynput.keyboard._xorg",
         "pynput.keyboard._win32",
         "pynput.keyboard._darwin",
+        # Other
         "yaml",
         "numpy",
         "websockets",
+        "aiohttp",
+        # faster-whisper
+        "faster_whisper",
+        "ctranslate2",
     ]
     for imp in hidden_imports:
         args.extend(["--hidden-import", imp])
@@ -187,7 +200,7 @@ Version: {VERSION}
 Section: utils
 Priority: optional
 Architecture: {arch}
-Depends: xdotool, xclip, libportaudio2
+Depends: xdotool, xclip, libportaudio2, libxcb-cursor0
 Maintainer: Speaky
 Description: Voice input tool with hotkey activation
  A voice input tool with hotkey activation, supporting

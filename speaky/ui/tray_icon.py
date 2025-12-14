@@ -51,7 +51,6 @@ def get_tray_icon() -> QIcon:
 class TrayIcon(QObject):
     settings_clicked = Signal()
     quit_clicked = Signal()
-    log_viewer_clicked = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -76,11 +75,6 @@ class TrayIcon(QObject):
         self._history_menu = QMenu(t("history"), self._menu)
         self._menu.addMenu(self._history_menu)
         self._update_history_menu()
-
-        # View log
-        log_action = QAction(t("view_log"), self._menu)
-        log_action.triggered.connect(self.log_viewer_clicked.emit)
-        self._menu.addAction(log_action)
 
         self._menu.addSeparator()
 

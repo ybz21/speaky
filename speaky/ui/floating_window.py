@@ -393,8 +393,8 @@ class FloatingWindow(QWidget):
                 logger.debug(f"[浮窗] 置顶窗口: hwnd={hwnd}")
                 force_window_to_top(hwnd)
             else:
+                # Linux/macOS: just raise, don't activate to avoid stealing focus
                 self.raise_()
-                self.activateWindow()
         except Exception as e:
             logger.exception(f"[浮窗] 置顶失败: {e}")
 

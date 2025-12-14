@@ -1,10 +1,49 @@
 import logging
+import platform
 import threading
 import time
-from typing import Callable, Optional
+from typing import Callable, Dict, Optional, Tuple
 from pynput import keyboard
 
 logger = logging.getLogger(__name__)
+
+# 全局共享的键盘监听器（避免多个 X11 连接导致冲突）
+_shared_listener: Optional[keyboard.Listener] = None
+_shared_listener_lock = threading.Lock()
+_hotkey_handlers: Dict[str, "HotkeyListener"] = {}
+
+
+def _get_shared_listener() -> keyboard.Listener:
+    """获取或创建共享的键盘监听器"""
+    global _shared_listener
+    with _shared_listener_lock:
+        if _shared_listener is None:
+            _shared_listener = keyboard.Listener(
+                on_press=_shared_on_press,
+                on_release=_shared_on_release,
+            )
+            _shared_listener.start()
+            logger.info("Created shared keyboard listener")
+        return _shared_listener
+
+
+def _shared_on_press(key):
+    """共享的按键按下处理"""
+    for handler in list(_hotkey_handlers.values()):
+        try:
+            handler._on_key_press(key)
+        except Exception as e:
+            logger.error(f"Error in hotkey press handler: {e}")
+
+
+def _shared_on_release(key):
+    """共享的按键释放处理"""
+    for handler in list(_hotkey_handlers.values()):
+        try:
+            handler._on_key_release(key)
+        except Exception as e:
+            logger.error(f"Error in hotkey release handler: {e}")
+
 
 KEY_MAP = {
     # Modifier keys
@@ -77,6 +116,8 @@ KEY_MAP = {
 
 
 class HotkeyListener:
+    _instance_counter = 0
+
     def __init__(
         self,
         hotkey: str,
@@ -85,15 +126,17 @@ class HotkeyListener:
         hold_time: float = 1.0,
     ):
         self._hotkey = hotkey.lower()
-        self._on_press = on_press
-        self._on_release = on_release
+        self._on_press_callback = on_press
+        self._on_release_callback = on_release
         self._hold_time = hold_time
-        self._listener: Optional[keyboard.Listener] = None
         self._is_pressed = False
         self._is_recording = False
         self._press_time: Optional[float] = None
         self._hold_timer: Optional[threading.Timer] = None
         self._lock = threading.Lock()
+        # 唯一标识符
+        HotkeyListener._instance_counter += 1
+        self._id = f"hotkey_{HotkeyListener._instance_counter}_{hotkey}"
 
     def _get_target_key(self):
         if self._hotkey in KEY_MAP:
@@ -134,7 +177,7 @@ class HotkeyListener:
             if self._is_pressed and not self._is_recording:
                 logger.info(f"Hold time reached, starting recording")
                 self._is_recording = True
-                self._on_press()
+                self._on_press_callback()
 
     def _on_key_release(self, key):
         target = self._get_target_key()
@@ -164,7 +207,7 @@ class HotkeyListener:
                     # Only trigger release if recording was started
                     if self._is_recording:
                         self._is_recording = False
-                        self._on_release()
+                        self._on_release_callback()
                     else:
                         logger.info("Released before hold time, ignoring")
 
