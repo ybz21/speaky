@@ -91,6 +91,7 @@ class SignalBridge(QObject):
     ai_start_recording = Signal()
     ai_stop_recording = Signal()
     ai_recognition_done = Signal(str)
+    ai_do_input = Signal(str)
 
     # 共享信号
     audio_level = Signal(float)
@@ -247,6 +248,7 @@ class SpeakyApp:
         self._signals.ai_start_recording.connect(self._ai_handler.on_start_recording)
         self._signals.ai_stop_recording.connect(self._ai_handler.on_stop_recording)
         self._signals.ai_recognition_done.connect(self._ai_handler.on_recognition_done)
+        self._signals.ai_do_input.connect(self._ai_handler._do_input)
 
     def _on_voice_recognition_done(self, text: str):
         """语音识别完成的路由处理

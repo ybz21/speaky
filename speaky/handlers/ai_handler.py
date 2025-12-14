@@ -54,7 +54,7 @@ class AIModeHandler(BaseModeHandler):
     def on_hotkey_release(self):
         """AI 快捷键松开：停止录音"""
         logger.info("AI hotkey released - stopping recording")
-        self._stop_raise_timer()
+        # 通过信号在主线程停止，避免跨线程操作 Qt 对象
         self._signals.ai_stop_recording.emit()
 
     def on_start_recording(self):
@@ -82,9 +82,11 @@ class AIModeHandler(BaseModeHandler):
             logger.exception(f"AI mode: Exception in on_start_recording: {e}")
 
     def on_stop_recording(self):
-        """AI 模式停止录音"""
+        """AI 模式停止录音（在 Qt 主线程中执行）"""
         try:
             logger.info("AI mode: on_stop_recording called")
+            # 先停止 raise timer（必须在主线程）
+            self._stop_raise_timer()
             self._stop_recording()
             logger.info("AI mode: _stop_recording completed")
         except Exception as e:
@@ -109,10 +111,16 @@ class AIModeHandler(BaseModeHandler):
             engine_name = self._engine.name if self._engine else ""
             add_to_history(text, engine_name)
 
+            # 暂停 pynput 监听器，避免与 Qt X11 操作冲突
+            from ..hotkey import pause_listener, resume_listener
+            pause_listener()
+
+            # AI 模式：显示结果（会自动在 500ms 后隐藏）
             self._floating_window.show_result(text)
 
             if not text or not text.strip():
                 logger.warning("AI mode: Empty recognition result, skipping input")
+                resume_listener()
                 return
 
             page_load_delay = self._config.get("core.ai.page_load_delay", 3.0)
@@ -122,8 +130,26 @@ class AIModeHandler(BaseModeHandler):
             logger.info(f"AI mode: Recognition done. Browser elapsed: {browser_elapsed:.1f}s, waiting {remaining:.1f}s more before input")
             logger.info(f"AI mode: Text to input: {text}")
 
-            # 等待剩余时间后输入
-            QTimer.singleShot(int(remaining * 1000), lambda: self._do_input(text))
+            # 完全在后台线程执行，避免任何 Qt/X11 交互
+            import threading
+            def delayed_input():
+                try:
+                    time.sleep(remaining + 0.5)  # 额外等待 0.5s 让焦点转移
+
+                    logger.info(f"AI mode: Executing input: {text[:50]}...")
+                    self._input_method.type_text(text, restore_focus=False)
+                    logger.info("AI mode: type_text completed")
+
+                    if self._config.get("core.ai.auto_enter", True):
+                        time.sleep(0.3)
+                        self._press_enter()
+                except Exception as e:
+                    logger.exception(f"AI mode: Exception in delayed_input: {e}")
+                finally:
+                    # 恢复 pynput 监听器
+                    resume_listener()
+
+            threading.Thread(target=delayed_input, daemon=True).start()
         except Exception as e:
             logger.exception(f"AI mode: Exception in on_recognition_done: {e}")
 
@@ -191,43 +217,33 @@ class AIModeHandler(BaseModeHandler):
             self._raise_timer = None
 
     def _do_input(self, text: str):
-        """执行文字输入和回车"""
+        """执行文字输入和回车（通过信号从主线程安全调用）"""
         try:
             logger.info(f"AI mode: _do_input called with text: {text}")
 
-            # 隐藏浮窗（输入前隐藏，避免遮挡）
-            logger.info("AI mode: Hiding floating window")
-            self._floating_window.hide()
+            # 在后台线程执行输入操作，避免阻塞主线程
+            import threading
+            def do_input_thread():
+                try:
+                    # 等待焦点转移到浏览器
+                    time.sleep(0.5)
 
-            # 保存文本，延迟执行实际输入（让焦点正确转移到浏览器）
-            self._pending_text = text
-            QTimer.singleShot(500, self._do_actual_input)
+                    logger.info(f"AI mode: Executing input with text: {text[:50]}...")
+
+                    # 输入文字（AI 模式不恢复焦点，保持在浏览器）
+                    self._input_method.type_text(text, restore_focus=False)
+                    logger.info("AI mode: type_text completed")
+
+                    # 如果配置了自动回车，等待后按回车
+                    if self._config.get("core.ai.auto_enter", True):
+                        time.sleep(0.3)
+                        self._press_enter()
+                except Exception as e:
+                    logger.exception(f"AI mode: Exception in do_input_thread: {e}")
+
+            threading.Thread(target=do_input_thread, daemon=True).start()
         except Exception as e:
             logger.exception(f"AI mode: Exception in _do_input: {e}")
-
-    def _do_actual_input(self):
-        """实际执行文字输入（延迟后执行）"""
-        try:
-            text = getattr(self, '_pending_text', '')
-            if not text:
-                logger.warning("AI mode: No pending text to input")
-                return
-
-            logger.info(f"AI mode: _do_actual_input with text: {text[:50]}...")
-
-            # 输入文字（AI 模式不恢复焦点，保持在浏览器）
-            logger.info("AI mode: Calling input_method.type_text(restore_focus=False)")
-            self._input_method.type_text(text, restore_focus=False)
-            logger.info("AI mode: type_text completed")
-
-            # 如果配置了自动回车，则发送
-            if self._config.get("core.ai.auto_enter", True):
-                logger.info("AI mode: Scheduling Enter key press")
-                QTimer.singleShot(300, self._press_enter)
-            else:
-                logger.info("AI mode: Auto enter disabled, skipping Enter press")
-        except Exception as e:
-            logger.exception(f"AI mode: Exception in _do_actual_input: {e}")
 
     def _press_enter(self):
         """按回车键发送消息"""

@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 _shared_listener: Optional[keyboard.Listener] = None
 _shared_listener_lock = threading.Lock()
 _hotkey_handlers: Dict[str, "HotkeyListener"] = {}
+_listener_paused = False
 
 
 def _get_shared_listener() -> keyboard.Listener:
@@ -27,8 +28,33 @@ def _get_shared_listener() -> keyboard.Listener:
         return _shared_listener
 
 
+def pause_listener():
+    """暂停监听器（完全停止 pynput 线程，避免与其他 X11 操作冲突）"""
+    global _shared_listener, _listener_paused
+    _listener_paused = True
+    with _shared_listener_lock:
+        if _shared_listener is not None:
+            try:
+                _shared_listener.stop()
+                _shared_listener = None
+                logger.info("Keyboard listener stopped")
+            except Exception as e:
+                logger.error(f"Error stopping listener: {e}")
+
+
+def resume_listener():
+    """恢复监听器"""
+    global _listener_paused
+    _listener_paused = False
+    # 重新创建监听器
+    _get_shared_listener()
+    logger.info("Keyboard listener resumed")
+
+
 def _shared_on_press(key):
     """共享的按键按下处理"""
+    if _listener_paused:
+        return
     for handler in list(_hotkey_handlers.values()):
         try:
             handler._on_key_press(key)
@@ -38,6 +64,8 @@ def _shared_on_press(key):
 
 def _shared_on_release(key):
     """共享的按键释放处理"""
+    if _listener_paused:
+        return
     for handler in list(_hotkey_handlers.values()):
         try:
             handler._on_key_release(key)
@@ -212,18 +240,17 @@ class HotkeyListener:
                         logger.info("Released before hold time, ignoring")
 
     def start(self):
-        if self._listener is not None:
-            return
-        self._listener = keyboard.Listener(
-            on_press=self._on_key_press,
-            on_release=self._on_key_release,
-        )
-        self._listener.start()
+        # 注册到共享监听器
+        _hotkey_handlers[self._id] = self
+        # 确保共享监听器已启动
+        _get_shared_listener()
+        logger.info(f"Registered hotkey handler: {self._id}")
 
     def stop(self):
-        if self._listener is not None:
-            self._listener.stop()
-            self._listener = None
+        # 从共享监听器注销
+        if self._id in _hotkey_handlers:
+            del _hotkey_handlers[self._id]
+            logger.info(f"Unregistered hotkey handler: {self._id}")
         if self._hold_timer:
             self._hold_timer.cancel()
             self._hold_timer = None
