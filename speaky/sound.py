@@ -5,10 +5,9 @@ import math
 import struct
 import wave
 import logging
+import platform
+import threading
 from typing import Optional
-
-from PySide6.QtCore import QUrl
-from PySide6.QtMultimedia import QSoundEffect
 
 logger = logging.getLogger(__name__)
 
@@ -53,16 +52,17 @@ def generate_beep(frequency: int = 800, duration_ms: int = 100, volume: float = 
 
 
 class SoundPlayer:
-    """Sound player for recording feedback notifications"""
+    """Sound player for recording feedback notifications using PyAudio"""
 
     _instance: Optional["SoundPlayer"] = None
 
     def __init__(self):
         self._enabled = True
-        self._start_sound: Optional[QSoundEffect] = None
-        self._end_sound: Optional[QSoundEffect] = None
-        self._error_sound: Optional[QSoundEffect] = None
+        self._start_wav: Optional[bytes] = None
+        self._end_wav: Optional[bytes] = None
+        self._error_wav: Optional[bytes] = None
         self._initialized = False
+        self._pyaudio = None
 
     @classmethod
     def instance(cls) -> "SoundPlayer":
@@ -81,34 +81,17 @@ class SoundPlayer:
         return self._enabled
 
     def _ensure_initialized(self):
-        """Lazy initialization of sound effects"""
+        """Lazy initialization of sound data"""
         if self._initialized:
             return
 
-        import os
-        import tempfile
-
         try:
-            # Create temporary WAV files for sounds
-            self._temp_dir = tempfile.mkdtemp(prefix="speaky_sounds_")
-
+            # Generate sound data (just keep in memory, no temp files)
             # Start sound: higher pitch, short beep
-            start_wav = generate_beep(frequency=1000, duration_ms=80, volume=0.25)
-            start_path = os.path.join(self._temp_dir, "start.wav")
-            with open(start_path, 'wb') as f:
-                f.write(start_wav)
-            self._start_sound = QSoundEffect()
-            self._start_sound.setSource(QUrl.fromLocalFile(start_path))
-            self._start_sound.setVolume(1.0)
+            self._start_wav = generate_beep(frequency=1000, duration_ms=80, volume=0.25)
 
             # End sound: lower pitch, slightly longer
-            end_wav = generate_beep(frequency=600, duration_ms=100, volume=0.25)
-            end_path = os.path.join(self._temp_dir, "end.wav")
-            with open(end_path, 'wb') as f:
-                f.write(end_wav)
-            self._end_sound = QSoundEffect()
-            self._end_sound.setSource(QUrl.fromLocalFile(end_path))
-            self._end_sound.setVolume(1.0)
+            self._end_wav = generate_beep(frequency=600, duration_ms=100, volume=0.25)
 
             # Error sound: two short low beeps
             error_samples = []
@@ -135,13 +118,7 @@ class SoundPlayer:
                 wf.setsampwidth(2)
                 wf.setframerate(sample_rate)
                 wf.writeframes(b''.join(error_samples))
-
-            error_path = os.path.join(self._temp_dir, "error.wav")
-            with open(error_path, 'wb') as f:
-                f.write(error_buffer.getvalue())
-            self._error_sound = QSoundEffect()
-            self._error_sound.setSource(QUrl.fromLocalFile(error_path))
-            self._error_sound.setVolume(1.0)
+            self._error_wav = error_buffer.getvalue()
 
             self._initialized = True
             logger.info("Sound player initialized")
@@ -150,38 +127,72 @@ class SoundPlayer:
             logger.error(f"Failed to initialize sounds: {e}")
             self._initialized = True  # Mark as initialized to avoid repeated attempts
 
+    def _play_wav_async(self, wav_data: bytes):
+        """Play WAV data asynchronously using PyAudio"""
+        def play_thread():
+            try:
+                import pyaudio
+
+                # Parse WAV data
+                wav_io = io.BytesIO(wav_data)
+                with wave.open(wav_io, 'rb') as wf:
+                    if self._pyaudio is None:
+                        self._pyaudio = pyaudio.PyAudio()
+
+                    stream = self._pyaudio.open(
+                        format=self._pyaudio.get_format_from_width(wf.getsampwidth()),
+                        channels=wf.getnchannels(),
+                        rate=wf.getframerate(),
+                        output=True
+                    )
+
+                    # Read and play in chunks
+                    chunk_size = 1024
+                    data = wf.readframes(chunk_size)
+                    while data:
+                        stream.write(data)
+                        data = wf.readframes(chunk_size)
+
+                    stream.stop_stream()
+                    stream.close()
+            except Exception as e:
+                logger.debug(f"Sound playback error (non-critical): {e}")
+
+        # Run in background thread to not block
+        threading.Thread(target=play_thread, daemon=True).start()
+
     def play_start(self):
         """Play recording start sound"""
         if not self._enabled:
             return
         self._ensure_initialized()
-        if self._start_sound:
-            self._start_sound.play()
+        if self._start_wav:
+            self._play_wav_async(self._start_wav)
 
     def play_end(self):
         """Play recording end sound"""
         if not self._enabled:
             return
         self._ensure_initialized()
-        if self._end_sound:
-            self._end_sound.play()
+        if self._end_wav:
+            self._play_wav_async(self._end_wav)
 
     def play_error(self):
         """Play error sound"""
         if not self._enabled:
             return
         self._ensure_initialized()
-        if self._error_sound:
-            self._error_sound.play()
+        if self._error_wav:
+            self._play_wav_async(self._error_wav)
 
     def cleanup(self):
-        """Clean up temporary files"""
-        import shutil
-        if hasattr(self, '_temp_dir'):
+        """Clean up resources"""
+        if self._pyaudio:
             try:
-                shutil.rmtree(self._temp_dir, ignore_errors=True)
+                self._pyaudio.terminate()
             except Exception:
                 pass
+            self._pyaudio = None
 
 
 # Convenience functions
