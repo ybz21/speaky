@@ -132,11 +132,19 @@ class AIModeHandler(BaseModeHandler):
 
             # 完全在后台线程执行，避免任何 Qt/X11 交互
             import threading
+            import shutil
             def delayed_input():
                 try:
-                    time.sleep(remaining + 0.5)  # 额外等待 0.5s 让焦点转移
+                    time.sleep(remaining + 0.3)  # 等待页面加载 + 焦点转移
 
                     logger.info(f"AI mode: Executing input: {text[:50]}...")
+
+                    # 先清空输入框（Ctrl+A 选中全部，然后粘贴会覆盖）
+                    xdotool = shutil.which("xdotool")
+                    if platform.system() == "Linux" and xdotool:
+                        subprocess.run([xdotool, "key", "ctrl+a"], check=False, capture_output=True)
+                        time.sleep(0.1)
+
                     self._input_method.type_text(text, restore_focus=False)
                     logger.info("AI mode: type_text completed")
 
@@ -146,7 +154,8 @@ class AIModeHandler(BaseModeHandler):
                 except Exception as e:
                     logger.exception(f"AI mode: Exception in delayed_input: {e}")
                 finally:
-                    # 恢复 pynput 监听器
+                    # 重置状态并恢复 pynput 监听器
+                    self._browser_open_time = None
                     resume_listener()
 
             threading.Thread(target=delayed_input, daemon=True).start()

@@ -257,8 +257,7 @@ class SpeakyApp:
         """
         # 检查是否是 AI 模式（通过检查 AI handler 的状态）
         if self._ai_handler._browser_open_time is not None:
-            # AI 模式：转发到 AI handler
-            self._ai_handler._browser_open_time = None  # Reset state
+            # AI 模式：转发到 AI handler（不要在这里重置 _browser_open_time）
             self._signals.ai_recognition_done.emit(text)
         else:
             # 语音模式：直接处理
