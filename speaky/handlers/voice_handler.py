@@ -65,6 +65,11 @@ class VoiceModeHandler(BaseModeHandler):
         text_len = len(text) if text else 0
         logger.info(f"[Voice] 识别完成，总耗时 {elapsed:.2f}s，文本长度={text_len}: {text_preview}...")
 
+        # Save to history
+        from ..history import add_to_history
+        engine_name = self._engine.name if self._engine else ""
+        add_to_history(text, engine_name)
+
         self._floating_window.show_result(text)
 
         # 在后台线程执行输入，避免阻塞主线程导致定时器延迟

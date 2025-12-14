@@ -76,8 +76,12 @@ class BaseModeHandler:
         logger.info(f"[按键按下] 开始录音，显示浮窗")
         self._floating_window.show_recording()
 
+        # Play start sound
+        from ..sound import play_start_sound
+        play_start_sound()
+
         # Check if we should use real-time streaming
-        streaming_enabled = self._config.get("ui.streaming_mode", True)
+        streaming_enabled = self._config.get("core.asr.streaming_mode", True)
         use_realtime = (
             streaming_enabled
             and self._engine is not None
@@ -136,7 +140,28 @@ class BaseModeHandler:
         stop_time = time.time()
         elapsed = stop_time - self._recording_start_time if self._recording_start_time else 0
         logger.info(f"[按键松开] 停止录音，录音时长 {elapsed:.2f}s")
+
+        # 先停止录音，确保所有音频数据处理完毕
         audio_data = self._recorder.stop()
+
+        # 停止后检查是否静音（此时 max_level 已更新完毕）
+        is_silent = self._recorder.is_silent()
+        max_level = self._recorder.get_max_level()
+        logger.info(f"[静音检测] is_silent={is_silent}, max_level={max_level:.6f}, threshold=0.005")
+
+        # 检测静音
+        if is_silent:
+            logger.warning(f"[静音检测] 未检测到声音，最大电平={max_level:.6f}")
+            # 取消实时会话
+            if self._realtime_session is not None:
+                try:
+                    self._realtime_session.cancel()
+                except Exception as e:
+                    logger.error(f"取消实时会话失败: {e}")
+                self._realtime_session = None
+            self._recorder.set_audio_data_callback(None)
+            self._emit_recognition_error(self._t("no_audio_detected"))
+            return
 
         # Clear audio data callback
         self._recorder.set_audio_data_callback(None)
@@ -206,7 +231,7 @@ class BaseModeHandler:
                     self._emit_recognition_error(self._t("no_engine"))
                     return
 
-                streaming_enabled = self._config.get("ui.streaming_mode", True)
+                streaming_enabled = self._config.get("core.asr.streaming_mode", True)
                 logger.info(f"Transcribing with engine: {self._engine.name}, streaming={streaming_enabled}")
 
                 # Use streaming API if engine supports it and streaming is enabled
@@ -234,10 +259,14 @@ class BaseModeHandler:
 
     def _emit_recognition_done(self, text: str):
         """发送识别完成信号 - 子类可重写以使用不同信号"""
+        from ..sound import play_end_sound
+        play_end_sound()
         self._signals.recognition_done.emit(text)
 
     def _emit_recognition_error(self, error: str):
         """发送识别错误信号 - 子类可重写以使用不同信号"""
+        from ..sound import play_error_sound
+        play_error_sound()
         self._signals.recognition_error.emit(error)
 
     def _t(self, key: str) -> str:

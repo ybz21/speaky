@@ -16,7 +16,7 @@ RATE = 16000
 
 
 class AudioRecorder:
-    def __init__(self):
+    def __init__(self, device_index: Optional[int] = None, gain: float = 1.0):
         self._audio = pyaudio.PyAudio()
         self._stream: Optional[pyaudio.Stream] = None
         self._frames: list[bytes] = []
@@ -24,6 +24,11 @@ class AudioRecorder:
         self._lock = threading.Lock()
         self._on_audio_level: Optional[Callable[[float], None]] = None
         self._on_audio_data: Optional[Callable[[bytes], None]] = None
+
+        # 音频设备索引，None 表示使用默认设备
+        self._device_index: Optional[int] = device_index
+        # 录音增益，1.0 为原始音量
+        self._gain: float = gain
 
         # Non-blocking queue for audio data to avoid callback blocking
         self._audio_queue: Queue = Queue(maxsize=100)
@@ -33,6 +38,52 @@ class AudioRecorder:
         # Pre-opened stream for faster start
         self._warm_stream: Optional[pyaudio.Stream] = None
         self._warm_stream_ready = threading.Event()
+
+        # 静音检测
+        self._max_level: float = 0.0
+        self._silence_threshold: float = 0.005  # 静音阈值
+
+    def get_input_devices(self) -> list[tuple[int, str]]:
+        """获取所有可用的输入设备列表
+
+        Returns:
+            list of (device_index, device_name) tuples
+        """
+        devices = []
+        for i in range(self._audio.get_device_count()):
+            try:
+                info = self._audio.get_device_info_by_index(i)
+                if info.get('maxInputChannels', 0) > 0:
+                    devices.append((i, info.get('name', f'Device {i}')))
+            except Exception:
+                continue
+        return devices
+
+    def get_default_input_device(self) -> Optional[int]:
+        """获取默认输入设备索引"""
+        try:
+            info = self._audio.get_default_input_device_info()
+            return info.get('index')
+        except Exception:
+            return None
+
+    def set_device(self, device_index: Optional[int]):
+        """设置录音设备
+
+        Args:
+            device_index: 设备索引，None 表示使用默认设备
+        """
+        self._device_index = device_index
+        logger.info(f"Audio device set to: {device_index}")
+
+    def set_gain(self, gain: float):
+        """设置录音增益
+
+        Args:
+            gain: 增益倍数，1.0 为原始音量，2.0 为 2 倍放大
+        """
+        self._gain = max(0.1, min(5.0, gain))  # 限制在 0.1x - 5x 之间
+        logger.info(f"Audio gain set to: {self._gain}")
 
     def set_audio_level_callback(self, callback: Callable[[float], None]):
         self._on_audio_level = callback
@@ -52,6 +103,7 @@ class AudioRecorder:
                     channels=CHANNELS,
                     rate=RATE,
                     input=True,
+                    input_device_index=self._device_index,
                     frames_per_buffer=CHUNK,
                     stream_callback=self._warmup_callback,
                     start=False,  # 不立即启动
@@ -76,6 +128,7 @@ class AudioRecorder:
             self._frames = []
             self._is_recording = True
             self._level_counter = 0
+            self._max_level = 0.0  # 重置最大电平
 
             # Start worker thread for processing audio
             if self._on_audio_data:
@@ -100,6 +153,7 @@ class AudioRecorder:
                 channels=CHANNELS,
                 rate=RATE,
                 input=True,
+                input_device_index=self._device_index,
                 frames_per_buffer=CHUNK,
                 stream_callback=self._callback,
             )
@@ -141,24 +195,43 @@ class AudioRecorder:
             logger.info(f"[录音器] 停止完成，录制 {frame_count} 帧，时长 {duration:.2f}s，数据 {len(wav_data)} 字节，耗时 {time.time()-t0:.3f}s")
             return wav_data
 
+    def _apply_gain(self, data: bytes) -> bytes:
+        """Apply gain to audio data"""
+        if self._gain == 1.0:
+            return data
+        # Convert bytes to samples, apply gain, convert back
+        result = bytearray(len(data))
+        for i in range(0, len(data) - 1, 2):
+            sample = int.from_bytes(data[i:i+2], byteorder='little', signed=True)
+            sample = int(sample * self._gain)
+            # Clamp to int16 range
+            sample = max(-32768, min(32767, sample))
+            result[i:i+2] = sample.to_bytes(2, byteorder='little', signed=True)
+        return bytes(result)
+
     def _callback(self, in_data, frame_count, time_info, status):
         """Audio callback - must be fast and non-blocking"""
         if self._is_recording:
-            self._frames.append(in_data)
+            # Apply gain if needed
+            processed_data = self._apply_gain(in_data)
+            self._frames.append(processed_data)
 
             # Compute audio level only every 4 frames to reduce CPU
-            if self._on_audio_level:
-                self._level_counter += 1
-                if self._level_counter >= 4:
-                    self._level_counter = 0
-                    # Fast level calculation without numpy
-                    level = self._fast_level(in_data)
+            self._level_counter += 1
+            if self._level_counter >= 4:
+                self._level_counter = 0
+                # Fast level calculation without numpy
+                level = self._fast_level(processed_data)
+                # 更新最大电平
+                if level > self._max_level:
+                    self._max_level = level
+                if self._on_audio_level:
                     self._on_audio_level(level)
 
             # Queue audio data non-blocking for ASR
             if self._on_audio_data:
                 try:
-                    self._audio_queue.put_nowait(in_data)
+                    self._audio_queue.put_nowait(processed_data)
                 except Full:
                     pass  # Drop frame if queue full
 
@@ -179,7 +252,6 @@ class AudioRecorder:
         """Worker thread to process audio data without blocking callback"""
         chunk_count = 0
         total_bytes = 0
-        max_level = 0
         while self._is_recording or not self._audio_queue.empty():
             try:
                 data = self._audio_queue.get(timeout=0.1)
@@ -188,14 +260,14 @@ class AudioRecorder:
                 if self._on_audio_data and self._is_recording:
                     chunk_count += 1
                     total_bytes += len(data)
-                    # 计算最大电平
+                    # 计算最大电平，更新实例变量供 is_silent() 使用
                     level = self._fast_level(data)
-                    if level > max_level:
-                        max_level = level
+                    if level > self._max_level:
+                        self._max_level = level
                     self._on_audio_data(data)
             except:
                 continue
-        logger.info(f"[录音器] 音频回调线程结束，总共处理 {chunk_count} 个chunk，{total_bytes} 字节，最大电平={max_level:.4f}")
+        logger.info(f"[录音器] 音频回调线程结束，总共处理 {chunk_count} 个chunk，{total_bytes} 字节，最大电平={self._max_level:.4f}")
 
     def _get_wav_data(self) -> bytes:
         if not self._frames:
@@ -214,6 +286,14 @@ class AudioRecorder:
 
     def is_recording(self) -> bool:
         return self._is_recording
+
+    def is_silent(self) -> bool:
+        """检查录音是否为静音"""
+        return self._max_level < self._silence_threshold
+
+    def get_max_level(self) -> float:
+        """获取录音期间的最大电平"""
+        return self._max_level
 
     def close(self):
         self.stop()

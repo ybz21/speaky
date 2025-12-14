@@ -119,6 +119,36 @@ class CorePage(SettingsPage):
         self.lang_combo.setMinimumWidth(150)
         self.add_card(t("recognition_lang"), self.lang_combo)
 
+        # 音频设备选择
+        self.audio_device_combo = ComboBox()
+        self.audio_device_combo.setMinimumWidth(250)
+        self._audio_devices = []  # [(index, name), ...]
+        self._refresh_audio_devices()
+        self.add_card(t("audio_device"), self.audio_device_combo)
+
+        # 音频增益调节
+        gain_widget = QWidget()
+        gain_layout = QHBoxLayout(gain_widget)
+        gain_layout.setContentsMargins(0, 0, 0, 0)
+        self.gain_slider = Slider(Qt.Orientation.Horizontal)
+        self.gain_slider.setRange(10, 50)  # 0.1x - 5.0x, stored as 10-500 (x10)
+        self.gain_slider.setSingleStep(1)
+        self.gain_slider.setMinimumWidth(150)
+        self._gain_label = BodyLabel("1.0x")
+        self._gain_label.setMinimumWidth(40)
+        self.gain_slider.valueChanged.connect(
+            lambda v: self._gain_label.setText(f"{v/10:.1f}x")
+        )
+        gain_layout.addWidget(self.gain_slider)
+        gain_layout.addWidget(self._gain_label)
+        self.add_card(t("audio_gain"), gain_widget)
+
+        self.streaming_mode = SwitchButton()
+        self.add_card(t("streaming_mode"), self.streaming_mode)
+
+        self.sound_notification = SwitchButton()
+        self.add_card(t("sound_notification"), self.sound_notification)
+
         # AI key settings
         self.add_group_label(t("ai_group"))
 
@@ -163,10 +193,44 @@ class CorePage(SettingsPage):
         self.auto_start = SwitchButton()
         self.add_card(t("auto_start"), self.auto_start)
 
-        self.streaming_mode = SwitchButton()
-        self.add_card(t("streaming_mode"), self.streaming_mode)
-
         self.add_save_button()
+
+    def _refresh_audio_devices(self):
+        """刷新音频设备列表"""
+        from ..audio import AudioRecorder
+        try:
+            recorder = AudioRecorder()
+            devices = recorder.get_input_devices()
+            recorder.close()
+
+            self.audio_device_combo.clear()
+            self._audio_devices = [(-1, t("audio_device_default"))] + devices
+
+            for idx, name in self._audio_devices:
+                self.audio_device_combo.addItem(name, idx)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to get audio devices: {e}")
+            self.audio_device_combo.addItem(t("audio_device_default"), -1)
+            self._audio_devices = [(-1, t("audio_device_default"))]
+
+    def get_selected_audio_device(self) -> int:
+        """获取选中的音频设备索引，-1 表示默认设备"""
+        idx = self.audio_device_combo.currentIndex()
+        if 0 <= idx < len(self._audio_devices):
+            return self._audio_devices[idx][0]
+        return -1
+
+    def set_audio_device(self, device_index):
+        """设置选中的音频设备"""
+        if device_index is None:
+            device_index = -1
+        for i, (idx, _) in enumerate(self._audio_devices):
+            if idx == device_index:
+                self.audio_device_combo.setCurrentIndex(i)
+                return
+        # 如果没找到，选择默认设备
+        self.audio_device_combo.setCurrentIndex(0)
 
 
 class EnginePage(SettingsPage):
@@ -182,60 +246,21 @@ class EnginePage(SettingsPage):
         self.add_group_label(t("engine_group"))
 
         self.engine_combo = ComboBox()
-        self.engine_combo.addItems([
-            "whisper", "openai", "volcengine", "volc_bigmodel", "aliyun"
-        ])
-        self.engine_combo.setMinimumWidth(180)
-        self.engine_combo.currentTextChanged.connect(self._on_engine_changed)
+        # 5个引擎按顺序排列
+        self._engine_items = [
+            ("volc_bigmodel", t("volc_bigmodel_settings")),
+            ("volcengine", t("volc_settings")),
+            ("openai", t("openai_settings")),
+            ("whisper_remote", t("whisper_remote_settings")),
+            ("whisper", t("whisper_settings")),
+        ]
+        for engine_id, engine_name in self._engine_items:
+            self.engine_combo.addItem(engine_name, engine_id)
+        self.engine_combo.setMinimumWidth(220)
+        self.engine_combo.currentIndexChanged.connect(self._on_engine_index_changed)
         self.add_card(t("engine_label"), self.engine_combo)
 
-        # Whisper settings
-        self._whisper_label = SubtitleLabel(t("whisper_settings"), self._container)
-        self._whisper_label.setContentsMargins(0, 10, 0, 5)
-        self._layout.addWidget(self._whisper_label)
-
-        self.whisper_model = ComboBox()
-        self.whisper_model.addItems(["tiny", "base", "small", "medium", "large"])
-        self.whisper_model.setMinimumWidth(150)
-        self._whisper_model_card = self.add_card(t("model"), self.whisper_model)
-
-        self.whisper_device = ComboBox()
-        self.whisper_device.addItems(["auto", "cpu", "cuda"])
-        self.whisper_device.setMinimumWidth(150)
-        self._whisper_device_card = self.add_card(t("device"), self.whisper_device)
-
-        # OpenAI settings
-        self._openai_label = SubtitleLabel(t("openai_settings"), self._container)
-        self._openai_label.setContentsMargins(0, 10, 0, 5)
-        self._layout.addWidget(self._openai_label)
-
-        self.openai_key = PasswordLineEdit()
-        self.openai_key.setMinimumWidth(250)
-        self._openai_key_card = self.add_card(t("api_key"), self.openai_key)
-
-        self.openai_url = LineEdit()
-        self.openai_url.setPlaceholderText("https://api.openai.com/v1")
-        self.openai_url.setMinimumWidth(250)
-        self._openai_url_card = self.add_card(t("base_url"), self.openai_url)
-
-        # Volcengine settings
-        self._volc_label = SubtitleLabel(t("volc_settings"), self._container)
-        self._volc_label.setContentsMargins(0, 10, 0, 5)
-        self._layout.addWidget(self._volc_label)
-
-        self.volc_appid = LineEdit()
-        self.volc_appid.setMinimumWidth(250)
-        self._volc_appid_card = self.add_card(t("app_id"), self.volc_appid)
-
-        self.volc_ak = PasswordLineEdit()
-        self.volc_ak.setMinimumWidth(250)
-        self._volc_ak_card = self.add_card(t("access_key"), self.volc_ak)
-
-        self.volc_sk = PasswordLineEdit()
-        self.volc_sk.setMinimumWidth(250)
-        self._volc_sk_card = self.add_card(t("secret_key"), self.volc_sk)
-
-        # Volcengine BigModel settings
+        # 1. Volcengine BigModel settings (火山引擎-语音识别大模型)
         self._volc_bigmodel_label = SubtitleLabel(t("volc_bigmodel_settings"), self._container)
         self._volc_bigmodel_label.setContentsMargins(0, 10, 0, 5)
         self._layout.addWidget(self._volc_bigmodel_label)
@@ -253,40 +278,107 @@ class EnginePage(SettingsPage):
         self.volc_bigmodel_model.setMinimumWidth(180)
         self._volc_bigmodel_model_card = self.add_card(t("model"), self.volc_bigmodel_model)
 
-        # Aliyun settings
-        self._aliyun_label = SubtitleLabel(t("aliyun_settings"), self._container)
-        self._aliyun_label.setContentsMargins(0, 10, 0, 5)
-        self._layout.addWidget(self._aliyun_label)
+        # 2. Volcengine settings (火山引擎-一句话识别)
+        self._volc_label = SubtitleLabel(t("volc_settings"), self._container)
+        self._volc_label.setContentsMargins(0, 10, 0, 5)
+        self._layout.addWidget(self._volc_label)
 
-        self.aliyun_appkey = LineEdit()
-        self.aliyun_appkey.setMinimumWidth(250)
-        self._aliyun_appkey_card = self.add_card(t("app_key"), self.aliyun_appkey)
+        self.volc_appid = LineEdit()
+        self.volc_appid.setMinimumWidth(250)
+        self._volc_appid_card = self.add_card(t("app_id"), self.volc_appid)
 
-        self.aliyun_token = PasswordLineEdit()
-        self.aliyun_token.setMinimumWidth(250)
-        self._aliyun_token_card = self.add_card(t("access_token"), self.aliyun_token)
+        self.volc_ak = PasswordLineEdit()
+        self.volc_ak.setMinimumWidth(250)
+        self._volc_ak_card = self.add_card(t("access_key"), self.volc_ak)
+
+        self.volc_sk = PasswordLineEdit()
+        self.volc_sk.setMinimumWidth(250)
+        self._volc_sk_card = self.add_card(t("secret_key"), self.volc_sk)
+
+        # 3. OpenAI settings
+        self._openai_label = SubtitleLabel(t("openai_settings"), self._container)
+        self._openai_label.setContentsMargins(0, 10, 0, 5)
+        self._layout.addWidget(self._openai_label)
+
+        self.openai_key = PasswordLineEdit()
+        self.openai_key.setMinimumWidth(250)
+        self._openai_key_card = self.add_card(t("api_key"), self.openai_key)
+
+        self.openai_model = LineEdit()
+        self.openai_model.setPlaceholderText("whisper-1")
+        self.openai_model.setMinimumWidth(150)
+        self._openai_model_card = self.add_card(t("model"), self.openai_model)
+
+        self.openai_url = LineEdit()
+        self.openai_url.setPlaceholderText("https://api.openai.com/v1")
+        self.openai_url.setMinimumWidth(250)
+        self._openai_url_card = self.add_card(t("base_url"), self.openai_url)
+
+        # 4. Whisper Remote settings (Whisper 兼容接口)
+        self._whisper_remote_label = SubtitleLabel(t("whisper_remote_settings"), self._container)
+        self._whisper_remote_label.setContentsMargins(0, 10, 0, 5)
+        self._layout.addWidget(self._whisper_remote_label)
+
+        self.whisper_remote_url = LineEdit()
+        self.whisper_remote_url.setPlaceholderText("http://localhost:8000")
+        self.whisper_remote_url.setMinimumWidth(250)
+        self._whisper_remote_url_card = self.add_card(t("server_url"), self.whisper_remote_url)
+
+        self.whisper_remote_model = LineEdit()
+        self.whisper_remote_model.setPlaceholderText("whisper-1")
+        self.whisper_remote_model.setMinimumWidth(150)
+        self._whisper_remote_model_card = self.add_card(t("model"), self.whisper_remote_model)
+
+        self.whisper_remote_key = PasswordLineEdit()
+        self.whisper_remote_key.setMinimumWidth(250)
+        self._whisper_remote_key_card = self.add_card(t("api_key"), self.whisper_remote_key)
+
+        # 5. Whisper settings (本地 Whisper)
+        self._whisper_label = SubtitleLabel(t("whisper_settings"), self._container)
+        self._whisper_label.setContentsMargins(0, 10, 0, 5)
+        self._layout.addWidget(self._whisper_label)
+
+        self.whisper_model = ComboBox()
+        self.whisper_model.addItems(["tiny", "base", "small", "medium", "large"])
+        self.whisper_model.setMinimumWidth(150)
+        self._whisper_model_card = self.add_card(t("model"), self.whisper_model)
+
+        self.whisper_device = ComboBox()
+        self.whisper_device.addItems(["auto", "cpu", "cuda"])
+        self.whisper_device.setMinimumWidth(150)
+        self._whisper_device_card = self.add_card(t("device"), self.whisper_device)
 
         self.add_save_button()
 
         # Store all engine widgets for visibility control
-        self._whisper_widgets = [self._whisper_label, self._whisper_model_card, self._whisper_device_card]
-        self._openai_widgets = [self._openai_label, self._openai_key_card, self._openai_url_card]
-        self._volc_widgets = [self._volc_label, self._volc_appid_card, self._volc_ak_card, self._volc_sk_card]
         self._volc_bigmodel_widgets = [self._volc_bigmodel_label, self._volc_bigmodel_appkey_card,
                                         self._volc_bigmodel_ak_card, self._volc_bigmodel_model_card]
-        self._aliyun_widgets = [self._aliyun_label, self._aliyun_appkey_card, self._aliyun_token_card]
+        self._volc_widgets = [self._volc_label, self._volc_appid_card, self._volc_ak_card, self._volc_sk_card]
+        self._openai_widgets = [self._openai_label, self._openai_key_card, self._openai_model_card, self._openai_url_card]
+        self._whisper_remote_widgets = [self._whisper_remote_label, self._whisper_remote_url_card,
+                                         self._whisper_remote_model_card, self._whisper_remote_key_card]
+        self._whisper_widgets = [self._whisper_label, self._whisper_model_card, self._whisper_device_card]
 
-    def _on_engine_changed(self, engine: str):
-        for w in self._whisper_widgets:
-            w.setVisible(engine == "whisper")
-        for w in self._openai_widgets:
-            w.setVisible(engine == "openai")
-        for w in self._volc_widgets:
-            w.setVisible(engine == "volcengine")
+        # Initialize visibility (show first engine by default)
+        self._on_engine_index_changed(0)
+
+    def _on_engine_index_changed(self, index: int):
+        # 直接从 _engine_items 获取 engine_id，避免 itemData 兼容性问题
+        if 0 <= index < len(self._engine_items):
+            engine = self._engine_items[index][0]
+        else:
+            engine = "volc_bigmodel"
+
         for w in self._volc_bigmodel_widgets:
             w.setVisible(engine == "volc_bigmodel")
-        for w in self._aliyun_widgets:
-            w.setVisible(engine == "aliyun")
+        for w in self._volc_widgets:
+            w.setVisible(engine == "volcengine")
+        for w in self._openai_widgets:
+            w.setVisible(engine == "openai")
+        for w in self._whisper_remote_widgets:
+            w.setVisible(engine == "whisper_remote")
+        for w in self._whisper_widgets:
+            w.setVisible(engine == "whisper")
 
 
 class AppearancePage(SettingsPage):
@@ -364,6 +456,8 @@ class SettingsDialog(FluentWindow):
     def __init__(self, config, parent=None):
         super().__init__(parent)
         self._config = config
+        # Delete on close so destroyed signal is emitted
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         # Disable mica effect to fix theme switching issue on Windows
         self.setMicaEffectEnabled(False)
         self._setup_ui()
@@ -393,100 +487,139 @@ class SettingsDialog(FluentWindow):
         self._appearance_page.save_clicked.connect(self._save_settings)
 
     def _load_settings(self):
-        # Core page
-        self._core_page.hotkey_combo.setCurrentText(self._config.get("hotkey", "ctrl"))
-        self._core_page.hold_time_spin.setValue(self._config.get("hotkey_hold_time", 1.0))
-        self._core_page.lang_combo.setCurrentText(self._config.get("language", "zh"))
+        # Core page - ASR settings
+        self._core_page.hotkey_combo.setCurrentText(self._config.get("core.asr.hotkey", "ctrl"))
+        self._core_page.hold_time_spin.setValue(self._config.get("core.asr.hotkey_hold_time", 1.0))
+        self._core_page.lang_combo.setCurrentText(self._config.get("core.asr.language", "zh"))
+        self._core_page.set_audio_device(self._config.get("core.asr.audio_device"))
+        gain = self._config.get("core.asr.audio_gain", 1.0)
+        self._core_page.gain_slider.setValue(int(gain * 10))
+        self._core_page._gain_label.setText(f"{gain:.1f}x")
         self._core_page.auto_start.setChecked(is_autostart_enabled())
-        self._core_page.streaming_mode.setChecked(self._config.get("ui.streaming_mode", True))
+        self._core_page.streaming_mode.setChecked(self._config.get("core.asr.streaming_mode", True))
+        self._core_page.sound_notification.setChecked(self._config.get("core.asr.sound_notification", True))
 
-        # AI settings
-        self._core_page.ai_enabled.setChecked(self._config.get("ai_enabled", True))
-        self._core_page.ai_hotkey_combo.setCurrentText(self._config.get("ai_hotkey", "alt"))
-        self._core_page.ai_hold_time_spin.setValue(self._config.get("ai_hotkey_hold_time", 0.5))
-        self._core_page.ai_url_input.setText(self._config.get("ai_url", "https://chatgpt.com"))
-        self._core_page.ai_page_load_delay_spin.setValue(self._config.get("ai_page_load_delay", 3.0))
-        self._core_page.ai_auto_enter.setChecked(self._config.get("ai_auto_enter", True))
+        # Core page - AI settings
+        self._core_page.ai_enabled.setChecked(self._config.get("core.ai.enabled", True))
+        self._core_page.ai_hotkey_combo.setCurrentText(self._config.get("core.ai.hotkey", "alt"))
+        self._core_page.ai_hold_time_spin.setValue(self._config.get("core.ai.hotkey_hold_time", 0.5))
+        self._core_page.ai_url_input.setText(self._config.get("core.ai.url", "https://chatgpt.com"))
+        self._core_page.ai_page_load_delay_spin.setValue(self._config.get("core.ai.page_load_delay", 3.0))
+        self._core_page.ai_auto_enter.setChecked(self._config.get("core.ai.auto_enter", True))
 
         # Engine page
-        engine = self._config.get("engine", "whisper")
-        self._engine_page.engine_combo.setCurrentText(engine)
-        self._engine_page._on_engine_changed(engine)
+        engine = self._config.get("engine.current", "volc_bigmodel")
+        # 找到引擎对应的索引
+        for i, (engine_id, _) in enumerate(self._engine_page._engine_items):
+            if engine_id == engine:
+                self._engine_page.engine_combo.setCurrentIndex(i)
+                break
+        self._engine_page._on_engine_index_changed(self._engine_page.engine_combo.currentIndex())
 
-        self._engine_page.whisper_model.setCurrentText(self._config.get("whisper.model", "base"))
-        self._engine_page.whisper_device.setCurrentText(self._config.get("whisper.device", "auto"))
+        # Engine settings - 火山大模型
+        self._engine_page.volc_bigmodel_appkey.setText(self._config.get("engine.volc_bigmodel.app_key", ""))
+        self._engine_page.volc_bigmodel_ak.setText(self._config.get("engine.volc_bigmodel.access_key", ""))
+        self._engine_page.volc_bigmodel_model.setCurrentText(self._config.get("engine.volc_bigmodel.model", "bigmodel"))
 
-        self._engine_page.openai_key.setText(self._config.get("openai.api_key", ""))
-        self._engine_page.openai_url.setText(self._config.get("openai.base_url", ""))
+        # Engine settings - 火山一句话
+        self._engine_page.volc_appid.setText(self._config.get("engine.volcengine.app_id", ""))
+        self._engine_page.volc_ak.setText(self._config.get("engine.volcengine.access_key", ""))
+        self._engine_page.volc_sk.setText(self._config.get("engine.volcengine.secret_key", ""))
 
-        self._engine_page.volc_appid.setText(self._config.get("volcengine.app_id", ""))
-        self._engine_page.volc_ak.setText(self._config.get("volcengine.access_key", ""))
-        self._engine_page.volc_sk.setText(self._config.get("volcengine.secret_key", ""))
+        # Engine settings - OpenAI
+        self._engine_page.openai_key.setText(self._config.get("engine.openai.api_key", ""))
+        self._engine_page.openai_model.setText(self._config.get("engine.openai.model", "whisper-1"))
+        self._engine_page.openai_url.setText(self._config.get("engine.openai.base_url", ""))
 
-        self._engine_page.volc_bigmodel_appkey.setText(self._config.get("volc_bigmodel.app_key", ""))
-        self._engine_page.volc_bigmodel_ak.setText(self._config.get("volc_bigmodel.access_key", ""))
-        self._engine_page.volc_bigmodel_model.setCurrentText(self._config.get("volc_bigmodel.model", "bigmodel"))
+        # Engine settings - Whisper Remote
+        self._engine_page.whisper_remote_url.setText(self._config.get("engine.whisper_remote.server_url", ""))
+        self._engine_page.whisper_remote_model.setText(self._config.get("engine.whisper_remote.model", ""))
+        self._engine_page.whisper_remote_key.setText(self._config.get("engine.whisper_remote.api_key", ""))
 
-        self._engine_page.aliyun_appkey.setText(self._config.get("aliyun.app_key", ""))
-        self._engine_page.aliyun_token.setText(self._config.get("aliyun.access_token", ""))
+        # Engine settings - 本地 Whisper
+        self._engine_page.whisper_model.setCurrentText(self._config.get("engine.whisper.model", "base"))
+        self._engine_page.whisper_device.setCurrentText(self._config.get("engine.whisper.device", "auto"))
 
         # Appearance page
-        theme = self._config.get("ui.theme", "auto")
+        theme = self._config.get("appearance.theme", "auto")
         for i in range(self._appearance_page.theme_combo.count()):
             if self._appearance_page.theme_combo.itemData(i) == theme:
                 self._appearance_page.theme_combo.setCurrentIndex(i)
                 break
-        ui_lang = self._config.get("ui_language", "auto")
+        ui_lang = self._config.get("appearance.ui_language", "auto")
         self._appearance_page.set_ui_lang_code(ui_lang)
-        self._appearance_page.show_waveform.setChecked(self._config.get("ui.show_waveform", True))
-        opacity = int(self._config.get("ui.window_opacity", 0.9) * 100)
+        self._appearance_page.show_waveform.setChecked(self._config.get("appearance.show_waveform", True))
+        opacity = int(self._config.get("appearance.window_opacity", 0.9) * 100)
         self._appearance_page.opacity_slider.setValue(opacity)
         self._appearance_page._opacity_label.setText(f"{opacity}%")
 
     def _save_settings(self):
-        # Core settings
-        self._config.set("hotkey", self._core_page.hotkey_combo.currentText())
-        self._config.set("hotkey_hold_time", self._core_page.hold_time_spin.value())
-        self._config.set("language", self._core_page.lang_combo.currentText())
-        self._config.set("ui.streaming_mode", self._core_page.streaming_mode.isChecked())
+        # Check if language changed (need to close dialog to refresh UI)
+        old_lang = self._config.get("appearance.ui_language", "auto")
+        new_lang = self._appearance_page.get_ui_lang_code()
+        lang_changed = old_lang != new_lang
 
-        # AI settings
-        self._config.set("ai_enabled", self._core_page.ai_enabled.isChecked())
-        self._config.set("ai_hotkey", self._core_page.ai_hotkey_combo.currentText())
-        self._config.set("ai_hotkey_hold_time", self._core_page.ai_hold_time_spin.value())
-        self._config.set("ai_url", self._core_page.ai_url_input.text() or "https://chatgpt.com")
-        self._config.set("ai_page_load_delay", self._core_page.ai_page_load_delay_spin.value())
-        self._config.set("ai_auto_enter", self._core_page.ai_auto_enter.isChecked())
+        # Core - ASR settings
+        self._config.set("core.asr.hotkey", self._core_page.hotkey_combo.currentText())
+        self._config.set("core.asr.hotkey_hold_time", self._core_page.hold_time_spin.value())
+        self._config.set("core.asr.language", self._core_page.lang_combo.currentText())
+        # 音频设备：-1 表示默认设备，保存为 None
+        audio_device = self._core_page.get_selected_audio_device()
+        self._config.set("core.asr.audio_device", None if audio_device == -1 else audio_device)
+        # 音频增益
+        self._config.set("core.asr.audio_gain", self._core_page.gain_slider.value() / 10)
+        self._config.set("core.asr.streaming_mode", self._core_page.streaming_mode.isChecked())
+        self._config.set("core.asr.sound_notification", self._core_page.sound_notification.isChecked())
+
+        # Core - AI settings
+        self._config.set("core.ai.enabled", self._core_page.ai_enabled.isChecked())
+        self._config.set("core.ai.hotkey", self._core_page.ai_hotkey_combo.currentText())
+        self._config.set("core.ai.hotkey_hold_time", self._core_page.ai_hold_time_spin.value())
+        self._config.set("core.ai.url", self._core_page.ai_url_input.text() or "https://chatgpt.com")
+        self._config.set("core.ai.page_load_delay", self._core_page.ai_page_load_delay_spin.value())
+        self._config.set("core.ai.auto_enter", self._core_page.ai_auto_enter.isChecked())
 
         # Set auto-start
         set_autostart(self._core_page.auto_start.isChecked())
 
-        # Engine settings
-        self._config.set("engine", self._engine_page.engine_combo.currentText())
+        # Engine settings - 直接从 _engine_items 获取 engine_id
+        idx = self._engine_page.engine_combo.currentIndex()
+        if 0 <= idx < len(self._engine_page._engine_items):
+            engine = self._engine_page._engine_items[idx][0]
+        else:
+            engine = "volc_bigmodel"  # Default
+        self._config.set("engine.current", engine)
 
-        self._config.set("whisper.model", self._engine_page.whisper_model.currentText())
-        self._config.set("whisper.device", self._engine_page.whisper_device.currentText())
+        # 火山大模型
+        self._config.set("engine.volc_bigmodel.app_key", self._engine_page.volc_bigmodel_appkey.text())
+        self._config.set("engine.volc_bigmodel.access_key", self._engine_page.volc_bigmodel_ak.text())
+        self._config.set("engine.volc_bigmodel.model", self._engine_page.volc_bigmodel_model.currentText())
 
-        self._config.set("openai.api_key", self._engine_page.openai_key.text())
-        self._config.set("openai.base_url", self._engine_page.openai_url.text() or "https://api.openai.com/v1")
+        # 火山一句话
+        self._config.set("engine.volcengine.app_id", self._engine_page.volc_appid.text())
+        self._config.set("engine.volcengine.access_key", self._engine_page.volc_ak.text())
+        self._config.set("engine.volcengine.secret_key", self._engine_page.volc_sk.text())
 
-        self._config.set("volcengine.app_id", self._engine_page.volc_appid.text())
-        self._config.set("volcengine.access_key", self._engine_page.volc_ak.text())
-        self._config.set("volcengine.secret_key", self._engine_page.volc_sk.text())
+        # OpenAI
+        self._config.set("engine.openai.api_key", self._engine_page.openai_key.text())
+        self._config.set("engine.openai.model", self._engine_page.openai_model.text() or "whisper-1")
+        self._config.set("engine.openai.base_url", self._engine_page.openai_url.text() or "https://api.openai.com/v1")
 
-        self._config.set("volc_bigmodel.app_key", self._engine_page.volc_bigmodel_appkey.text())
-        self._config.set("volc_bigmodel.access_key", self._engine_page.volc_bigmodel_ak.text())
-        self._config.set("volc_bigmodel.model", self._engine_page.volc_bigmodel_model.currentText())
+        # Whisper Remote
+        self._config.set("engine.whisper_remote.server_url", self._engine_page.whisper_remote_url.text() or "http://localhost:8000")
+        self._config.set("engine.whisper_remote.model", self._engine_page.whisper_remote_model.text() or "whisper-1")
+        self._config.set("engine.whisper_remote.api_key", self._engine_page.whisper_remote_key.text())
 
-        self._config.set("aliyun.app_key", self._engine_page.aliyun_appkey.text())
-        self._config.set("aliyun.access_token", self._engine_page.aliyun_token.text())
+        # 本地 Whisper
+        self._config.set("engine.whisper.model", self._engine_page.whisper_model.currentText())
+        self._config.set("engine.whisper.device", self._engine_page.whisper_device.currentText())
 
         # Appearance settings
         theme = self._appearance_page.theme_combo.currentData()
-        self._config.set("ui.theme", theme)
-        self._config.set("ui_language", self._appearance_page.get_ui_lang_code())
-        self._config.set("ui.show_waveform", self._appearance_page.show_waveform.isChecked())
-        self._config.set("ui.window_opacity", self._appearance_page.opacity_slider.value() / 100)
+        self._config.set("appearance.theme", theme)
+        self._config.set("appearance.ui_language", self._appearance_page.get_ui_lang_code())
+        self._config.set("appearance.show_waveform", self._appearance_page.show_waveform.isChecked())
+        self._config.set("appearance.window_opacity", self._appearance_page.opacity_slider.value() / 100)
 
         self._config.save()
 
@@ -496,8 +629,12 @@ class SettingsDialog(FluentWindow):
         # Apply theme
         apply_theme(theme)
 
-        self.settings_changed.emit()
-
         # Show success message
         MessageBox(t("tip"), t("saved_message"), self).exec()
-        self.close()
+
+        # Emit signal to notify main app of settings change (before close to avoid crash)
+        self.settings_changed.emit()
+
+        # If language changed, close dialog so it recreates with new language
+        if lang_changed:
+            self.close()

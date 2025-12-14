@@ -453,6 +453,8 @@ class FloatingWindow(QWidget):
         self.hide()
 
     def show_error(self, error: str):
+        import time
+        self._result_show_time = time.time()  # 记录显示时间
         self._cancel_all_timers()
         logger.info(f"[浮窗] 显示错误: {error}")
         self._status_label.setText(t("error"))
@@ -462,8 +464,10 @@ class FloatingWindow(QWidget):
         self._wave_widget.set_mode("error")
         # Stop animation after brief transition to show "error" color
         self._schedule_stop_animation(500)
-        logger.info("[浮窗] 计划: 500ms后停止动画, 2000ms后隐藏")
-        self._schedule_hide(2000)
+        # 与成功结果一样，显示 1500ms 后隐藏（错误稍微长一点让用户看清）
+        display_time = 1500
+        logger.info(f"[浮窗] 计划: 500ms后停止动画, {display_time}ms后隐藏")
+        self._schedule_hide(display_time)
 
     def update_audio_level(self, level: float):
         self._wave_widget.set_audio_level(level * 3)

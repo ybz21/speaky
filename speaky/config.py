@@ -1,47 +1,78 @@
+import copy
 from pathlib import Path
 from typing import Any
 import yaml
 
 DEFAULT_CONFIG = {
-    "hotkey": "ctrl",
-    "hotkey_hold_time": 1.0,  # seconds to hold before recording starts
-    "ai_hotkey": "alt",  # AI key: open AI website and input voice (avoid shift - conflicts with browser)
-    "ai_hotkey_hold_time": 0.5,  # shorter hold time for better UX
-    "ai_url": "https://chatgpt.com",  # AI website URL (also supports doubao.com/chat, claude.ai, etc.)
-    "ai_enabled": True,  # Enable AI key feature
-    "ai_page_load_delay": 3.0,  # seconds to wait for page to load before typing
-    "ai_auto_enter": True,  # automatically press Enter to send message
-    "engine": "volcengine",
-    "language": "zh",  # recognition language
-    "ui_language": "auto",  # UI language: auto, en, zh, ja, ko
-    "whisper": {
-        "model": "base",
-        "device": "auto",
+    # ========== 核心设置 (Core) ==========
+    "core": {
+        # 语音识别 (ASR)
+        "asr": {
+            "hotkey": "ctrl",
+            "hotkey_hold_time": 1.0,  # 长按多少秒后开始录音
+            "language": "zh",  # 识别语言: zh, en, ja, ko
+            "streaming_mode": True,  # 流式识别
+            "audio_device": None,  # 音频设备索引，None 表示默认设备
+            "audio_gain": 1.0,  # 录音增益，1.0 为原始音量，2.0 为 2 倍放大
+            "sound_notification": True,  # 开始/结束录音时播放提示音
+        },
+
+        # AI 键
+        "ai": {
+            "enabled": True,
+            "hotkey": "alt",
+            "hotkey_hold_time": 0.5,
+            "url": "https://chatgpt.com",  # 支持 doubao.com/chat, claude.ai 等
+            "page_load_delay": 3.0,  # 页面加载等待时间
+            "auto_enter": True,  # 自动发送
+        },
     },
-    "openai": {
-        "api_key": "",
-        "model": "whisper-1",
-        "base_url": "https://api.openai.com/v1",
+
+    # ========== 引擎设置 (Engine) ==========
+    "engine": {
+        "current": "volc_bigmodel",  # 当前引擎
+
+        # 1. 火山引擎-语音识别大模型
+        "volc_bigmodel": {
+            "app_key": "",
+            "access_key": "",
+            "model": "bigmodel",  # bigmodel, bigmodel_async, bigmodel_nostream
+        },
+
+        # 2. 火山引擎-一句话识别
+        "volcengine": {
+            "app_id": "",
+            "access_key": "",
+            "secret_key": "",
+        },
+
+        # 3. OpenAI Whisper
+        "openai": {
+            "api_key": "",
+            "model": "whisper-1",
+            "base_url": "https://api.openai.com/v1",
+        },
+
+        # 4. Whisper 兼容接口
+        "whisper_remote": {
+            "server_url": "http://localhost:8000",
+            "model": "whisper-1",
+            "api_key": "",
+        },
+
+        # 5. 本地 Whisper
+        "whisper": {
+            "model": "base",  # tiny, base, small, medium, large
+            "device": "auto",  # auto, cpu, cuda
+        },
     },
-    "volcengine": {
-        "app_id": "",
-        "access_key": "",
-        "secret_key": "",
-    },
-    "volc_bigmodel": {
-        "app_key": "",
-        "access_key": "",
-        "model": "bigmodel",  # bigmodel, bigmodel_async, bigmodel_nostream
-    },
-    "aliyun": {
-        "app_key": "",
-        "access_token": "",
-    },
-    "ui": {
+
+    # ========== 外观设置 (Appearance) ==========
+    "appearance": {
         "theme": "auto",  # light, dark, auto
+        "ui_language": "auto",  # auto, en, zh, zh_TW, ja, ko, etc.
         "show_waveform": True,
         "window_opacity": 0.9,
-        "streaming_mode": True,  # Show real-time recognition results
     },
 }
 
@@ -50,7 +81,7 @@ class Config:
     def __init__(self):
         self.config_dir = Path.home() / ".config" / "speaky"
         self.config_file = self.config_dir / "config.yaml"
-        self._config = DEFAULT_CONFIG.copy()
+        self._config = copy.deepcopy(DEFAULT_CONFIG)
         self._load_defaults()
         self.load()
 
@@ -70,18 +101,27 @@ class Config:
         if self.config_file.exists():
             with open(self.config_file, "r", encoding="utf-8") as f:
                 user_config = yaml.safe_load(f) or {}
-                self._deep_merge(self._config, user_config)
+                # 用户配置不允许用空值覆盖默认值（如 API 密钥）
+                self._deep_merge(self._config, user_config, allow_empty=False)
 
     def save(self):
         self.config_dir.mkdir(parents=True, exist_ok=True)
         with open(self.config_file, "w", encoding="utf-8") as f:
             yaml.dump(self._config, f, allow_unicode=True, default_flow_style=False)
 
-    def _deep_merge(self, base: dict, override: dict):
+    def _deep_merge(self, base: dict, override: dict, allow_empty: bool = True):
+        """深度合并配置
+
+        Args:
+            base: 基础配置
+            override: 覆盖配置
+            allow_empty: 是否允许空值覆盖非空值
+        """
         for key, value in override.items():
             if key in base and isinstance(base[key], dict) and isinstance(value, dict):
-                self._deep_merge(base[key], value)
-            else:
+                self._deep_merge(base[key], value, allow_empty)
+            elif allow_empty or (value is not None and value != ""):
+                # 如果不允许空值覆盖，跳过空字符串和 None
                 base[key] = value
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -98,22 +138,22 @@ class Config:
         keys = key.split(".")
         config = self._config
         for k in keys[:-1]:
-            if k not in config:
+            if k not in config or not isinstance(config[k], dict):
                 config[k] = {}
             config = config[k]
         config[keys[-1]] = value
 
     @property
     def hotkey(self) -> str:
-        return self.get("hotkey", "ctrl")
+        return self.get("core.asr.hotkey", "ctrl")
 
     @property
     def engine(self) -> str:
-        return self.get("engine", "whisper")
+        return self.get("engine.current", "volc_bigmodel")
 
     @property
     def language(self) -> str:
-        return self.get("language", "zh")
+        return self.get("core.asr.language", "zh")
 
 
 config = Config()

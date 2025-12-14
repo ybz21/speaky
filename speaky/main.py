@@ -17,8 +17,10 @@ from .engines.base import BaseEngine
 from .ui.floating_window import FloatingWindow
 from .ui.tray_icon import TrayIcon
 from .ui.settings_dialog import SettingsDialog, apply_theme
+from .ui.log_viewer import LogViewerDialog
 from .i18n import t, i18n
 from .handlers import VoiceModeHandler, AIModeHandler
+from .sound import set_sound_enabled
 
 # Enable faulthandler to dump traceback on segfault
 faulthandler.enable()
@@ -104,18 +106,25 @@ class SpeakyApp:
         set_macos_accessory_mode()
 
         # Initialize i18n language from config
-        i18n.set_language(config.get("ui_language", "auto"))
+        i18n.set_language(config.get("appearance.ui_language", "auto"))
 
         # Apply theme from config
-        apply_theme(config.get("ui.theme", "auto"))
+        apply_theme(config.get("appearance.theme", "auto"))
+
+        # Initialize sound notification setting
+        set_sound_enabled(config.get("core.asr.sound_notification", True))
 
         # 初始化核心组件
         self._signals = SignalBridge()
-        self._recorder = AudioRecorder()
+        self._recorder = AudioRecorder(
+            device_index=config.get("core.asr.audio_device"),
+            gain=config.get("core.asr.audio_gain", 1.0)
+        )
         self._engine: Optional[BaseEngine] = None
         self._floating_window = FloatingWindow()
         self._tray = TrayIcon()
         self._settings_dialog: Optional[SettingsDialog] = None
+        self._log_viewer: Optional[LogViewerDialog] = None
 
         # 初始化引擎
         self._setup_engine()
@@ -152,30 +161,30 @@ class SpeakyApp:
         if engine_name == "whisper":
             from .engines.whisper_engine import WhisperEngine
             self._engine = WhisperEngine(
-                model_name=config.get("whisper.model", "base"),
-                device=config.get("whisper.device", "auto"),
-                compute_type=config.get("whisper.compute_type", "auto"),
+                model_name=config.get("engine.whisper.model", "base"),
+                device=config.get("engine.whisper.device", "auto"),
+                compute_type=config.get("engine.whisper.compute_type", "auto"),
             )
         elif engine_name == "openai":
             from .engines.openai_engine import OpenAIEngine
             self._engine = OpenAIEngine(
-                api_key=config.get("openai.api_key", ""),
-                model=config.get("openai.model", "whisper-1"),
-                base_url=config.get("openai.base_url", "https://api.openai.com/v1"),
+                api_key=config.get("engine.openai.api_key", ""),
+                model=config.get("engine.openai.model", "whisper-1"),
+                base_url=config.get("engine.openai.base_url", "https://api.openai.com/v1"),
             )
         elif engine_name == "volcengine":
             from .engines.volcengine_engine import VolcEngineEngine
             self._engine = VolcEngineEngine(
-                app_id=config.get("volcengine.app_id", ""),
-                access_key=config.get("volcengine.access_key", ""),
-                secret_key=config.get("volcengine.secret_key", ""),
+                app_id=config.get("engine.volcengine.app_id", ""),
+                access_key=config.get("engine.volcengine.access_key", ""),
+                secret_key=config.get("engine.volcengine.secret_key", ""),
             )
         elif engine_name == "volc_bigmodel":
             from .engines.volc_bigmodel_engine import VolcBigModelEngine
             self._engine = VolcBigModelEngine(
-                app_key=config.get("volc_bigmodel.app_key", ""),
-                access_key=config.get("volc_bigmodel.access_key", ""),
-                model=config.get("volc_bigmodel.model", "bigmodel"),
+                app_key=config.get("engine.volc_bigmodel.app_key", ""),
+                access_key=config.get("engine.volc_bigmodel.access_key", ""),
+                model=config.get("engine.volc_bigmodel.model", "bigmodel"),
             )
             # Pre-warm connection for faster first request
             if hasattr(self._engine, 'warmup'):
@@ -183,9 +192,9 @@ class SpeakyApp:
         elif engine_name == "whisper_remote":
             from .engines.whisper_remote_engine import WhisperRemoteEngine
             self._engine = WhisperRemoteEngine(
-                server_url=config.get("whisper_remote.server_url", "http://localhost:8000"),
-                model=config.get("whisper_remote.model", "whisper-1"),
-                api_key=config.get("whisper_remote.api_key", ""),
+                server_url=config.get("engine.whisper_remote.server_url", "http://localhost:8000"),
+                model=config.get("engine.whisper_remote.model", "whisper-1"),
+                api_key=config.get("engine.whisper_remote.api_key", ""),
             )
 
     def _setup_hotkeys(self):
@@ -195,7 +204,7 @@ class SpeakyApp:
             hotkey=config.hotkey,
             on_press=self._voice_handler.on_hotkey_press,
             on_release=self._voice_handler.on_hotkey_release,
-            hold_time=config.get("hotkey_hold_time", 1.0),
+            hold_time=config.get("core.asr.hotkey_hold_time", 1.0),
         )
 
         # 音频电平回调
@@ -204,12 +213,12 @@ class SpeakyApp:
         )
 
         # AI 模式快捷键
-        if config.get("ai_enabled", True):
+        if config.get("core.ai.enabled", True):
             self._ai_hotkey_listener = HotkeyListener(
-                hotkey=config.get("ai_hotkey", "shift"),
+                hotkey=config.get("core.ai.hotkey", "shift"),
                 on_press=self._ai_handler.on_hotkey_press,
                 on_release=self._ai_handler.on_hotkey_release,
-                hold_time=config.get("ai_hotkey_hold_time", 1.0),
+                hold_time=config.get("core.ai.hotkey_hold_time", 1.0),
             )
         else:
             self._ai_hotkey_listener = None
@@ -248,6 +257,7 @@ class SpeakyApp:
     def _setup_tray(self):
         """设置托盘图标"""
         self._tray.settings_clicked.connect(self._show_settings)
+        self._tray.log_viewer_clicked.connect(self._show_log_viewer)
         self._tray.quit_clicked.connect(self._quit)
 
     def _show_settings(self):
@@ -255,22 +265,54 @@ class SpeakyApp:
         if self._settings_dialog is None:
             self._settings_dialog = SettingsDialog(config)
             self._settings_dialog.settings_changed.connect(self._on_settings_changed)
+            self._settings_dialog.destroyed.connect(self._on_settings_dialog_closed)
         self._settings_dialog.show()
         self._settings_dialog.raise_()
 
+    def _on_settings_dialog_closed(self):
+        """设置对话框关闭时重置引用，以便下次用新语言重建"""
+        self._settings_dialog = None
+
+    def _show_log_viewer(self):
+        """显示日志查看器"""
+        if self._log_viewer is None:
+            self._log_viewer = LogViewerDialog()
+            self._log_viewer.destroyed.connect(self._on_log_viewer_closed)
+        self._log_viewer.show()
+        self._log_viewer.raise_()
+
+    def _on_log_viewer_closed(self):
+        """日志查看器关闭时重置引用"""
+        self._log_viewer = None
+
     def _on_settings_changed(self):
         """设置变更处理"""
-        self._setup_engine()
-        self._hotkey_listener.update_hotkey(config.hotkey)
-        self._hotkey_listener.update_hold_time(config.get("hotkey_hold_time", 1.0))
+        try:
+            # Reload config from file
+            config.load()
 
-        # Update AI hotkey settings
-        if self._ai_hotkey_listener:
-            self._ai_hotkey_listener.update_hotkey(config.get("ai_hotkey", "shift"))
-            self._ai_hotkey_listener.update_hold_time(config.get("ai_hotkey_hold_time", 1.0))
+            # Update engine
+            self._setup_engine()
 
-        # Reset settings dialog so it recreates with new language
-        self._settings_dialog = None
+            # Update hotkey settings
+            self._hotkey_listener.update_hotkey(config.hotkey)
+            self._hotkey_listener.update_hold_time(config.get("core.asr.hotkey_hold_time", 1.0))
+
+            # Update AI hotkey settings
+            if self._ai_hotkey_listener:
+                self._ai_hotkey_listener.update_hotkey(config.get("core.ai.hotkey", "shift"))
+                self._ai_hotkey_listener.update_hold_time(config.get("core.ai.hotkey_hold_time", 1.0))
+
+            # Update audio device and gain
+            self._recorder.set_device(config.get("core.asr.audio_device"))
+            self._recorder.set_gain(config.get("core.asr.audio_gain", 1.0))
+
+            # Update sound notification setting
+            set_sound_enabled(config.get("core.asr.sound_notification", True))
+
+            logger.info("Settings updated successfully")
+        except Exception as e:
+            logger.error(f"Error updating settings: {e}", exc_info=True)
 
     def _quit(self):
         """退出应用"""
@@ -284,8 +326,8 @@ class SpeakyApp:
     def run(self):
         """运行应用"""
         logger.info(f"Speaky starting with hotkey: {config.hotkey}")
-        if config.get("ai_enabled", True):
-            logger.info(f"AI hotkey: {config.get('ai_hotkey', 'shift')}, URL: {config.get('ai_url', 'https://chatgpt.com')}")
+        if config.get("core.ai.enabled", True):
+            logger.info(f"AI hotkey: {config.get('core.ai.hotkey', 'shift')}, URL: {config.get('core.ai.url', 'https://chatgpt.com')}")
         logger.info(f"Engine: {config.engine}, Language: {config.language}")
 
         self._tray.show()

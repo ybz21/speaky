@@ -103,13 +103,18 @@ class AIModeHandler(BaseModeHandler):
             text_len = len(text) if text else 0
             logger.info(f"[AI] 识别完成，总耗时 {elapsed:.2f}s，文本长度={text_len}: {text_preview}...")
 
+            # Save to history
+            from ..history import add_to_history
+            engine_name = self._engine.name if self._engine else ""
+            add_to_history(text, engine_name)
+
             self._floating_window.show_result(text)
 
             if not text or not text.strip():
                 logger.warning("AI mode: Empty recognition result, skipping input")
                 return
 
-            page_load_delay = self._config.get("ai_page_load_delay", 3.0)
+            page_load_delay = self._config.get("core.ai.page_load_delay", 3.0)
             browser_elapsed = time.time() - (self._browser_open_time or time.time())
             remaining = max(0, page_load_delay - browser_elapsed)
 
@@ -129,7 +134,7 @@ class AIModeHandler(BaseModeHandler):
     def _open_browser(self):
         """延迟打开浏览器"""
         try:
-            ai_url = self._config.get("ai_url", "https://chatgpt.com")
+            ai_url = self._config.get("core.ai.url", "https://chatgpt.com")
             logger.info(f"AI mode: Opening {ai_url}")
             webbrowser.open(ai_url)
             # 打开浏览器后立即强制置顶浮窗
@@ -171,13 +176,17 @@ class AIModeHandler(BaseModeHandler):
             logger.info("AI mode: Hiding floating window")
             self._floating_window.hide()
 
+            # 等待焦点正确转移到浏览器
+            import time
+            time.sleep(0.3)
+
             # 输入文字（AI 模式不恢复焦点，保持在浏览器）
             logger.info("AI mode: Calling input_method.type_text(restore_focus=False)")
             self._input_method.type_text(text, restore_focus=False)
             logger.info("AI mode: type_text completed")
 
             # 如果配置了自动回车，则发送
-            if self._config.get("ai_auto_enter", True):
+            if self._config.get("core.ai.auto_enter", True):
                 logger.info("AI mode: Scheduling Enter key press")
                 QTimer.singleShot(300, self._press_enter)
             else:

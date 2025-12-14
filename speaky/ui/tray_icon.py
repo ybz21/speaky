@@ -1,10 +1,11 @@
 from PySide6.QtWidgets import QSystemTrayIcon, QMenu, QApplication
-from PySide6.QtGui import QIcon, QAction
+from PySide6.QtGui import QIcon, QAction, QClipboard
 from PySide6.QtCore import Signal, QObject
 import os
 import platform
 
 from ..i18n import t
+from ..history import get_history, clear_history
 
 
 def get_app_icon() -> QIcon:
@@ -50,6 +51,7 @@ def get_tray_icon() -> QIcon:
 class TrayIcon(QObject):
     settings_clicked = Signal()
     quit_clicked = Signal()
+    log_viewer_clicked = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -64,19 +66,80 @@ class TrayIcon(QObject):
         self._tray.setToolTip(t("app_name"))
 
     def _setup_menu(self):
-        menu = QMenu()
+        self._menu = QMenu()
 
-        settings_action = QAction(t("settings"), menu)
+        settings_action = QAction(t("settings"), self._menu)
         settings_action.triggered.connect(self.settings_clicked.emit)
-        menu.addAction(settings_action)
+        self._menu.addAction(settings_action)
 
-        menu.addSeparator()
+        # History submenu
+        self._history_menu = QMenu(t("history"), self._menu)
+        self._menu.addMenu(self._history_menu)
+        self._update_history_menu()
 
-        quit_action = QAction(t("quit"), menu)
+        # View log
+        log_action = QAction(t("view_log"), self._menu)
+        log_action.triggered.connect(self.log_viewer_clicked.emit)
+        self._menu.addAction(log_action)
+
+        self._menu.addSeparator()
+
+        quit_action = QAction(t("quit"), self._menu)
         quit_action.triggered.connect(self.quit_clicked.emit)
-        menu.addAction(quit_action)
+        self._menu.addAction(quit_action)
 
-        self._tray.setContextMenu(menu)
+        # Update history menu before showing
+        self._menu.aboutToShow.connect(self._update_history_menu)
+
+        self._tray.setContextMenu(self._menu)
+
+    def _update_history_menu(self):
+        """Update history submenu with recent items"""
+        self._history_menu.clear()
+
+        history_items = get_history(10)
+
+        if not history_items:
+            empty_action = QAction(t("history_empty"), self._history_menu)
+            empty_action.setEnabled(False)
+            self._history_menu.addAction(empty_action)
+        else:
+            for item in history_items:
+                # Truncate long text for menu display
+                display_text = item.text[:40] + "..." if len(item.text) > 40 else item.text
+                # Replace newlines for display
+                display_text = display_text.replace("\n", " ")
+                action = QAction(display_text, self._history_menu)
+                # Store full text in action data
+                action.setData(item.text)
+                action.triggered.connect(self._on_history_item_clicked)
+                self._history_menu.addAction(action)
+
+            self._history_menu.addSeparator()
+
+            clear_action = QAction(t("clear_history"), self._history_menu)
+            clear_action.triggered.connect(self._on_clear_history)
+            self._history_menu.addAction(clear_action)
+
+    def _on_history_item_clicked(self):
+        """Copy history item to clipboard"""
+        action = self.sender()
+        if action:
+            text = action.data()
+            if text:
+                clipboard = QApplication.clipboard()
+                clipboard.setText(text)
+                self._tray.showMessage(
+                    t("app_name"),
+                    t("history_copied"),
+                    QSystemTrayIcon.MessageIcon.Information,
+                    1500
+                )
+
+    def _on_clear_history(self):
+        """Clear all history"""
+        clear_history()
+        self._update_history_menu()
 
     def show(self):
         self._tray.show()
