@@ -46,7 +46,7 @@ ai_page_load_delay_label: "頁面載入等待:"
 ai_auto_enter: "自動發送 (Enter)"
 
 # 引擎標籤頁
-engine_group: "辨識引擎"
+engine_group: "引擎"
 engine_label: "引擎:"
 whisper_settings: "Whisper 設定"
 model: "模型:"

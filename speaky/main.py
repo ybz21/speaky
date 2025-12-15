@@ -193,7 +193,6 @@ class SpeakyApp:
             self._engine = VolcBigModelEngine(
                 app_key=config.get("engine.volc_bigmodel.app_key", ""),
                 access_key=config.get("engine.volc_bigmodel.access_key", ""),
-                model=config.get("engine.volc_bigmodel.model", "bigmodel"),
             )
             # Pre-warm connection for faster first request
             if hasattr(self._engine, 'warmup'):

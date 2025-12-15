@@ -53,6 +53,91 @@ def build_header(
     return bytes(header)
 
 
+def build_audio_request(seq: int, audio_data: bytes, is_last: bool = False) -> bytes:
+    """Build audio-only request for WebSocket.
+
+    Args:
+        seq: Sequence number (will be negated if is_last)
+        audio_data: Raw audio bytes to send
+        is_last: Whether this is the last audio packet
+    """
+    if is_last:
+        flags = MessageTypeSpecificFlags.NEG_WITH_SEQUENCE
+        seq = -seq
+    else:
+        flags = MessageTypeSpecificFlags.POS_SEQUENCE
+
+    header = build_header(
+        message_type=MessageType.CLIENT_AUDIO_ONLY_REQUEST,
+        flags=flags,
+    )
+
+    compressed = gzip.compress(audio_data) if audio_data else gzip.compress(b"")
+
+    request = bytearray()
+    request.extend(header)
+    request.extend(struct.pack('>i', seq))
+    request.extend(struct.pack('>I', len(compressed)))
+    request.extend(compressed)
+
+    return bytes(request), compressed
+
+
+def build_full_request(
+    seq: int,
+    audio_format: str,
+    rate: int,
+    bits: int,
+    channels: int,
+    log_payload: bool = False,
+) -> bytes:
+    """Build full client request for WebSocket connection.
+
+    Args:
+        seq: Sequence number
+        audio_format: Audio format ("wav" or "pcm")
+        rate: Sample rate (e.g., 16000)
+        bits: Bits per sample (e.g., 16)
+        channels: Number of channels (e.g., 1)
+        log_payload: Whether to log the payload
+    """
+    header = build_header(
+        message_type=MessageType.CLIENT_FULL_REQUEST,
+        flags=MessageTypeSpecificFlags.POS_SEQUENCE,
+    )
+
+    payload = {
+        "user": {"uid": "speaky"},
+        "audio": {
+            "format": audio_format,
+            "codec": "raw",
+            "rate": rate,
+            "bits": bits,
+            "channel": channels,
+        },
+        "request": {
+            "model_name": "bigmodel",
+            "enable_itn": True,
+            "enable_punc": True,
+            "enable_ddc": True,
+            "show_utterances": True,
+        },
+    }
+
+    if log_payload:
+        logger.info(f"[初始请求] payload: {payload}")
+
+    payload_bytes = gzip.compress(json.dumps(payload).encode('utf-8'))
+
+    request = bytearray()
+    request.extend(header)
+    request.extend(struct.pack('>i', seq))
+    request.extend(struct.pack('>I', len(payload_bytes)))
+    request.extend(payload_bytes)
+
+    return bytes(request)
+
+
 def parse_response(msg: bytes) -> dict:
     """Parse server response"""
     result = {
@@ -119,25 +204,18 @@ class VolcBigModelEngine(BaseEngine):
         self,
         app_key: str,
         access_key: str,
-        model: str = "bigmodel",
         segment_duration: int = 200,
     ):
         self._app_key = app_key
         self._access_key = access_key
-        self._model = model  # bigmodel, bigmodel_async, bigmodel_nostream
         self._segment_duration = segment_duration
-        # 三种端点模式:
-        # bigmodel - 双向流式模式，每包返回一包，尽快返回识别结果
-        # bigmodel_async - 双向流式优化版，结果变化时返回，性能更优
-        # bigmodel_nostream - 流式输入模式，15s后或最后一包返回，准确率更高
-        self._ws_url_streaming = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel"
+        # 固定使用 bigmodel_async 端点（双向流式优化版，结果变化时返回，性能更优）
         self._ws_url_async = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async"
-        self._ws_url_nostream = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream"
 
         # Persistent connection manager for faster session startup
         self._connection_manager: Optional["VolcConnectionManager"] = None
 
-        logger.info(f"VolcBigModel initialized: model={model}, app_key={app_key[:4] if app_key else 'None'}..., access_key={access_key[:4] if access_key else 'None'}...")
+        logger.info(f"VolcBigModel initialized: app_key={app_key[:4] if app_key else 'None'}..., access_key={access_key[:4] if access_key else 'None'}...")
 
     def _get_connection_manager(self) -> "VolcConnectionManager":
         """Get or create connection manager for persistent connections."""
@@ -227,13 +305,8 @@ class VolcBigModelEngine(BaseEngine):
             "X-Api-App-Key": self._app_key,
         }
 
-        # 选择端点:
-        # - 流式模式使用 bigmodel_async (双向流式优化版)，结果变化时返回
-        # - 非流式模式使用 bigmodel_nostream，准确率更高
-        if streaming:
-            ws_url = self._ws_url_async
-        else:
-            ws_url = self._ws_url_nostream
+        # 固定使用 bigmodel_async 端点
+        ws_url = self._ws_url_async
         logger.info(f"Connecting to {ws_url} (streaming={streaming})")
 
         result_text = ""
@@ -367,61 +440,18 @@ class VolcBigModelEngine(BaseEngine):
 
     def _build_full_request(self, seq: int, rate: int, bits: int, channels: int) -> bytes:
         """Build full client request"""
-        header = build_header(
-            message_type=MessageType.CLIENT_FULL_REQUEST,
-            flags=MessageTypeSpecificFlags.POS_SEQUENCE,
+        return build_full_request(
+            seq=seq,
+            audio_format="wav",
+            rate=rate,
+            bits=bits * 8,
+            channels=channels,
         )
-
-        payload = {
-            "user": {"uid": "speaky"},
-            "audio": {
-                "format": "wav",
-                "codec": "raw",
-                "rate": rate,
-                "bits": bits * 8,
-                "channel": channels,
-            },
-            "request": {
-                "model_name": "bigmodel",
-                "enable_itn": True,
-                "enable_punc": True,
-                "enable_ddc": True,
-                "show_utterances": True,
-            },
-        }
-
-        payload_bytes = gzip.compress(json.dumps(payload).encode('utf-8'))
-
-        request = bytearray()
-        request.extend(header)
-        request.extend(struct.pack('>i', seq))
-        request.extend(struct.pack('>I', len(payload_bytes)))
-        request.extend(payload_bytes)
-
-        return bytes(request)
 
     def _build_audio_request(self, seq: int, segment: bytes, is_last: bool = False) -> bytes:
         """Build audio-only request"""
-        if is_last:
-            flags = MessageTypeSpecificFlags.NEG_WITH_SEQUENCE
-            seq = -seq
-        else:
-            flags = MessageTypeSpecificFlags.POS_SEQUENCE
-
-        header = build_header(
-            message_type=MessageType.CLIENT_AUDIO_ONLY_REQUEST,
-            flags=flags,
-        )
-
-        compressed = gzip.compress(segment)
-
-        request = bytearray()
-        request.extend(header)
-        request.extend(struct.pack('>i', seq))
-        request.extend(struct.pack('>I', len(compressed)))
-        request.extend(compressed)
-
-        return bytes(request)
+        request, _ = build_audio_request(seq, segment, is_last)
+        return request
 
     @staticmethod
     def _split_audio(data: bytes, segment_size: int) -> list:
@@ -865,38 +895,25 @@ class VolcRealtimeSession(RealtimeSession):
 
     async def _send_audio_packet(self, ws, audio_data: bytes, is_last: bool):
         """Send a single audio packet."""
-        if is_last:
-            flags = MessageTypeSpecificFlags.NEG_WITH_SEQUENCE
-            seq = -self._seq
-        else:
-            flags = MessageTypeSpecificFlags.POS_SEQUENCE
-            seq = self._seq
+        seq = self._seq
+        if not is_last:
             self._seq += 1
 
-        header = build_header(
-            message_type=MessageType.CLIENT_AUDIO_ONLY_REQUEST,
-            flags=flags,
-        )
+        request, compressed = build_audio_request(seq, audio_data, is_last)
+        await ws.send_bytes(request)
 
-        compressed = gzip.compress(audio_data) if audio_data else gzip.compress(b"")
-
-        request = bytearray()
-        request.extend(header)
-        request.extend(struct.pack('>i', seq))
-        request.extend(struct.pack('>I', len(compressed)))
-        request.extend(compressed)
-
-        await ws.send_bytes(bytes(request))
+        # 日志记录
+        actual_seq = -seq if is_last else seq
         # 第2个包详细记录数据头（跳过第1个包因为是初始请求后的第一个音频包，seq已经是2）
-        if abs(seq) == 2 and audio_data:
+        if abs(actual_seq) == 2 and audio_data:
             logger.info(f"[音频发送] 首个音频包头16字节: {audio_data[:16].hex()}")
             # 计算音频电平
             samples = [int.from_bytes(audio_data[i:i+2], 'little', signed=True) for i in range(0, min(len(audio_data), 200), 2)]
             max_val = max(abs(s) for s in samples) if samples else 0
             avg_val = sum(abs(s) for s in samples) // len(samples) if samples else 0
             logger.info(f"[音频发送] 首个音频包电平: max={max_val}, avg={avg_val} (静音阈值约100)")
-        if is_last or abs(seq) % 10 == 0:  # 每10个包或最后一个包记录日志
-            logger.info(f"[音频发送] seq={seq}, 原始={len(audio_data)}字节, 压缩={len(compressed)}字节, last={is_last}")
+        if is_last or abs(actual_seq) % 10 == 0:  # 每10个包或最后一个包记录日志
+            logger.info(f"[音频发送] seq={actual_seq}, 原始={len(audio_data)}字节, 压缩={len(compressed)}字节, last={is_last}")
 
     async def _receive_loop(self, ws):
         """Receive results from WebSocket."""
@@ -959,36 +976,11 @@ class VolcRealtimeSession(RealtimeSession):
 
     def _build_full_request(self) -> bytes:
         """Build full client request."""
-        header = build_header(
-            message_type=MessageType.CLIENT_FULL_REQUEST,
-            flags=MessageTypeSpecificFlags.POS_SEQUENCE,
+        return build_full_request(
+            seq=1,
+            audio_format="pcm",
+            rate=self.SAMPLE_RATE,
+            bits=self.SAMPLE_WIDTH * 8,
+            channels=self.CHANNELS,
+            log_payload=True,
         )
-
-        payload = {
-            "user": {"uid": "speaky"},
-            "audio": {
-                "format": "pcm",  # pcm_s16le 格式
-                "codec": "raw",
-                "rate": self.SAMPLE_RATE,
-                "bits": self.SAMPLE_WIDTH * 8,
-                "channel": self.CHANNELS,
-            },
-            "request": {
-                "model_name": "bigmodel",
-                "enable_itn": True,
-                "enable_punc": True,
-                "enable_ddc": True,
-                "show_utterances": True,
-            },
-        }
-
-        logger.info(f"[初始请求] payload: {payload}")
-        payload_bytes = gzip.compress(json.dumps(payload).encode('utf-8'))
-
-        request = bytearray()
-        request.extend(header)
-        request.extend(struct.pack('>i', 1))  # seq=1
-        request.extend(struct.pack('>I', len(payload_bytes)))
-        request.extend(payload_bytes)
-
-        return bytes(request)

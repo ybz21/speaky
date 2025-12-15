@@ -32,11 +32,10 @@ DEFAULT_CONFIG = {
     "engine": {
         "current": "volc_bigmodel",  # 当前引擎
 
-        # 1. 火山引擎-语音识别大模型
+        # 1. 火山引擎-语音识别大模型 (固定使用 bigmodel_async)
         "volc_bigmodel": {
             "app_key": "",
             "access_key": "",
-            "model": "bigmodel",  # bigmodel, bigmodel_async, bigmodel_nostream
         },
 
         # 2. 火山引擎-一句话识别

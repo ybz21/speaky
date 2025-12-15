@@ -43,6 +43,7 @@ class InputMethod:
     def __init__(self):
         self._system = platform.system()
         self._xdotool = shutil.which("xdotool") if self._system == "Linux" else None
+        self._xprop = shutil.which("xprop") if self._system == "Linux" else None
         self._keyboard = None
         self._saved_window = None
 
@@ -52,6 +53,8 @@ class InputMethod:
             self._keyboard = Controller()
             self._Key = Key
             logger.info(f"Using clipboard+paste input method on {self._system}")
+            if self._system == "Linux":
+                logger.info(f"Linux tools: xdotool={self._xdotool}, xprop={self._xprop}")
         except ImportError:
             logger.warning("pynput not available for keyboard input")
 
@@ -180,8 +183,91 @@ class InputMethod:
         except Exception as e:
             logger.error(f"Failed to clear clipboard: {e}")
 
+    def _is_terminal_window(self) -> bool:
+        """Check if the currently active window is a terminal emulator"""
+        if self._system != "Linux":
+            return False
+
+        # Common terminal emulators
+        terminal_classes = [
+            "gnome-terminal",
+            "konsole",
+            "xfce4-terminal",
+            "xterm",
+            "urxvt",
+            "rxvt",
+            "terminator",
+            "tilix",
+            "alacritty",
+            "kitty",
+            "st",
+            "terminology",
+            "guake",
+            "yakuake",
+            "tilda",
+            "termite",
+            "sakura",
+            "lxterminal",
+            "qterminal",
+            "mate-terminal",
+            "deepin-terminal",
+            "hyper",
+            "wezterm",
+            "foot",
+        ]
+
+        window_class = None
+
+        # Try xdotool first
+        if self._xdotool:
+            try:
+                result = subprocess.run(
+                    [self._xdotool, "getactivewindow", "getwindowclassname"],
+                    capture_output=True,
+                    text=True,
+                    timeout=2
+                )
+                if result.returncode == 0:
+                    window_class = result.stdout.strip().lower()
+            except Exception as e:
+                logger.warning(f"xdotool failed: {e}")
+
+        # Fallback to xprop if xdotool failed or not available
+        if window_class is None and self._xprop:
+            try:
+                # Get active window ID
+                result = subprocess.run(
+                    [self._xprop, "-root", "_NET_ACTIVE_WINDOW"],
+                    capture_output=True,
+                    text=True,
+                    timeout=2
+                )
+                if result.returncode == 0 and "window id #" in result.stdout:
+                    # Extract window ID (format: "_NET_ACTIVE_WINDOW(WINDOW): window id # 0x12345")
+                    window_id = result.stdout.strip().split()[-1]
+                    # Get WM_CLASS
+                    result = subprocess.run(
+                        [self._xprop, "-id", window_id, "WM_CLASS"],
+                        capture_output=True,
+                        text=True,
+                        timeout=2
+                    )
+                    if result.returncode == 0 and "WM_CLASS" in result.stdout:
+                        # Format: WM_CLASS(STRING) = "instance", "class"
+                        window_class = result.stdout.lower()
+            except Exception as e:
+                logger.warning(f"xprop failed: {e}")
+
+        if window_class:
+            is_terminal = any(term in window_class for term in terminal_classes)
+            logger.info(f"Window class: {window_class}, is_terminal: {is_terminal}")
+            return is_terminal
+
+        logger.warning("Could not detect window class")
+        return False
+
     def _paste(self):
-        """Simulate paste shortcut (Cmd+V on macOS, Ctrl+V on others)"""
+        """Simulate paste shortcut (Cmd+V on macOS, Ctrl+V or Ctrl+Shift+V on Linux)"""
         try:
             if self._system == "Darwin":
                 # macOS: longer delay and use AppleScript for reliable paste
@@ -190,21 +276,42 @@ class InputMethod:
                 subprocess.run(["osascript", "-e", script], check=False, capture_output=True)
                 logger.info("Paste command sent via AppleScript")
             elif self._system == "Linux" and self._xdotool:
-                # Linux: use xdotool for reliable Ctrl+V
+                # Linux with xdotool: use Ctrl+Shift+V for terminals, Ctrl+V for others
                 time.sleep(0.1)
+                if self._is_terminal_window():
+                    paste_key = "ctrl+shift+v"
+                else:
+                    paste_key = "ctrl+v"
                 subprocess.run(
-                    [self._xdotool, "key", "--clearmodifiers", "ctrl+v"],
+                    [self._xdotool, "key", "--clearmodifiers", paste_key],
                     check=False,
                     capture_output=True,
                 )
-                logger.info("Paste command sent via xdotool")
+                logger.info(f"Paste command sent via xdotool ({paste_key})")
+            elif self._system == "Linux" and self._keyboard:
+                # Linux with pynput: use Ctrl+Shift+V for terminals, Ctrl+V for others
+                time.sleep(0.1)
+                is_terminal = self._is_terminal_window()
+                if is_terminal:
+                    # Ctrl+Shift+V
+                    with self._keyboard.pressed(self._Key.ctrl):
+                        with self._keyboard.pressed(self._Key.shift):
+                            self._keyboard.press("v")
+                            self._keyboard.release("v")
+                    logger.info("Paste command sent via pynput (ctrl+shift+v)")
+                else:
+                    # Ctrl+V
+                    with self._keyboard.pressed(self._Key.ctrl):
+                        self._keyboard.press("v")
+                        self._keyboard.release("v")
+                    logger.info("Paste command sent via pynput (ctrl+v)")
             elif self._keyboard:
-                # Windows: Ctrl+V via pynput
+                # Windows/Other: Ctrl+V via pynput
                 time.sleep(0.1)
                 with self._keyboard.pressed(self._Key.ctrl):
                     self._keyboard.press("v")
                     self._keyboard.release("v")
-                logger.info("Paste command sent via pynput")
+                logger.info("Paste command sent via pynput (ctrl+v)")
         except Exception as e:
             logger.error(f"Failed to paste: {e}")
 

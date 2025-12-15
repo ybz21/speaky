@@ -275,11 +275,6 @@ class EnginePage(SettingsPage):
         self.volc_bigmodel_ak.setMinimumWidth(250)
         self._volc_bigmodel_ak_card = self.add_card(t("access_key"), self.volc_bigmodel_ak)
 
-        self.volc_bigmodel_model = ComboBox()
-        self.volc_bigmodel_model.addItems(["bigmodel", "bigmodel_async", "bigmodel_nostream"])
-        self.volc_bigmodel_model.setMinimumWidth(180)
-        self._volc_bigmodel_model_card = self.add_card(t("model"), self.volc_bigmodel_model)
-
         # 2. Volcengine settings (火山引擎-一句话识别)
         self._volc_label = SubtitleLabel(t("volc_settings"), self._container)
         self._volc_label.setContentsMargins(0, 10, 0, 5)
@@ -340,26 +335,28 @@ class EnginePage(SettingsPage):
         self._whisper_label.setContentsMargins(0, 10, 0, 5)
         self._layout.addWidget(self._whisper_label)
 
-        self.whisper_model = ComboBox()
-        self.whisper_model.addItems(["tiny", "base", "small", "medium", "large"])
-        self.whisper_model.setMinimumWidth(150)
-        self._whisper_model_card = self.add_card(t("model"), self.whisper_model)
-
-        self.whisper_device = ComboBox()
-        self.whisper_device.addItems(["auto", "cpu", "cuda"])
-        self.whisper_device.setMinimumWidth(150)
-        self._whisper_device_card = self.add_card(t("device"), self.whisper_device)
+        # 使用通用模型下载组件
+        from .model_download_widget import create_whisper_download_widget
+        self.whisper_widget = create_whisper_download_widget()
+        # 将 ModelDownloadWidget 放入 CardWidget 中，直接添加到布局，不使用 SettingCard
+        self._whisper_widget_card = CardWidget(self._container)
+        self._whisper_widget_card.setFixedHeight(280)
+        card_layout = QVBoxLayout(self._whisper_widget_card)
+        card_layout.setContentsMargins(20, 15, 20, 15)
+        card_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        card_layout.addWidget(self.whisper_widget)
+        self._layout.addWidget(self._whisper_widget_card)
 
         self.add_save_button()
 
         # Store all engine widgets for visibility control
         self._volc_bigmodel_widgets = [self._volc_bigmodel_label, self._volc_bigmodel_appkey_card,
-                                        self._volc_bigmodel_ak_card, self._volc_bigmodel_model_card]
+                                        self._volc_bigmodel_ak_card]
         self._volc_widgets = [self._volc_label, self._volc_appid_card, self._volc_ak_card, self._volc_sk_card]
         self._openai_widgets = [self._openai_label, self._openai_key_card, self._openai_model_card, self._openai_url_card]
         self._whisper_remote_widgets = [self._whisper_remote_label, self._whisper_remote_url_card,
                                          self._whisper_remote_model_card, self._whisper_remote_key_card]
-        self._whisper_widgets = [self._whisper_label, self._whisper_model_card, self._whisper_device_card]
+        self._whisper_widgets = [self._whisper_label, self._whisper_widget_card]
 
         # Initialize visibility (show first engine by default)
         self._on_engine_index_changed(0)
@@ -676,7 +673,6 @@ class SettingsDialog(FluentWindow):
         # Engine settings - 火山大模型
         self._engine_page.volc_bigmodel_appkey.setText(self._config.get("engine.volc_bigmodel.app_key", ""))
         self._engine_page.volc_bigmodel_ak.setText(self._config.get("engine.volc_bigmodel.access_key", ""))
-        self._engine_page.volc_bigmodel_model.setCurrentText(self._config.get("engine.volc_bigmodel.model", "bigmodel"))
 
         # Engine settings - 火山一句话
         self._engine_page.volc_appid.setText(self._config.get("engine.volcengine.app_id", ""))
@@ -694,8 +690,8 @@ class SettingsDialog(FluentWindow):
         self._engine_page.whisper_remote_key.setText(self._config.get("engine.whisper_remote.api_key", ""))
 
         # Engine settings - 本地 Whisper
-        self._engine_page.whisper_model.setCurrentText(self._config.get("engine.whisper.model", "base"))
-        self._engine_page.whisper_device.setCurrentText(self._config.get("engine.whisper.device", "auto"))
+        self._engine_page.whisper_widget.set_model(self._config.get("engine.whisper.model", "base"))
+        self._engine_page.whisper_widget.set_option("device", self._config.get("engine.whisper.device", "auto"))
 
         # Appearance page
         theme = self._config.get("appearance.theme", "auto")
@@ -750,7 +746,6 @@ class SettingsDialog(FluentWindow):
         # 火山大模型
         self._config.set("engine.volc_bigmodel.app_key", self._engine_page.volc_bigmodel_appkey.text())
         self._config.set("engine.volc_bigmodel.access_key", self._engine_page.volc_bigmodel_ak.text())
-        self._config.set("engine.volc_bigmodel.model", self._engine_page.volc_bigmodel_model.currentText())
 
         # 火山一句话
         self._config.set("engine.volcengine.app_id", self._engine_page.volc_appid.text())
@@ -768,8 +763,8 @@ class SettingsDialog(FluentWindow):
         self._config.set("engine.whisper_remote.api_key", self._engine_page.whisper_remote_key.text())
 
         # 本地 Whisper
-        self._config.set("engine.whisper.model", self._engine_page.whisper_model.currentText())
-        self._config.set("engine.whisper.device", self._engine_page.whisper_device.currentText())
+        self._config.set("engine.whisper.model", self._engine_page.whisper_widget.get_model())
+        self._config.set("engine.whisper.device", self._engine_page.whisper_widget.get_option("device"))
 
         # Appearance settings
         theme = self._appearance_page.theme_combo.currentData()
