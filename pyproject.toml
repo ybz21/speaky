@@ -23,7 +23,7 @@ dependencies = [
     "python-socks>=2.7.3",
     "pyobjc-framework-Cocoa>=10.0; sys_platform == 'darwin'",
     "faster-whisper>=1.2.1",
-    "modelscope",
+    "modelscope>=1.33.0",
 ]
 
 [project.optional-dependencies]

@@ -294,11 +294,22 @@ class WhisperModelManager:
         # ModelScope 下载
         local_dir = self._models_dir / f"faster-whisper-{model_name}"
 
-        snapshot_download(
-            model_id=model_info.modelscope_repo,
-            cache_dir=str(self._models_dir),
-            local_dir=str(local_dir),
-        )
+        try:
+            snapshot_download(
+                model_id=model_info.modelscope_repo,
+                cache_dir=str(self._models_dir),
+                local_dir=str(local_dir),
+            )
+        except Exception as e:
+            # 捕获 HTTPError (404) 或其他错误
+            error_msg = str(e)
+            if "404" in error_msg or "not exists" in error_msg.lower():
+                raise RuntimeError(
+                    f"ModelScope 仓库不存在: {model_info.modelscope_repo}\n\n"
+                    f"该模型在 ModelScope 上可能不可用。\n"
+                    f"建议使用 HuggingFace 作为下载来源。"
+                )
+            raise
 
         if on_progress:
             on_progress(95, "验证模型文件...")
