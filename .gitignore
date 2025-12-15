@@ -8,5 +8,9 @@ build/
 .eggs/
 config.yaml
 
+# IDE
+.vscode/
+.idea/
+
 # Whisper models
 models/
