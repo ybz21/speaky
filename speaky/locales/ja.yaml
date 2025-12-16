@@ -48,7 +48,7 @@ ai_auto_enter: "自動送信 (Enter)"
 # エンジンタブ
 engine_group: "認識エンジン"
 engine_label: "エンジン:"
-whisper_settings: "Whisper 設定"
+local_settings: "ローカルモード"
 model: "モデル:"
 device: "デバイス:"
 openai_settings: "OpenAI 設定"

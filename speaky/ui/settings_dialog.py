@@ -146,6 +146,7 @@ class CorePage(SettingsPage):
         self.add_card(t("audio_gain"), gain_widget)
 
         self.streaming_mode = SwitchButton()
+        self.streaming_mode.setToolTip(t("streaming_tooltip"))
         self.add_card(t("streaming_mode"), self.streaming_mode)
 
         self.sound_notification = SwitchButton()
@@ -253,8 +254,7 @@ class EnginePage(SettingsPage):
             ("volc_bigmodel", t("volc_bigmodel_settings")),
             ("volcengine", t("volc_settings")),
             ("openai", t("openai_settings")),
-            ("whisper_remote", t("whisper_remote_settings")),
-            ("whisper", t("whisper_settings")),
+            ("local", t("local_settings")),
         ]
         for engine_id, engine_name in self._engine_items:
             self.engine_combo.addItem(engine_name, engine_id)
@@ -301,9 +301,13 @@ class EnginePage(SettingsPage):
         self.openai_key.setMinimumWidth(250)
         self._openai_key_card = self.add_card(t("api_key"), self.openai_key)
 
-        self.openai_model = LineEdit()
-        self.openai_model.setPlaceholderText("whisper-1")
-        self.openai_model.setMinimumWidth(150)
+        self.openai_model = ComboBox()
+        self.openai_model.addItems([
+            "gpt-4o-transcribe",
+            "gpt-4o-mini-transcribe",
+            "whisper-1",
+        ])
+        self.openai_model.setMinimumWidth(180)
         self._openai_model_card = self.add_card(t("model"), self.openai_model)
 
         self.openai_url = LineEdit()
@@ -311,41 +315,18 @@ class EnginePage(SettingsPage):
         self.openai_url.setMinimumWidth(250)
         self._openai_url_card = self.add_card(t("base_url"), self.openai_url)
 
-        # 4. Whisper Remote settings (Whisper 兼容接口)
-        self._whisper_remote_label = SubtitleLabel(t("whisper_remote_settings"), self._container)
-        self._whisper_remote_label.setContentsMargins(0, 10, 0, 5)
-        self._layout.addWidget(self._whisper_remote_label)
+        # 4. Local settings (本地模式)
+        self._local_label = SubtitleLabel(t("local_settings"), self._container)
+        self._local_label.setContentsMargins(0, 10, 0, 5)
+        self._layout.addWidget(self._local_label)
 
-        self.whisper_remote_url = LineEdit()
-        self.whisper_remote_url.setPlaceholderText("http://localhost:8000")
-        self.whisper_remote_url.setMinimumWidth(250)
-        self._whisper_remote_url_card = self.add_card(t("server_url"), self.whisper_remote_url)
-
-        self.whisper_remote_model = LineEdit()
-        self.whisper_remote_model.setPlaceholderText("whisper-1")
-        self.whisper_remote_model.setMinimumWidth(150)
-        self._whisper_remote_model_card = self.add_card(t("model"), self.whisper_remote_model)
-
-        self.whisper_remote_key = PasswordLineEdit()
-        self.whisper_remote_key.setMinimumWidth(250)
-        self._whisper_remote_key_card = self.add_card(t("api_key"), self.whisper_remote_key)
-
-        # 5. Whisper settings (本地 Whisper)
-        self._whisper_label = SubtitleLabel(t("whisper_settings"), self._container)
-        self._whisper_label.setContentsMargins(0, 10, 0, 5)
-        self._layout.addWidget(self._whisper_label)
-
-        # 使用通用模型下载组件
+        # 使用通用模型下载组件（独立组件放在左边，不使用右对齐的 SettingCard）
         from .model_download_widget import create_whisper_download_widget
-        self.whisper_widget = create_whisper_download_widget()
-        # 将 ModelDownloadWidget 放入 CardWidget 中，直接添加到布局，不使用 SettingCard
-        self._whisper_widget_card = CardWidget(self._container)
-        self._whisper_widget_card.setFixedHeight(280)
-        card_layout = QVBoxLayout(self._whisper_widget_card)
-        card_layout.setContentsMargins(20, 15, 20, 15)
-        card_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        card_layout.addWidget(self.whisper_widget)
-        self._layout.addWidget(self._whisper_widget_card)
+        self.local_widget = create_whisper_download_widget()
+        self.local_widget.setContentsMargins(20, 10, 20, 10)
+        self._layout.addWidget(self.local_widget)
+        # 创建一个隐藏的占位组件用于统一管理可见性
+        self._local_widget_card = self.local_widget
 
         self.add_save_button()
 
@@ -354,9 +335,7 @@ class EnginePage(SettingsPage):
                                         self._volc_bigmodel_ak_card]
         self._volc_widgets = [self._volc_label, self._volc_appid_card, self._volc_ak_card, self._volc_sk_card]
         self._openai_widgets = [self._openai_label, self._openai_key_card, self._openai_model_card, self._openai_url_card]
-        self._whisper_remote_widgets = [self._whisper_remote_label, self._whisper_remote_url_card,
-                                         self._whisper_remote_model_card, self._whisper_remote_key_card]
-        self._whisper_widgets = [self._whisper_label, self._whisper_widget_card]
+        self._local_widgets = [self._local_label, self._local_widget_card]
 
         # Initialize visibility (show first engine by default)
         self._on_engine_index_changed(0)
@@ -374,10 +353,8 @@ class EnginePage(SettingsPage):
             w.setVisible(engine == "volcengine")
         for w in self._openai_widgets:
             w.setVisible(engine == "openai")
-        for w in self._whisper_remote_widgets:
-            w.setVisible(engine == "whisper_remote")
-        for w in self._whisper_widgets:
-            w.setVisible(engine == "whisper")
+        for w in self._local_widgets:
+            w.setVisible(engine == "local")
 
 
 class AppearancePage(SettingsPage):
@@ -681,17 +658,12 @@ class SettingsDialog(FluentWindow):
 
         # Engine settings - OpenAI
         self._engine_page.openai_key.setText(self._config.get("engine.openai.api_key", ""))
-        self._engine_page.openai_model.setText(self._config.get("engine.openai.model", "whisper-1"))
+        self._engine_page.openai_model.setCurrentText(self._config.get("engine.openai.model", "whisper-1"))
         self._engine_page.openai_url.setText(self._config.get("engine.openai.base_url", ""))
 
-        # Engine settings - Whisper Remote
-        self._engine_page.whisper_remote_url.setText(self._config.get("engine.whisper_remote.server_url", ""))
-        self._engine_page.whisper_remote_model.setText(self._config.get("engine.whisper_remote.model", ""))
-        self._engine_page.whisper_remote_key.setText(self._config.get("engine.whisper_remote.api_key", ""))
-
-        # Engine settings - 本地 Whisper
-        self._engine_page.whisper_widget.set_model(self._config.get("engine.whisper.model", "base"))
-        self._engine_page.whisper_widget.set_option("device", self._config.get("engine.whisper.device", "auto"))
+        # Engine settings - 本地模式
+        self._engine_page.local_widget.set_model(self._config.get("engine.local.model", "base"))
+        self._engine_page.local_widget.set_option("device", self._config.get("engine.local.device", "auto"))
 
         # Appearance page
         theme = self._config.get("appearance.theme", "auto")
@@ -754,17 +726,12 @@ class SettingsDialog(FluentWindow):
 
         # OpenAI
         self._config.set("engine.openai.api_key", self._engine_page.openai_key.text())
-        self._config.set("engine.openai.model", self._engine_page.openai_model.text() or "whisper-1")
+        self._config.set("engine.openai.model", self._engine_page.openai_model.currentText())
         self._config.set("engine.openai.base_url", self._engine_page.openai_url.text() or "https://api.openai.com/v1")
 
-        # Whisper Remote
-        self._config.set("engine.whisper_remote.server_url", self._engine_page.whisper_remote_url.text() or "http://localhost:8000")
-        self._config.set("engine.whisper_remote.model", self._engine_page.whisper_remote_model.text() or "whisper-1")
-        self._config.set("engine.whisper_remote.api_key", self._engine_page.whisper_remote_key.text())
-
-        # 本地 Whisper
-        self._config.set("engine.whisper.model", self._engine_page.whisper_widget.get_model())
-        self._config.set("engine.whisper.device", self._engine_page.whisper_widget.get_option("device"))
+        # 本地模式
+        self._config.set("engine.local.model", self._engine_page.local_widget.get_model())
+        self._config.set("engine.local.device", self._engine_page.local_widget.get_option("device"))
 
         # Appearance settings
         theme = self._appearance_page.theme_combo.currentData()

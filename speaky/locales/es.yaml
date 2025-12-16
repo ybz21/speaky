@@ -48,7 +48,7 @@ ai_auto_enter: "Envío auto (Enter)"
 # Pestaña Motor
 engine_group: "Motor de reconocimiento"
 engine_label: "Motor:"
-whisper_settings: "Configuración de Whisper"
+local_settings: "Modo local"
 model: "Modelo:"
 device: "Dispositivo:"
 openai_settings: "Configuración de OpenAI"

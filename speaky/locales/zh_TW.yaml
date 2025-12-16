@@ -48,7 +48,7 @@ ai_auto_enter: "自動發送 (Enter)"
 # 引擎標籤頁
 engine_group: "引擎"
 engine_label: "引擎:"
-whisper_settings: "Whisper 設定"
+local_settings: "本機模式"
 model: "模型:"
 device: "裝置:"
 openai_settings: "OpenAI 設定"

@@ -4,7 +4,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Callable
 from .base import BaseEngine
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,29 @@ class WhisperEngine(BaseEngine):
         self._compute_type = compute_type
         self._model = None
 
+    def _get_local_model_path(self) -> Optional[str]:
+        """获取本地已下载模型的路径"""
+        # 检查 HuggingFace 格式目录
+        hf_dir = MODELS_DIR / f"models--Systran--faster-whisper-{self._model_name}"
+        if hf_dir.exists():
+            snapshots = hf_dir / "snapshots"
+            if snapshots.exists():
+                for snapshot in snapshots.iterdir():
+                    model_bin = snapshot / "model.bin"
+                    if model_bin.exists():
+                        logger.info(f"[Whisper] 找到 HuggingFace 格式模型: {snapshot}")
+                        return str(snapshot)
+
+        # 检查 ModelScope 格式目录
+        ms_dir = MODELS_DIR / f"faster-whisper-{self._model_name}"
+        if ms_dir.exists():
+            model_bin = ms_dir / "model.bin"
+            if model_bin.exists():
+                logger.info(f"[Whisper] 找到 ModelScope 格式模型: {ms_dir}")
+                return str(ms_dir)
+
+        return None
+
     def _load_model(self):
         """懒加载模型"""
         if self._model is not None:
@@ -70,18 +93,24 @@ class WhisperEngine(BaseEngine):
         # 确保模型目录存在
         MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"[Whisper] 加载模型: {self._model_name}, device={device}, compute_type={compute_type}")
-        logger.info(f"[Whisper] 模型目录: {MODELS_DIR}")
+        # 优先使用本地已下载的模型
+        local_model_path = self._get_local_model_path()
+
+        if not local_model_path:
+            logger.warning(f"[Whisper] 模型 {self._model_name} 未下载，请先在设置中下载模型")
+            raise RuntimeError(f"模型 {self._model_name} 未下载，请先在设置中下载模型")
+
+        logger.info(f"[Whisper] 加载模型: {local_model_path}, device={device}, compute_type={compute_type}")
+
         self._model = WhisperModel(
-            self._model_name,
+            local_model_path,
             device=device,
             compute_type=compute_type,
-            download_root=str(MODELS_DIR),
         )
         logger.info(f"[Whisper] 模型加载完成")
 
     def transcribe(self, audio_data: bytes, language: str = "zh") -> str:
-        """转录音频
+        """转录音频（非流式）
 
         Args:
             audio_data: WAV 格式音频数据
@@ -106,6 +135,19 @@ class WhisperEngine(BaseEngine):
             # 合并所有片段
             text = "".join(segment.text for segment in segments)
             return text.strip()
+
+    def preload(self):
+        """预加载模型（在应用启动时调用，避免第一次识别时卡顿）"""
+        logger.info(f"[Whisper] 预加载模型: {self._model_name}")
+        self._load_model()
+
+    def is_model_loaded(self) -> bool:
+        """检查模型是否已加载"""
+        return self._model is not None
+
+    def is_model_downloaded(self) -> bool:
+        """检查模型是否已下载"""
+        return self._get_local_model_path() is not None
 
     def is_available(self) -> bool:
         """检查 faster-whisper 是否可用"""

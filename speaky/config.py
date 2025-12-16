@@ -45,22 +45,15 @@ DEFAULT_CONFIG = {
             "secret_key": "",
         },
 
-        # 3. OpenAI Whisper
+        # 3. OpenAI (原生 & 兼容)
         "openai": {
             "api_key": "",
-            "model": "whisper-1",
+            "model": "gpt-4o-transcribe",
             "base_url": "https://api.openai.com/v1",
         },
 
-        # 4. Whisper 兼容接口
-        "whisper_remote": {
-            "server_url": "http://localhost:8000",
-            "model": "whisper-1",
-            "api_key": "",
-        },
-
-        # 5. 本地 Whisper
-        "whisper": {
+        # 4. 本地模式
+        "local": {
             "model": "base",  # tiny, base, small, medium, large
             "device": "auto",  # auto, cpu, cuda
         },

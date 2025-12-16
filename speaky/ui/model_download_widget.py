@@ -1,8 +1,9 @@
 """Model Download Widget - Generic model download and management UI"""
 
 from typing import Callable, Optional, List, Dict, Any
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
-from PySide6.QtCore import QTimer, Signal, Qt
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPlainTextEdit
+from PySide6.QtCore import QTimer, Signal, Qt, Slot
+from PySide6.QtGui import QFont, QTextCursor
 
 from qfluentwidgets import (
     ComboBox, PrimaryPushButton, PushButton, BodyLabel,
@@ -32,6 +33,9 @@ class ModelDownloadWidget(QWidget):
     model_changed = Signal(str)  # 模型选择变化
     download_started = Signal(str)  # 开始下载
     download_completed = Signal(str, bool)  # 下载完成 (model, success)
+    _progress_signal = Signal(float, str)  # 内部进度信号（线程安全）
+    _complete_signal = Signal(bool, str)  # 内部完成信号（线程安全）
+    _log_signal = Signal(str)  # 内部日志信号（线程安全）
 
     def __init__(
         self,
@@ -43,7 +47,6 @@ class ModelDownloadWidget(QWidget):
         delete_func: Callable[[str], bool],
         download_sources: Optional[List[str]] = None,
         extra_options: Optional[Dict[str, List[str]]] = None,
-        cancel_func: Optional[Callable[[], None]] = None,
         parent=None,
     ):
         """
@@ -56,7 +59,6 @@ class ModelDownloadWidget(QWidget):
             delete_func: 删除函数 (model) -> bool
             download_sources: 下载来源列表，如 ["HuggingFace", "ModelScope"]
             extra_options: 额外选项 {label: [options]}，如 {"device": ["auto", "cpu", "cuda"]}
-            cancel_func: 取消下载函数
         """
         super().__init__(parent)
 
@@ -66,7 +68,6 @@ class ModelDownloadWidget(QWidget):
         self._get_model_size = get_model_size
         self._download_func = download_func
         self._delete_func = delete_func
-        self._cancel_func = cancel_func
         self._download_sources = download_sources or ["HuggingFace", "ModelScope"]
         self._extra_options = extra_options or {}
         self._extra_combos: Dict[str, ComboBox] = {}
@@ -77,7 +78,6 @@ class ModelDownloadWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
-        layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
 
         # 模型选择
         model_row = QHBoxLayout()
@@ -129,12 +129,6 @@ class ModelDownloadWidget(QWidget):
         self.download_btn.clicked.connect(self._on_download)
         action_row.addWidget(self.download_btn)
 
-        self.cancel_btn = PushButton(t("cancel"))
-        self.cancel_btn.setMinimumWidth(100)
-        self.cancel_btn.clicked.connect(self._on_cancel)
-        self.cancel_btn.setVisible(False)
-        action_row.addWidget(self.cancel_btn)
-
         self.delete_btn = PushButton(t("delete"))
         self.delete_btn.setMinimumWidth(100)
         self.delete_btn.clicked.connect(self._on_delete)
@@ -143,12 +137,13 @@ class ModelDownloadWidget(QWidget):
         action_row.addStretch()
         layout.addLayout(action_row)
 
-        # 进度条（默认隐藏）
+        # 进度条和日志区域（默认隐藏）
         self.progress_widget = QWidget()
         progress_layout = QVBoxLayout(self.progress_widget)
         progress_layout.setContentsMargins(0, 10, 0, 0)
         progress_layout.setSpacing(5)
 
+        # 进度条
         self.progress_bar = ProgressBar()
         self.progress_bar.setMinimumWidth(300)
         self.progress_bar.setValue(0)
@@ -157,11 +152,36 @@ class ModelDownloadWidget(QWidget):
         self.progress_label = BodyLabel("")
         progress_layout.addWidget(self.progress_label)
 
+        # 下载日志
+        self.log_text = QPlainTextEdit()
+        self.log_text.setReadOnly(True)
+        self.log_text.setMaximumHeight(100)
+        self.log_text.setFont(QFont("Consolas, Monaco, monospace", 9))
+        self.log_text.setStyleSheet("""
+            QPlainTextEdit {
+                background-color: #1e1e1e;
+                color: #d4d4d4;
+                border: 1px solid #333;
+                border-radius: 4px;
+            }
+        """)
+        progress_layout.addWidget(self.log_text)
+
+        # 取消按钮
+        self.cancel_btn = PushButton(t("cancel"))
+        self.cancel_btn.clicked.connect(self._on_cancel)
+        progress_layout.addWidget(self.cancel_btn)
+
         self.progress_widget.setVisible(False)
         layout.addWidget(self.progress_widget)
 
         # 添加弹性空间，让内容靠上
         layout.addStretch()
+
+        # 连接内部信号（用于线程安全的 UI 更新）
+        self._progress_signal.connect(self._update_progress)
+        self._complete_signal.connect(self._handle_complete)
+        self._log_signal.connect(self._append_log)
 
         # 初始化状态
         QTimer.singleShot(100, self._update_status)
@@ -184,8 +204,6 @@ class ModelDownloadWidget(QWidget):
             self.status_label.setStyleSheet("color: green;")
             self.download_btn.setEnabled(False)
             self.download_btn.setText(t("downloaded"))
-            self.download_btn.setVisible(True)
-            self.cancel_btn.setVisible(False)
             self.delete_btn.setEnabled(True)
         else:
             size_hint = info.get("size", "")
@@ -193,8 +211,6 @@ class ModelDownloadWidget(QWidget):
             self.status_label.setStyleSheet("color: orange;")
             self.download_btn.setEnabled(True)
             self.download_btn.setText(t("download"))
-            self.download_btn.setVisible(True)
-            self.cancel_btn.setVisible(False)
             self.delete_btn.setEnabled(False)
 
     def _format_size(self, size_bytes: int) -> str:
@@ -213,13 +229,13 @@ class ModelDownloadWidget(QWidget):
         model = self.model_combo.currentText()
         source = self.source_combo.currentText() if hasattr(self, 'source_combo') else None
 
-        # 显示进度条
+        # 显示进度条和取消按钮
         self.progress_widget.setVisible(True)
         self.progress_bar.setValue(0)
         self.progress_label.setText(t("preparing_download"))
-        self.download_btn.setVisible(False)
-        self.cancel_btn.setVisible(True)
-        self.delete_btn.setEnabled(False)
+        self.log_text.clear()
+        self.download_btn.setEnabled(False)
+        self.download_btn.setText(t("downloading"))
 
         self.download_started.emit(model)
 
@@ -229,33 +245,55 @@ class ModelDownloadWidget(QWidget):
             source,
             self._on_progress,
             self._on_complete,
+            self._on_log,
         )
 
-    def _on_progress(self, progress: float, message: str):
-        """下载进度回调"""
-        QTimer.singleShot(0, lambda: self._update_progress(progress, message))
+    def _on_log(self, message: str):
+        """日志回调（可能在子线程中调用）"""
+        self._log_signal.emit(message)
 
+    @Slot(str)
+    def _append_log(self, message: str):
+        """追加日志（主线程）"""
+        self.log_text.appendPlainText(message)
+        # 滚动到底部
+        cursor = self.log_text.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        self.log_text.setTextCursor(cursor)
+
+    def _on_cancel(self):
+        """取消下载"""
+        # 调用取消回调（如果有）
+        if hasattr(self, '_cancel_func') and self._cancel_func:
+            self._cancel_func()
+        self.progress_widget.setVisible(False)
+        self.cancel_btn.setVisible(False)
+        self._update_status()
+
+    def _on_progress(self, progress: float, message: str):
+        """下载进度回调（可能在子线程中调用）"""
+        # 使用信号来线程安全地更新 UI
+        self._progress_signal.emit(progress, message)
+
+    @Slot(float, str)
     def _update_progress(self, progress: float, message: str):
         """更新进度 UI（主线程）"""
         self.progress_bar.setValue(int(progress))
         self.progress_label.setText(message)
 
     def _on_complete(self, success: bool, message: str):
-        """下载完成回调"""
-        QTimer.singleShot(0, lambda: self._handle_complete(success, message))
+        """下载完成回调（可能在子线程中调用）"""
+        # 使用信号来线程安全地更新 UI
+        self._complete_signal.emit(success, message)
 
+    @Slot(bool, str)
     def _handle_complete(self, success: bool, message: str):
         """处理下载完成（主线程）"""
         model = self.model_combo.currentText()
         self.progress_widget.setVisible(False)
-        self.download_btn.setVisible(True)
         self.cancel_btn.setVisible(False)
         self._update_status()
         self.download_completed.emit(model, success)
-
-        # 如果是取消操作，不显示错误提示
-        if "取消" in message or "cancel" in message.lower():
-            return
 
         if success:
             InfoBar.success(
@@ -266,34 +304,13 @@ class ModelDownloadWidget(QWidget):
                 duration=3000,
             )
         else:
-            # 格式化错误消息，使其更易读
-            error_msg = message
-            if "\n" in error_msg:
-                # 如果错误消息包含多行，使用 MessageBox 显示更详细的信息
-                from qfluentwidgets import MessageBox
-                MessageBox(
-                    t("download_failed"),
-                    error_msg,
-                    self.window(),
-                ).exec()
-            else:
-                # 单行错误消息使用 InfoBar
-                InfoBar.error(
-                    title=t("download_failed"),
-                    content=error_msg,
-                    parent=self.window(),
-                    position=InfoBarPosition.TOP,
-                    duration=5000,
-                )
-
-    def _on_cancel(self):
-        """取消下载"""
-        if self._cancel_func:
-            self._cancel_func()
-        self.progress_widget.setVisible(False)
-        self.download_btn.setVisible(True)
-        self.cancel_btn.setVisible(False)
-        self._update_status()
+            InfoBar.error(
+                title=t("download_failed"),
+                content=message,
+                parent=self.window(),
+                position=InfoBarPosition.TOP,
+                duration=5000,
+            )
 
     def _on_delete(self):
         """删除模型"""
@@ -361,20 +378,17 @@ def create_whisper_download_widget(parent=None) -> ModelDownloadWidget:
         for name, info in WHISPER_MODELS.items()
     }
 
-    def download_func(model, source, on_progress, on_complete):
+    def download_func(model, source, on_progress, on_complete, on_log=None):
         src = ModelSource.MODELSCOPE if source == "ModelScope" else ModelSource.HUGGINGFACE
         whisper_model_manager.download_model(
             model_name=model,
             source=src,
             on_progress=on_progress,
             on_complete=on_complete,
+            on_log=on_log,
         )
 
-    def cancel_func():
-        """取消下载"""
-        whisper_model_manager.cancel_download()
-
-    return ModelDownloadWidget(
+    widget = ModelDownloadWidget(
         models=list(WHISPER_MODELS.keys()),
         model_info=model_info,
         check_downloaded=whisper_model_manager.is_model_downloaded,
@@ -383,6 +397,10 @@ def create_whisper_download_widget(parent=None) -> ModelDownloadWidget:
         delete_func=whisper_model_manager.delete_model,
         download_sources=["HuggingFace", "ModelScope"],
         extra_options={"device": ["auto", "cpu", "cuda"]},
-        cancel_func=cancel_func,
         parent=parent,
     )
+
+    # 设置取消下载函数
+    widget._cancel_func = whisper_model_manager.cancel_download
+
+    return widget

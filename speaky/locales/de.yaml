@@ -48,7 +48,7 @@ ai_auto_enter: "Automatisch senden (Enter)"
 # Engine-Tab
 engine_group: "Erkennungsengine"
 engine_label: "Engine:"
-whisper_settings: "Whisper Einstellungen"
+local_settings: "Lokaler Modus"
 model: "Modell:"
 device: "Gerät:"
 openai_settings: "OpenAI Einstellungen"

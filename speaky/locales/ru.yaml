@@ -48,7 +48,7 @@ ai_auto_enter: "Авто отправка (Enter)"
 # Вкладка Движок
 engine_group: "Движок распознавания"
 engine_label: "Движок:"
-whisper_settings: "Настройки Whisper"
+local_settings: "Локальный режим"
 model: "Модель:"
 device: "Устройство:"
 openai_settings: "Настройки OpenAI"

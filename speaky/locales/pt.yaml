@@ -48,7 +48,7 @@ ai_auto_enter: "Envio auto (Enter)"
 # Aba Motor
 engine_group: "Motor de reconhecimento"
 engine_label: "Motor:"
-whisper_settings: "Configurações do Whisper"
+local_settings: "Modo local"
 model: "Modelo:"
 device: "Dispositivo:"
 openai_settings: "Configurações do OpenAI"

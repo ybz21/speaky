@@ -167,13 +167,18 @@ class SpeakyApp:
         engine_name = config.engine
         logger.info(f"Setting up engine: {engine_name}")
 
-        if engine_name == "whisper":
+        if engine_name == "local":
             from .engines.whisper_engine import WhisperEngine
             self._engine = WhisperEngine(
-                model_name=config.get("engine.whisper.model", "base"),
-                device=config.get("engine.whisper.device", "auto"),
-                compute_type=config.get("engine.whisper.compute_type", "auto"),
+                model_name=config.get("engine.local.model", "base"),
+                device=config.get("engine.local.device", "auto"),
+                compute_type=config.get("engine.local.compute_type", "auto"),
             )
+            # 预加载模型，避免第一次识别时卡顿
+            if self._engine.is_model_downloaded():
+                threading.Thread(target=self._engine.preload, daemon=True).start()
+            else:
+                logger.warning(f"[Local] 模型未下载，请先在设置中下载模型")
         elif engine_name == "openai":
             from .engines.openai_engine import OpenAIEngine
             self._engine = OpenAIEngine(
@@ -197,13 +202,6 @@ class SpeakyApp:
             # Pre-warm connection for faster first request
             if hasattr(self._engine, 'warmup'):
                 threading.Thread(target=self._engine.warmup, daemon=True).start()
-        elif engine_name == "whisper_remote":
-            from .engines.whisper_remote_engine import WhisperRemoteEngine
-            self._engine = WhisperRemoteEngine(
-                server_url=config.get("engine.whisper_remote.server_url", "http://localhost:8000"),
-                model=config.get("engine.whisper_remote.model", "whisper-1"),
-                api_key=config.get("engine.whisper_remote.api_key", ""),
-            )
 
     def _setup_hotkeys(self):
         """设置快捷键监听器"""

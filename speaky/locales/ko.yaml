@@ -48,7 +48,7 @@ ai_auto_enter: "자동 전송 (Enter)"
 # 엔진 탭
 engine_group: "인식 엔진"
 engine_label: "엔진:"
-whisper_settings: "Whisper 설정"
+local_settings: "로컬 모드"
 model: "모델:"
 device: "장치:"
 openai_settings: "OpenAI 설정"

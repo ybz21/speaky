@@ -48,7 +48,7 @@ ai_auto_enter: "Envoi auto (Entrée)"
 # Onglet Moteur
 engine_group: "Moteur de reconnaissance"
 engine_label: "Moteur:"
-whisper_settings: "Paramètres Whisper"
+local_settings: "Mode local"
 model: "Modèle:"
 device: "Appareil:"
 openai_settings: "Paramètres OpenAI"
