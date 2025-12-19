@@ -5,10 +5,11 @@ from PySide6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout,
     QGraphicsDropShadowEffect, QScrollArea, QSizePolicy
 )
-from PySide6.QtCore import Qt, Signal, QTimer, QPointF
-from PySide6.QtGui import QPainter, QColor, QPainterPath, QRadialGradient, QPen, QFont, QKeyEvent
+from PySide6.QtCore import Qt, Signal, QTimer, QPointF, QSize
+from PySide6.QtGui import QPainter, QColor, QPainterPath, QRadialGradient, QPen, QFont, QKeyEvent, QPixmap
 
 from ..i18n import t
+from ..window_info import get_focused_window_info, WindowInfo
 
 logger = logging.getLogger(__name__)
 
@@ -205,11 +206,11 @@ class WaveOrbWidget(QWidget):
 
 
 class FloatingWindow(QWidget):
-    """Floating window with layout: [animation + status] | [text]"""
+    """Floating window with layout: [animation + status] | [app icon + name] | [text]"""
     closed = Signal()
 
-    # Fixed size (reduced to 1/2)
-    WINDOW_WIDTH = 630
+    # Fixed size (adjusted for app info panel)
+    WINDOW_WIDTH = 720
     WINDOW_HEIGHT = 90
 
     def __init__(self):
@@ -295,6 +296,40 @@ class FloatingWindow(QWidget):
 
         h_layout.addWidget(left_panel)
 
+        # App info panel (icon + name) - shows which app will receive input
+        app_info_panel = QWidget()
+        app_info_panel.setFixedWidth(90)
+        app_info_layout = QVBoxLayout(app_info_panel)
+        app_info_layout.setContentsMargins(0, 4, 0, 4)
+        app_info_layout.setSpacing(4)
+        app_info_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # App icon
+        self._app_icon_label = QLabel()
+        self._app_icon_label.setFixedSize(32, 32)
+        self._app_icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._app_icon_label.setStyleSheet("background: transparent;")
+        app_info_layout.addWidget(self._app_icon_label, 0, Qt.AlignmentFlag.AlignCenter)
+
+        # App name
+        self._app_name_label = QLabel("")
+        app_name_font = self._app_name_label.font()
+        app_name_font.setPointSize(8)
+        self._app_name_label.setFont(app_name_font)
+        self._app_name_label.setStyleSheet("color: rgba(255, 255, 255, 0.6); background: transparent;")
+        self._app_name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._app_name_label.setWordWrap(True)
+        self._app_name_label.setMaximumWidth(85)
+        app_info_layout.addWidget(self._app_name_label)
+
+        # Separator line
+        separator = QWidget()
+        separator.setFixedWidth(1)
+        separator.setStyleSheet("background-color: rgba(255, 255, 255, 0.1);")
+
+        h_layout.addWidget(separator)
+        h_layout.addWidget(app_info_panel)
+
         # Right panel: scrollable text area (vertically centered)
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
@@ -371,6 +406,57 @@ class FloatingWindow(QWidget):
         logger.info("[浮窗] 定时器触发：停止动画")
         self._wave_widget.stop_animation()
 
+    def update_app_info(self, info: WindowInfo = None):
+        """Update the app icon and name display.
+
+        Args:
+            info: WindowInfo object, or None to fetch current focused app.
+        """
+        if info is None:
+            info = get_focused_window_info()
+
+        if info is None:
+            self._app_icon_label.clear()
+            self._app_name_label.setText("")
+            return
+
+        # Update app name
+        app_name = info.app_name or info.wm_class or "Unknown"
+        # Truncate long names
+        if len(app_name) > 12:
+            app_name = app_name[:11] + "…"
+        self._app_name_label.setText(app_name)
+
+        # Update app icon
+        if info.icon_path:
+            pixmap = QPixmap(info.icon_path)
+            if not pixmap.isNull():
+                # Scale to 32x32 while keeping aspect ratio
+                scaled = pixmap.scaled(
+                    QSize(32, 32),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+                self._app_icon_label.setPixmap(scaled)
+            else:
+                self._app_icon_label.clear()
+                self._set_default_app_icon()
+        else:
+            self._set_default_app_icon()
+
+    def _set_default_app_icon(self):
+        """Set a default icon when app icon is not available."""
+        # Use a simple colored circle as fallback
+        self._app_icon_label.setStyleSheet("""
+            background: qradialgradient(
+                cx:0.5, cy:0.5, radius:0.5,
+                fx:0.3, fy:0.3,
+                stop:0 rgba(100, 100, 100, 200),
+                stop:1 rgba(60, 60, 60, 200)
+            );
+            border-radius: 16px;
+        """)
+
     def show_recording(self):
         logger.info("[浮窗] 显示录音状态")
         self._cancel_all_timers()
@@ -379,6 +465,10 @@ class FloatingWindow(QWidget):
         self._text_label.setText("")
         self._wave_widget.set_mode("recording")
         self._wave_widget.start_animation()
+
+        # Update app info before showing window
+        self.update_app_info()
+
         self._center_on_screen()
         self.show()
         self.raise_()
