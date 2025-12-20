@@ -33,6 +33,7 @@ close: "关闭"
 settings_title: "语音输入设置"
 tab_general: "常规"
 tab_core: "核心"
+tab_ai_key: "AI 键"
 tab_engine: "语音识别引擎"
 tab_ui: "界面"
 tab_appearance: "外观"
@@ -119,6 +120,39 @@ delete_success: "删除成功"
 confirm_delete: "确认删除"
 confirm_delete_model: "确定要删除模型 {model} 吗？"
 model_deleted: "模型 {model} 已删除"
+
+# LLM Agent
+tab_llm_agent: "LLM Agent"
+llm_agent_group: "LLM Agent 设置"
+llm_agent_enabled: "启用 LLM Agent"
+llm_agent_hotkey: "热键:"
+llm_agent_hold_time: "长按延迟:"
+
+# LLM 配置
+llm_provider_group: "大模型配置"
+llm_provider: "提供商:"
+fetch_models: "获取模型列表"
+fetching: "获取中..."
+api_key_required: "请先填写 API Key"
+fetch_models_failed: "获取模型列表失败，请检查网络连接和 API 配置（详见日志）"
+
+# MCP 配置
+mcp_servers_group: "MCP 服务器"
+
+# 浏览器扩展
+browser_extension_group: "浏览器扩展"
+browser_extension: "Playwright MCP Bridge"
+browser_extension_desc: "连接到您正在使用的 Chrome 浏览器，保留登录状态"
+install_extension: "下载扩展"
+extension_installed: "扩展已下载"
+extension_not_installed: "扩展未下载"
+reinstall_extension: "重新下载"
+open_extensions_page: "打开 Chrome 扩展页面"
+installing: "下载中..."
+extension_install_success: "扩展已下载到 ~/.speaky/mcp/extension/\n请打开 Chrome 扩展页面手动安装。"
+extension_install_failed: "下载扩展失败"
+open_extensions_manually: "无法打开 Chrome，请手动访问：\nchrome://extensions/"
+success: "成功"
 
 # 语言名称
 lang_name_auto: "自动 (跟随系统)"

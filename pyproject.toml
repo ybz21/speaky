@@ -8,7 +8,7 @@ version = "1.0.0"
 description = "Voice input tool with hotkey activation"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     "PySide6>=6.5",
     "PySide6-Fluent-Widgets>=1.5",
@@ -24,6 +24,14 @@ dependencies = [
     "pyobjc-framework-Cocoa>=10.0; sys_platform == 'darwin'",
     "faster-whisper>=1.2.1",
     "modelscope>=1.33.0",
+    # LangChain for LLM Agent
+    "langchain>=0.3.0",
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langchain-ollama>=0.2.0",
+    # MCP integration
+    "mcp>=1.0.0",
+    "langchain-mcp-adapters>=0.0.1",
 ]
 
 [project.optional-dependencies]

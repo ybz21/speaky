@@ -33,6 +33,7 @@ close: "Close"
 settings_title: "Speaky Settings"
 tab_general: "General"
 tab_core: "Core"
+tab_ai_key: "AI Key"
 tab_engine: "Engine"
 tab_ui: "Interface"
 tab_appearance: "Appearance"
@@ -119,6 +120,39 @@ delete_success: "Delete successful"
 confirm_delete: "Confirm delete"
 confirm_delete_model: "Are you sure you want to delete model {model}?"
 model_deleted: "Model {model} deleted"
+
+# LLM Agent
+tab_llm_agent: "LLM Agent"
+llm_agent_group: "LLM Agent Settings"
+llm_agent_enabled: "Enable LLM Agent"
+llm_agent_hotkey: "Hotkey:"
+llm_agent_hold_time: "Hold delay:"
+
+# LLM configuration
+llm_provider_group: "LLM Configuration"
+llm_provider: "Provider:"
+fetch_models: "Fetch models"
+fetching: "Fetching..."
+api_key_required: "Please enter API Key first"
+fetch_models_failed: "Failed to fetch models. Check network and API settings (see logs)"
+
+# MCP configuration
+mcp_servers_group: "MCP Servers"
+
+# Browser extension
+browser_extension_group: "Browser Extension"
+browser_extension: "Playwright MCP Bridge"
+browser_extension_desc: "Connect to your running Chrome browser to preserve login states"
+install_extension: "Download Extension"
+extension_installed: "Extension downloaded"
+extension_not_installed: "Extension not downloaded"
+reinstall_extension: "Re-download"
+open_extensions_page: "Open Chrome Extensions"
+installing: "Downloading..."
+extension_install_success: "Extension downloaded to ~/.speaky/mcp/extension/\nPlease open Chrome Extensions page to install it manually."
+extension_install_failed: "Failed to download extension"
+open_extensions_manually: "Cannot open Chrome. Please manually visit:\nchrome://extensions/"
+success: "Success"
 
 # Language names
 lang_name_auto: "Auto (System)"

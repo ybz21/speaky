@@ -3,7 +3,7 @@ import math
 import platform
 from PySide6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout,
-    QGraphicsDropShadowEffect, QScrollArea, QSizePolicy
+    QGraphicsDropShadowEffect
 )
 from PySide6.QtCore import Qt, Signal, QTimer, QPointF, QSize, QRectF
 from PySide6.QtGui import (
@@ -13,8 +13,123 @@ from PySide6.QtGui import (
 
 from ..i18n import t
 from ..window_info import get_focused_window_info, WindowInfo
+from ..llm.types import AgentStatus, AgentContent
 
 logger = logging.getLogger(__name__)
+
+
+def format_result_text(text: str) -> tuple[str, str]:
+    """将结果文本分割为主信息和次要信息
+
+    Args:
+        text: 原始文本
+
+    Returns:
+        (primary, secondary): 主信息和次要信息
+    """
+    if not text:
+        return "", ""
+
+    # 清理文本
+    text = text.strip()
+
+    # 短文本：直接显示
+    if len(text) <= 30:
+        return text, ""
+
+    # 分割为多行
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+
+    if len(lines) == 1:
+        # 单行长文本：尝试按句号分割
+        sentences = text.split('。')
+        if len(sentences) > 1 and sentences[0]:
+            primary = sentences[0] + "。"
+            rest = "。".join(sentences[1:]).strip()
+            if rest:
+                secondary = rest[:40]
+                if len(rest) > 40:
+                    secondary += "..."
+                return primary, secondary
+            return primary, ""
+        else:
+            # 无句号：截断显示
+            return text[:30] + "...", ""
+
+    # 多行文本
+    primary = lines[0]
+    if len(primary) > 40:
+        primary = primary[:37] + "..."
+
+    if len(lines) == 2:
+        secondary = lines[1][:40]
+        if len(lines[1]) > 40:
+            secondary += "..."
+    else:
+        # 3行以上：显示数量
+        secondary = f"共 {len(lines)} 项内容"
+
+    return primary, secondary
+
+
+# LLM 状态颜色配置 - 用颜色区分不同状态类型
+LLM_STATE_COLORS = {
+    # 聆听中 - 青蓝色
+    "listening": {
+        "label": "#00D9FF",
+        "text": "rgba(255,255,255,0.6)",
+        "gradient_start": "rgba(0, 180, 220, 0.10)",
+        "gradient_end": "rgba(15, 25, 35, 0.95)",
+    },
+
+    # 识别中 - 青蓝 + 黄色文本
+    "recognizing": {
+        "label": "#00D9FF",
+        "text": "#FFE066",
+        "gradient_start": "rgba(0, 180, 220, 0.10)",
+        "gradient_end": "rgba(15, 25, 35, 0.95)",
+    },
+
+    # 用户输入回显 - 中性灰
+    "user_input": {
+        "label": "#888888",
+        "text": "rgba(255,255,255,0.9)",
+        "gradient_start": "rgba(100, 100, 100, 0.08)",
+        "gradient_end": "rgba(25, 25, 30, 0.95)",
+    },
+
+    # 思考中 - Material Purple
+    "thinking": {
+        "label": "#BB86FC",
+        "text": "#E1BEE7",
+        "gradient_start": "rgba(150, 100, 220, 0.10)",
+        "gradient_end": "rgba(25, 15, 35, 0.95)",
+    },
+
+    # 执行中 - Material Orange
+    "executing": {
+        "label": "#FF9800",
+        "text": "#FFE0B2",
+        "gradient_start": "rgba(255, 150, 0, 0.10)",
+        "gradient_end": "rgba(35, 25, 15, 0.95)",
+    },
+
+    # 完成 - Material Green
+    "done": {
+        "label": "#00E676",
+        "text": "rgba(255,255,255,0.95)",
+        "gradient_start": "rgba(0, 200, 100, 0.10)",
+        "gradient_end": "rgba(15, 30, 20, 0.95)",
+    },
+
+    # 错误 - Material Red
+    "error": {
+        "label": "#FF5252",
+        "text": "#FFCDD2",
+        "gradient_start": "rgba(255, 80, 80, 0.10)",
+        "gradient_end": "rgba(35, 15, 15, 0.95)",
+    },
+}
 
 
 def force_window_to_top(hwnd):
@@ -203,11 +318,17 @@ class FloatingWindow(QWidget):
         "recognizing": {"text": "#FFB84D", "gradient_start": "rgba(255, 150, 50, 0.10)", "gradient_end": "rgba(35, 25, 15, 0.95)"},
         "done": {"text": "#00E676", "gradient_start": "rgba(0, 200, 100, 0.10)", "gradient_end": "rgba(15, 30, 20, 0.95)"},
         "error": {"text": "#FF5252", "gradient_start": "rgba(255, 80, 80, 0.10)", "gradient_end": "rgba(35, 15, 15, 0.95)"},
+        # Agent mode colors
+        "listening": {"text": "#00D9FF", "gradient_start": "rgba(0, 180, 220, 0.10)", "gradient_end": "rgba(15, 25, 35, 0.95)"},
+        "thinking": {"text": "#BB86FC", "gradient_start": "rgba(150, 100, 220, 0.10)", "gradient_end": "rgba(25, 15, 35, 0.95)"},
+        "executing": {"text": "#FF9800", "gradient_start": "rgba(255, 150, 0, 0.10)", "gradient_end": "rgba(35, 25, 15, 0.95)"},
     }
+
 
     def __init__(self):
         super().__init__()
         self._current_mode = "recording"
+        self._window_mode = "normal"  # "normal" or "agent"
         self._setup_timers()
         self._setup_ui()
 
@@ -220,9 +341,6 @@ class FloatingWindow(QWidget):
         self._stop_animation_timer.setSingleShot(True)
         self._stop_animation_timer.timeout.connect(self._do_stop_animation)
 
-        self._scroll_timer = QTimer(self)
-        self._scroll_timer.setSingleShot(True)
-        self._scroll_timer.timeout.connect(self._scroll_to_bottom)
 
     def _get_container_style(self, mode: str) -> str:
         colors = self.STATE_COLORS.get(mode, self.STATE_COLORS["recording"])
@@ -291,10 +409,10 @@ class FloatingWindow(QWidget):
 
         h_layout.addWidget(left_panel)
 
-        # === 右侧：状态 + 文本 ===
+        # === 右侧：状态 + 双层文本 ===
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(0, 2, 0, 2)
+        right_layout.setContentsMargins(0, 4, 0, 4)
         right_layout.setSpacing(2)
 
         # 状态行
@@ -308,26 +426,7 @@ class FloatingWindow(QWidget):
         self._update_status_text("recording")
         right_layout.addWidget(self._status_label)
 
-        # 文本区域
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        scroll_area.setStyleSheet("""
-            QScrollArea { background: transparent; border: none; }
-            QScrollBar:vertical {
-                background: rgba(255,255,255,0.05);
-                width: 4px;
-                border-radius: 2px;
-            }
-            QScrollBar::handle:vertical {
-                background: rgba(255,255,255,0.2);
-                border-radius: 2px;
-                min-height: 16px;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-        """)
-
+        # 主信息文本（13pt）
         self._text_label = QLabel("")
         text_font = self._text_label.font()
         text_font.setPointSize(13)
@@ -335,15 +434,23 @@ class FloatingWindow(QWidget):
         self._text_label.setStyleSheet("color: rgba(255,255,255,0.9); background: transparent;")
         self._text_label.setWordWrap(True)
         self._text_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        self._text_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        right_layout.addWidget(self._text_label)
 
-        scroll_area.setWidget(self._text_label)
-        right_layout.addWidget(scroll_area, 1)
+        # 次要信息文本（11pt，灰色）
+        self._secondary_label = QLabel("")
+        secondary_font = self._secondary_label.font()
+        secondary_font.setPointSize(11)
+        self._secondary_label.setFont(secondary_font)
+        self._secondary_label.setStyleSheet("color: rgba(255,255,255,0.5); background: transparent;")
+        self._secondary_label.setWordWrap(True)
+        self._secondary_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        right_layout.addWidget(self._secondary_label)
+
+        # 弹簧，推动内容靠上
+        right_layout.addStretch(1)
 
         h_layout.addWidget(right_panel, 1)
         layout.addWidget(self._container)
-
-        self._scroll_area = scroll_area
 
     def _update_status_text(self, mode: str):
         colors = self.STATE_COLORS.get(mode, self.STATE_COLORS["recording"])
@@ -370,17 +477,9 @@ class FloatingWindow(QWidget):
         self._current_mode = mode
         self._container.setStyleSheet(self._get_container_style(mode))
 
-    def _scroll_to_bottom(self):
-        scrollbar = self._scroll_area.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
-
-    def _schedule_scroll(self):
-        self._scroll_timer.start(10)
-
     def _cancel_all_timers(self):
         self._hide_timer.stop()
         self._stop_animation_timer.stop()
-        self._scroll_timer.stop()
 
     def _schedule_hide(self, delay_ms: int):
         self._hide_timer.start(delay_ms)
@@ -418,6 +517,8 @@ class FloatingWindow(QWidget):
         self._update_container_style("recording")
         self._update_status_text("recording")
         self._text_label.setText("")
+        self._secondary_label.setText("")
+        self._secondary_label.setVisible(False)
         self._icon_orb.set_mode("recording")
         self._icon_orb.start_animation()
 
@@ -443,6 +544,8 @@ class FloatingWindow(QWidget):
         self._cancel_all_timers()
         self._update_container_style("recognizing")
         self._update_status_text("recognizing")
+        self._secondary_label.setText("")
+        self._secondary_label.setVisible(False)
         self._icon_orb.set_mode("recognizing")
         self._icon_orb.start_animation()
 
@@ -450,7 +553,8 @@ class FloatingWindow(QWidget):
         if text:
             self._text_label.setText(text)
             self._text_label.setStyleSheet("color: #FFE066; background: transparent;")
-            self._schedule_scroll()
+            self._secondary_label.setText("")
+            self._secondary_label.setVisible(False)
 
     def show_result(self, text: str):
         import time
@@ -459,10 +563,13 @@ class FloatingWindow(QWidget):
         logger.info(f"[浮窗] 显示最终结果: {repr(text[:50]) if text else 'None'}...")
         self._update_container_style("done")
         self._update_status_text("done")
-        self._text_label.setText(text)
+        # 使用双层显示
+        primary, secondary = format_result_text(text)
+        self._text_label.setText(primary)
         self._text_label.setStyleSheet("color: rgba(255,255,255,0.95); background: transparent;")
+        self._secondary_label.setText(secondary)
+        self._secondary_label.setVisible(bool(secondary))
         self._icon_orb.set_mode("done")
-        self._schedule_scroll()
         self._schedule_stop_animation(500)
         self._schedule_hide(500)
 
@@ -479,8 +586,12 @@ class FloatingWindow(QWidget):
         logger.info(f"[浮窗] 显示错误: {error}")
         self._update_container_style("error")
         self._update_status_text("error")
-        self._text_label.setText(error)
+        # 使用双层显示
+        primary, secondary = format_result_text(error)
+        self._text_label.setText(primary)
         self._text_label.setStyleSheet("color: rgba(255,255,255,0.7); background: transparent;")
+        self._secondary_label.setText(secondary)
+        self._secondary_label.setVisible(bool(secondary))
         self._icon_orb.set_mode("error")
         self._schedule_stop_animation(500)
         self._schedule_hide(1500)
@@ -505,3 +616,188 @@ class FloatingWindow(QWidget):
         self._icon_orb.stop_animation()
         self._cancel_all_timers()
         super().hideEvent(event)
+
+    # ========== Agent Mode Methods ==========
+
+    # 状态文本映射
+    _LLM_STATUS_TEXTS = {
+        "listening": "正在聆听...",
+        "recognizing": "识别中...",
+        "user_input": "您说",
+        "thinking": "思考中...",
+        "executing": "执行中...",
+        "done": "完成",
+        "error": "错误",
+    }
+
+    def set_mode(self, mode: str):
+        """Set window mode: 'normal' or 'agent'."""
+        self._window_mode = mode
+        if mode == "normal":
+            self.setFixedHeight(self.WINDOW_HEIGHT)
+        # Agent mode uses fixed height
+
+    def set_llm_state(
+        self,
+        state: str,
+        content: str = "",
+        tool_name: str = "",
+    ):
+        """设置 LLM 状态和显示内容 - 支持双层显示
+
+        Args:
+            state: 状态类型 (listening/recognizing/user_input/thinking/executing/done/error)
+            content: 显示的文本内容
+            tool_name: 执行中时的工具名（可选）
+        """
+        colors = LLM_STATE_COLORS.get(state, LLM_STATE_COLORS["listening"])
+
+        # 1. 更新状态标签
+        status_text = self._LLM_STATUS_TEXTS.get(state, "")
+        self._status_label.setText(
+            f'<span style="color: {colors["label"]}">{status_text}</span>'
+        )
+
+        # 2. 构建显示内容（双层显示）
+        primary_text = ""
+        secondary_text = ""
+
+        if state == "executing" and tool_name:
+            # 执行中：工具名 → 参数
+            primary_text = f"🔧 {tool_name}"
+            if content:
+                primary_text += f" → {content[:30]}"
+                if len(content) > 30:
+                    primary_text += "..."
+
+        elif state == "done":
+            # 完成：使用双层显示
+            prefix = "✓ " if content and not content.startswith("✓") else ""
+            primary, secondary = format_result_text(content)
+            primary_text = prefix + primary
+            secondary_text = secondary
+
+        elif state == "error":
+            # 错误：使用双层显示
+            prefix = "✗ " if content and not content.startswith("✗") else ""
+            primary, secondary = format_result_text(content)
+            primary_text = prefix + primary
+            secondary_text = secondary
+
+        elif state == "thinking":
+            # 思考中：流式文本，截断显示
+            primary_text = content[:50] if content else "正在分析您的请求..."
+            if content and len(content) > 50:
+                primary_text += "..."
+
+        else:
+            # 其他状态：单行显示
+            primary_text = content[:50] if content else ""
+            if content and len(content) > 50:
+                primary_text += "..."
+
+        # 设置主信息
+        self._text_label.setText(primary_text)
+        self._text_label.setStyleSheet(
+            f"color: {colors['text']}; background: transparent;"
+        )
+
+        # 设置次要信息
+        self._secondary_label.setText(secondary_text)
+        # 次要信息始终使用灰色
+        self._secondary_label.setVisible(bool(secondary_text))
+
+        # 3. 更新背景
+        self._update_llm_background(state)
+
+        # 4. 更新图标动画
+        self._update_llm_icon(state)
+
+    def _update_llm_background(self, state: str):
+        """更新 LLM 模式的背景渐变"""
+        colors = LLM_STATE_COLORS.get(state, LLM_STATE_COLORS["listening"])
+        self._container.setStyleSheet(f"""
+            QWidget#container {{
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 {colors["gradient_start"]},
+                    stop:1 {colors["gradient_end"]}
+                );
+                border-radius: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.12);
+            }}
+        """)
+
+    def _update_llm_icon(self, state: str):
+        """更新 LLM 模式的图标状态"""
+        # 映射 LLM 状态到图标模式
+        icon_mode_map = {
+            "listening": "recording",
+            "recognizing": "recording",
+            "user_input": "idle",
+            "thinking": "recognizing",
+            "executing": "recognizing",
+            "done": "done",
+            "error": "error",
+        }
+        orb_mode = icon_mode_map.get(state, "idle")
+        self._icon_orb.set_mode(orb_mode)
+
+        # 活动状态启动动画
+        if state in ["listening", "recognizing", "thinking", "executing"]:
+            self._icon_orb.start_animation()
+        else:
+            self._schedule_stop_animation(300)
+
+    def set_agent_content(self, content: AgentContent):
+        """根据 AgentContent 更新显示 - 只显示当前最新状态
+
+        优先级: 错误 > 结果 > 执行中 > 思考中 > 用户输入 > 聆听
+        """
+        # Auto show window when status is LISTENING
+        if content.status == AgentStatus.LISTENING:
+            self._window_mode = "agent"
+            self.update_app_info()
+            self._center_on_screen()
+            self.show()
+            self.raise_()
+            self.force_to_top()
+
+        # 按优先级决定显示内容
+        if content.error:
+            # 最高优先级：错误
+            self.set_llm_state("error", content.error)
+
+        elif content.result:
+            # 第二优先级：最终结果
+            self.set_llm_state("done", content.result)
+
+        elif content.status == AgentStatus.EXECUTING and content.tool_calls:
+            # 第三优先级：执行中 - 显示当前正在执行的工具
+            current_tool = next(
+                (t for t in reversed(content.tool_calls) if t.status == "running"),
+                content.tool_calls[-1] if content.tool_calls else None
+            )
+            if current_tool:
+                self.set_llm_state("executing", current_tool.summary, current_tool.name)
+            else:
+                self.set_llm_state("executing", "处理中...")
+
+        elif content.status == AgentStatus.THINKING:
+            # 第四优先级：思考中
+            text = content.thinking if content.thinking else "正在分析您的请求..."
+            self.set_llm_state("thinking", text)
+
+        elif content.status == AgentStatus.RECOGNIZING:
+            # 识别中 - 显示部分识别结果
+            text = content.user_input if content.user_input else ""
+            self.set_llm_state("recognizing", text)
+
+        elif content.user_input and content.status not in [AgentStatus.LISTENING]:
+            # 用户输入确认（可选状态）
+            self.set_llm_state("user_input", content.user_input)
+
+        else:
+            # 默认：聆听中
+            self.set_llm_state("listening", "请说出您的指令")
+

@@ -1,0 +1,24 @@
+# MCP Server Configuration
+# Each server should have: command, args, and optionally env
+#
+# NOTE: Run `scripts/install_mcp.sh` first to install MCP dependencies
+
+servers:
+  # Browser automation (Playwright) - Official Microsoft package
+  playwright:
+    enabled: true
+    command: node
+    args: ["~/.speaky/mcp/node_modules/@playwright/mcp/cli.js"]
+
+  # Filesystem operations
+  filesystem:
+    enabled: true
+    command: node
+    args: ["~/.speaky/mcp/node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "/home"]
+
+  # HTTP content fetching (Python-based, requires: pip install mcp-server-fetch)
+  # Uncomment to enable after installing: uv tool install mcp-server-fetch
+  # fetch:
+  #   enabled: true
+  #   command: uvx
+  #   args: ["mcp-server-fetch"]

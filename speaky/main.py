@@ -2,6 +2,7 @@ import faulthandler
 import logging
 import os
 import platform
+import signal
 import sys
 import threading
 from typing import Optional
@@ -17,7 +18,7 @@ if platform.system() == "Linux":
         pass  # 如果失败，继续运行
 
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Signal, QTimer
 
 from .config import config
 from .audio import AudioRecorder
@@ -29,6 +30,8 @@ from .ui.tray_icon import TrayIcon
 from .ui.settings_dialog import SettingsDialog, apply_theme
 from .i18n import t, i18n
 from .handlers import VoiceModeHandler, AIModeHandler
+from .handlers.llm_agent import LLMAgentHandler
+from .llm import AgentContent
 from .sound import set_sound_enabled
 
 # Enable faulthandler to dump traceback on segfault
@@ -93,6 +96,10 @@ class SignalBridge(QObject):
     ai_recognition_done = Signal(str)
     ai_do_input = Signal(str)
 
+    # LLM Agent 信号
+    agent_content = Signal(AgentContent)
+    schedule_hide = Signal(int)  # delay_ms
+
     # 共享信号
     audio_level = Signal(float)
     partial_result = Signal(str)
@@ -154,6 +161,15 @@ class SpeakyApp:
             config=config,
         )
 
+        # 初始化 LLM Agent 处理器
+        self._llm_agent_handler = LLMAgentHandler(
+            signals=self._signals,
+            recorder=self._recorder,
+            engine_getter=lambda: self._engine,
+            floating_window=self._floating_window,
+            config=config,
+        )
+
         # 设置快捷键和信号连接
         self._setup_hotkeys()
         self._setup_signals()
@@ -161,6 +177,9 @@ class SpeakyApp:
 
         # 预热录音器
         self._recorder.warmup()
+
+        # 预初始化 LLM Agent（后台线程，加载 MCP 工具）
+        self._llm_agent_handler.initialize_async()
 
     def _setup_engine(self):
         """初始化语音识别引擎"""
@@ -229,11 +248,26 @@ class SpeakyApp:
         else:
             self._ai_hotkey_listener = None
 
+        # LLM Agent 快捷键
+        if config.get("llm_agent.enabled", False):
+            self._llm_agent_hotkey_listener = HotkeyListener(
+                hotkey=config.get("llm_agent.hotkey", "tab"),
+                on_press=self._llm_agent_handler.on_hotkey_press,
+                on_release=self._llm_agent_handler.on_hotkey_release,
+                hold_time=config.get("llm_agent.hotkey_hold_time", 0.5),
+            )
+        else:
+            self._llm_agent_hotkey_listener = None
+
     def _setup_signals(self):
         """设置信号连接，将事件路由到对应的 handler"""
         # 共享信号 -> 浮窗
         self._signals.audio_level.connect(self._floating_window.update_audio_level)
         self._signals.partial_result.connect(self._floating_window.update_partial_result)
+
+        # LLM Agent 信号 -> 浮窗
+        self._signals.agent_content.connect(self._floating_window.set_agent_content)
+        self._signals.schedule_hide.connect(self._schedule_hide_window)
 
         # 语音模式信号 -> VoiceHandler
         self._signals.start_recording.connect(self._voice_handler.on_start_recording)
@@ -259,6 +293,10 @@ class SpeakyApp:
         else:
             # 语音模式：直接处理
             self._voice_handler.on_recognition_done(text)
+
+    def _schedule_hide_window(self, delay_ms: int):
+        """Schedule window hide after delay (called on main thread via signal)"""
+        QTimer.singleShot(delay_ms, self._floating_window.hide)
 
     def _setup_tray(self):
         """设置托盘图标"""
@@ -296,6 +334,29 @@ class SpeakyApp:
                 self._ai_hotkey_listener.update_hotkey(config.get("core.ai.hotkey", "shift"))
                 self._ai_hotkey_listener.update_hold_time(config.get("core.ai.hotkey_hold_time", 1.0))
 
+            # Update LLM Agent hotkey settings
+            if config.get("llm_agent.enabled", False):
+                if self._llm_agent_hotkey_listener:
+                    self._llm_agent_hotkey_listener.update_hotkey(config.get("llm_agent.hotkey", "tab"))
+                    self._llm_agent_hotkey_listener.update_hold_time(config.get("llm_agent.hotkey_hold_time", 0.5))
+                else:
+                    # Create new listener if it wasn't enabled before
+                    self._llm_agent_hotkey_listener = HotkeyListener(
+                        hotkey=config.get("llm_agent.hotkey", "tab"),
+                        on_press=self._llm_agent_handler.on_hotkey_press,
+                        on_release=self._llm_agent_handler.on_hotkey_release,
+                        hold_time=config.get("llm_agent.hotkey_hold_time", 0.5),
+                    )
+                    self._llm_agent_hotkey_listener.start()
+            else:
+                # Stop listener if it was enabled before
+                if self._llm_agent_hotkey_listener:
+                    self._llm_agent_hotkey_listener.stop()
+                    self._llm_agent_hotkey_listener = None
+
+            # Reset LLM Agent handler when settings change
+            self._llm_agent_handler.reset()
+
             # Update audio device and gain
             self._recorder.set_device(config.get("core.asr.audio_device"))
             self._recorder.set_gain(config.get("core.asr.audio_gain", 1.0))
@@ -312,6 +373,8 @@ class SpeakyApp:
         self._hotkey_listener.stop()
         if self._ai_hotkey_listener:
             self._ai_hotkey_listener.stop()
+        if self._llm_agent_hotkey_listener:
+            self._llm_agent_hotkey_listener.stop()
         self._recorder.close()
         self._tray.hide()
         self._app.quit()
@@ -323,6 +386,20 @@ class SpeakyApp:
             logger.info(f"AI hotkey: {config.get('core.ai.hotkey', 'shift')}, URL: {config.get('core.ai.url', 'https://chatgpt.com')}")
         logger.info(f"Engine: {config.engine}, Language: {config.language}")
 
+        # Setup signal handler for graceful shutdown with Ctrl+C
+        def signal_handler(signum, frame):
+            logger.info("Received SIGINT, shutting down...")
+            self._quit()
+
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+
+        # Qt event loop blocks Python signal handling, so we need a timer
+        # to periodically give Python a chance to process signals
+        signal_timer = QTimer()
+        signal_timer.timeout.connect(lambda: None)  # No-op, just lets Python run
+        signal_timer.start(500)  # Check every 500ms
+
         self._tray.show()
         self._tray.show_message(
             t("app_name"),
@@ -333,6 +410,9 @@ class SpeakyApp:
         if self._ai_hotkey_listener:
             self._ai_hotkey_listener.start()
             logger.info("AI hotkey listener started")
+        if self._llm_agent_hotkey_listener:
+            self._llm_agent_hotkey_listener.start()
+            logger.info(f"LLM Agent hotkey listener started (hotkey: {config.get('llm_agent.hotkey', 'tab')})")
         logger.info("Hotkey listener started")
 
         return self._app.exec()

@@ -28,6 +28,47 @@ DEFAULT_CONFIG = {
         },
     },
 
+    # ========== LLM Agent 设置 ==========
+    "llm_agent": {
+        "enabled": False,  # 默认关闭，需要配置 LLM 后启用
+        "hotkey": "tab",
+        "hotkey_hold_time": 0.5,
+    },
+
+    # ========== LLM 设置 (OpenAI Compatible) ==========
+    "llm": {
+        "openai": {
+            "api_key": "",
+            "base_url": "https://api.openai.com/v1",
+            "model": "gpt-4o-mini",
+        },
+    },
+
+    # ========== MCP Server 设置 ==========
+    # NOTE: Run scripts/install_mcp.sh first to install MCP dependencies
+    "mcp": {
+        "servers": {
+            # 浏览器自动化 (Playwright)
+            "playwright": {
+                "enabled": True,
+                "command": "node",
+                "args": ["~/.speaky/mcp/node_modules/@playwright/mcp/cli.js"],
+            },
+            # 文件系统操作
+            "filesystem": {
+                "enabled": True,
+                "command": "node",
+                "args": ["~/.speaky/mcp/node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "/home"],
+            },
+            # 网页内容获取 (Python-based, 需要: pip install mcp-server-fetch)
+            # "fetch": {
+            #     "enabled": True,
+            #     "command": "uvx",
+            #     "args": ["mcp-server-fetch"],
+            # },
+        },
+    },
+
     # ========== 引擎设置 (Engine) ==========
     "engine": {
         "current": "volc_bigmodel",  # 当前引擎
@@ -88,6 +129,17 @@ class Config:
                     defaults = yaml.safe_load(f) or {}
                     self._deep_merge(self._config, defaults)
                 break
+
+        # Load MCP config from mcp.yaml (check user dir first, then project dir)
+        user_mcp_config = Path.home() / ".speaky" / "mcp.yaml"
+        project_mcp_config = project_dir / "mcp.yaml"
+
+        mcp_config_path = user_mcp_config if user_mcp_config.exists() else project_mcp_config
+        if mcp_config_path.exists():
+            with open(mcp_config_path, "r", encoding="utf-8") as f:
+                mcp_data = yaml.safe_load(f) or {}
+                if "servers" in mcp_data:
+                    self._deep_merge(self._config.setdefault("mcp", {}), {"servers": mcp_data["servers"]})
 
     def load(self):
         if self.config_file.exists():
