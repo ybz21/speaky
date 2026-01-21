@@ -192,8 +192,8 @@ def build_executable(target_arch=None):
         # Linux doesn't need windowed mode for tray apps
         args.remove("--windowed")
 
-    # Entry point
-    args.append("speaky/main.py")
+    # Entry point (使用启动脚本避免相对导入问题)
+    args.append("run_speaky.py")
 
     arch_info = f" ({target_arch})" if target_arch else ""
     print(f"Building for {plat}{arch_info}...")
