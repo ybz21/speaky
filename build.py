@@ -148,6 +148,47 @@ def build_executable(target_arch=None):
 
     # Hidden imports
     hidden_imports = [
+        # speaky 包及其所有子模块
+        "speaky",
+        "speaky.main",
+        "speaky.paths",
+        "speaky.config",
+        "speaky.audio",
+        "speaky.hotkey",
+        "speaky.input_method",
+        "speaky.i18n",
+        "speaky.autostart",
+        "speaky.sound",
+        "speaky.history",
+        "speaky.window_info",
+        # speaky.engines
+        "speaky.engines",
+        "speaky.engines.base",
+        "speaky.engines.whisper_engine",
+        "speaky.engines.whisper_remote_engine",
+        "speaky.engines.whisper_model_manager",
+        "speaky.engines.openai_engine",
+        "speaky.engines.volcengine_engine",
+        "speaky.engines.volc_bigmodel_engine",
+        # speaky.handlers
+        "speaky.handlers",
+        "speaky.handlers.base",
+        "speaky.handlers.voice_handler",
+        "speaky.handlers.ai_handler",
+        "speaky.handlers.llm_agent",
+        # speaky.ui
+        "speaky.ui",
+        "speaky.ui.floating_window",
+        "speaky.ui.tray_icon",
+        "speaky.ui.settings_dialog",
+        "speaky.ui.log_viewer",
+        "speaky.ui.model_download_widget",
+        # speaky.llm
+        "speaky.llm",
+        "speaky.llm.client",
+        "speaky.llm.types",
+        "speaky.llm.models",
+        "speaky.llm.prompts",
         # PySide6
         "PySide6.QtWidgets",
         "PySide6.QtCore",
@@ -155,6 +196,7 @@ def build_executable(target_arch=None):
         "PySide6.QtSvg",
         "PySide6.QtSvgWidgets",
         "PySide6.QtXml",
+        "PySide6.QtNetwork",
         "shiboken6",
         # PySide6-Fluent-Widgets
         "qfluentwidgets",
@@ -163,11 +205,17 @@ def build_executable(target_arch=None):
         "pynput.keyboard._xorg",
         "pynput.keyboard._win32",
         "pynput.keyboard._darwin",
+        "pynput.mouse",
+        "pynput.mouse._xorg",
+        "pynput.mouse._win32",
+        "pynput.mouse._darwin",
         # Other
         "yaml",
         "numpy",
         "websockets",
         "aiohttp",
+        "openai",
+        "requests",
         # faster-whisper
         "faster_whisper",
         "ctranslate2",
