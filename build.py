@@ -21,7 +21,28 @@ import sys
 from pathlib import Path
 
 APP_NAME = "speaky"
-VERSION = "1.0.0"
+
+def get_version():
+    """从 git tag 或环境变量获取版本号"""
+    import os
+    # 优先从环境变量读取（CI 环境）
+    if os.environ.get("GITHUB_REF_NAME", "").startswith("v"):
+        return os.environ["GITHUB_REF_NAME"][1:]  # 去掉 'v' 前缀
+    # 尝试从 git tag 读取
+    try:
+        result = subprocess.run(
+            ["git", "describe", "--tags", "--abbrev=0"],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            tag = result.stdout.strip()
+            if tag.startswith("v"):
+                return tag[1:]
+    except:
+        pass
+    return "0.0.0"  # 默认版本
+
+VERSION = get_version()
 
 # System dependencies that cannot be bundled
 SYSTEM_DEPS = {
