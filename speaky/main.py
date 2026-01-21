@@ -34,39 +34,51 @@ from .handlers.llm_agent import LLMAgentHandler
 from .llm import AgentContent
 from .sound import set_sound_enabled
 
-# Enable faulthandler to dump traceback on segfault
-faulthandler.enable()
-
 # Setup logging - both console and file
 log_dir = os.path.expanduser("~/.speaky")
 os.makedirs(log_dir, exist_ok=True)
 log_file = os.path.join(log_dir, "speaky.log")
 
-# Create handlers
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
+# Create handlers - 在 Windows GUI 模式下 sys.stderr 可能为 None
+handlers = []
 file_handler = logging.FileHandler(log_file, encoding='utf-8')
 file_handler.setLevel(logging.DEBUG)
+handlers.append(file_handler)
+
+# 只有在 stdout/stderr 可用时才添加 console handler
+if sys.stderr is not None:
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    console_handler.setFormatter(formatter)
+    handlers.append(console_handler)
 
 # Create formatters
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-console_handler.setFormatter(formatter)
 file_handler.setFormatter(formatter)
 
 # Setup root logger
 logging.basicConfig(
     level=logging.DEBUG,
-    handlers=[console_handler, file_handler]
+    handlers=handlers
 )
 logger = logging.getLogger(__name__)
 logger.info(f"Log file: {log_file}")
+
+# Enable faulthandler to dump traceback on segfault (写入日志文件而非 stderr)
+try:
+    faulthandler.enable(file=open(os.path.join(log_dir, "crash.log"), "w"))
+except Exception:
+    pass  # 如果失败，继续运行
 
 # Global exception handler
 def global_exception_handler(exctype, value, tb):
     import traceback
     logger.error("Uncaught exception:")
     logger.error(''.join(traceback.format_exception(exctype, value, tb)))
-    sys.__excepthook__(exctype, value, tb)
+    # 只有在 stderr 可用时才调用默认处理器
+    if sys.stderr is not None:
+        sys.__excepthook__(exctype, value, tb)
 
 sys.excepthook = global_exception_handler
 

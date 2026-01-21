@@ -1,7 +1,10 @@
 """Auto-start management for different platforms"""
+import logging
 import os
 import sys
 import platform
+
+logger = logging.getLogger(__name__)
 
 
 def get_app_path() -> str:
@@ -76,7 +79,7 @@ def _windows_set_autostart(enabled: bool):
         finally:
             winreg.CloseKey(key)
     except Exception as e:
-        print(f"Failed to set Windows autostart: {e}")
+        logger.error(f"Failed to set Windows autostart: {e}")
 
 
 # macOS implementation
