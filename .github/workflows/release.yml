@@ -19,10 +19,6 @@ jobs:
           - os: ubuntu-22.04
             platform: linux
             artifact: speaky_*_amd64.deb
-          - os: macos-13
-            platform: macos
-            arch: x86_64
-            artifact: speaky_*_macos_x86_64.dmg
           - os: macos-14
             platform: macos
             arch: arm64
