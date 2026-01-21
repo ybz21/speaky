@@ -9,10 +9,12 @@ from pathlib import Path
 from typing import Callable, Optional, Dict, List
 from dataclasses import dataclass
 
+from ..paths import get_models_path
+
 logger = logging.getLogger(__name__)
 
-# 模型存储路径
-MODELS_DIR = Path(__file__).parent.parent.parent / "models"
+# 模型存储路径（用户数据目录）
+MODELS_DIR = get_models_path()
 
 
 class ModelSource(Enum):

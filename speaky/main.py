@@ -20,6 +20,7 @@ if platform.system() == "Linux":
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QObject, Signal, QTimer
 
+from .paths import get_log_path, get_user_data_path
 from .config import config
 from .audio import AudioRecorder
 from .hotkey import HotkeyListener
@@ -35,13 +36,12 @@ from .llm import AgentContent
 from .sound import set_sound_enabled
 
 # Setup logging - both console and file
-log_dir = os.path.expanduser("~/.speaky")
-os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, "speaky.log")
+log_dir = get_log_path()
+log_file = log_dir / "speaky.log"
 
 # Create handlers - 在 Windows GUI 模式下 sys.stderr 可能为 None
 handlers = []
-file_handler = logging.FileHandler(log_file, encoding='utf-8')
+file_handler = logging.FileHandler(str(log_file), encoding='utf-8')
 file_handler.setLevel(logging.DEBUG)
 handlers.append(file_handler)
 
@@ -67,7 +67,7 @@ logger.info(f"Log file: {log_file}")
 
 # Enable faulthandler to dump traceback on segfault (写入日志文件而非 stderr)
 try:
-    faulthandler.enable(file=open(os.path.join(log_dir, "crash.log"), "w"))
+    faulthandler.enable(file=open(str(log_dir / "crash.log"), "w"))
 except Exception:
     pass  # 如果失败，继续运行
 

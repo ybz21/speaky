@@ -3,6 +3,8 @@ from pathlib import Path
 from typing import Any
 import yaml
 
+from .paths import get_config_path, get_base_path
+
 DEFAULT_CONFIG = {
     # ========== 核心设置 (Core) ==========
     "core": {
@@ -112,16 +114,16 @@ DEFAULT_CONFIG = {
 
 class Config:
     def __init__(self):
-        self.config_dir = Path.home() / ".config" / "speaky"
+        self.config_dir = get_config_path()
         self.config_file = self.config_dir / "config.yaml"
         self._config = copy.deepcopy(DEFAULT_CONFIG)
         self._load_defaults()
         self.load()
 
     def _load_defaults(self):
-        """Load from project directory config if exists"""
+        """Load from project directory config if exists (开发环境)"""
         # Check project directory for config.yaml or config.example.yaml
-        project_dir = Path(__file__).parent.parent.parent
+        project_dir = get_base_path()
         for name in ["config.yaml", "config.example.yaml"]:
             project_config = project_dir / name
             if project_config.exists():
@@ -131,7 +133,7 @@ class Config:
                 break
 
         # Load MCP config from mcp.yaml (check user dir first, then project dir)
-        user_mcp_config = Path.home() / ".speaky" / "mcp.yaml"
+        user_mcp_config = self.config_dir / "mcp.yaml"
         project_mcp_config = project_dir / "mcp.yaml"
 
         mcp_config_path = user_mcp_config if user_mcp_config.exists() else project_mcp_config

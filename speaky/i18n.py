@@ -4,6 +4,8 @@ from typing import Dict
 
 import yaml
 
+from .paths import get_locales_path
+
 # Supported languages
 SUPPORTED_LANGUAGES = ["en", "zh", "zh_TW", "ja", "ko", "de", "fr", "es", "pt", "ru"]
 
@@ -17,7 +19,7 @@ class I18n:
 
     def _get_locales_dir(self) -> Path:
         """Get the locales directory path"""
-        return Path(__file__).parent / "locales"
+        return get_locales_path()
 
     def _load_translations(self):
         """Load all translation files from locales directory"""

@@ -1,24 +1,23 @@
 from PySide6.QtWidgets import QSystemTrayIcon, QMenu, QApplication
 from PySide6.QtGui import QIcon, QAction, QClipboard
 from PySide6.QtCore import Signal, QObject
-import os
 import platform
 
 from ..i18n import t
 from ..history import get_history, clear_history
+from ..paths import get_resources_path
 
 
 def get_app_icon() -> QIcon:
     """Get the application icon, returns QIcon object"""
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    resources_dir = os.path.join(base_dir, "resources")
+    resources_dir = get_resources_path()
 
     # Try different icon formats
     icon_files = ["icon.png", "icon_64.png", "icon.ico", "icon.svg"]
     for icon_file in icon_files:
-        icon_path = os.path.join(resources_dir, icon_file)
-        if os.path.exists(icon_path):
-            return QIcon(icon_path)
+        icon_path = resources_dir / icon_file
+        if icon_path.exists():
+            return QIcon(str(icon_path))
 
     # Fallback to system icon
     style = QApplication.style()
@@ -27,8 +26,7 @@ def get_app_icon() -> QIcon:
 
 def get_tray_icon() -> QIcon:
     """Get icon optimized for system tray (smaller size)"""
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    resources_dir = os.path.join(base_dir, "resources")
+    resources_dir = get_resources_path()
 
     # Prefer smaller sizes for tray
     if platform.system() == "Windows":
@@ -39,9 +37,9 @@ def get_tray_icon() -> QIcon:
         icon_files = ["icon_32.png", "icon_64.png", "icon.png", "icon.ico"]
 
     for icon_file in icon_files:
-        icon_path = os.path.join(resources_dir, icon_file)
-        if os.path.exists(icon_path):
-            return QIcon(icon_path)
+        icon_path = resources_dir / icon_file
+        if icon_path.exists():
+            return QIcon(str(icon_path))
 
     # Fallback to system icon
     style = QApplication.style()
