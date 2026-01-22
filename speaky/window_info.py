@@ -152,6 +152,7 @@ def _get_windows_window_info() -> Optional[WindowInfo]:
         from ctypes import wintypes
 
         user32 = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
 
         # Get foreground window
         hwnd = user32.GetForegroundWindow()
@@ -168,14 +169,52 @@ def _get_windows_window_info() -> Optional[WindowInfo]:
         pid = wintypes.DWORD()
         user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
 
-        # Get process name
+        # Get process name using ctypes (no psutil dependency)
         app_name = "Unknown"
+        exe_path = ""
         try:
-            import psutil
-            proc = psutil.Process(pid.value)
-            app_name = proc.name().replace('.exe', '')
-        except Exception:
-            pass
+            # Constants for OpenProcess
+            PROCESS_QUERY_INFORMATION = 0x0400
+            PROCESS_VM_READ = 0x0010
+
+            # Open process
+            process_handle = kernel32.OpenProcess(
+                PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+                False,
+                pid.value
+            )
+
+            if process_handle:
+                try:
+                    # Get process executable path
+                    # Use QueryFullProcessImageNameW for better compatibility
+                    psapi = ctypes.windll.psapi
+                    exe_buffer = ctypes.create_unicode_buffer(260)
+                    size = wintypes.DWORD(260)
+
+                    # Try QueryFullProcessImageNameW first (Vista+)
+                    try:
+                        if kernel32.QueryFullProcessImageNameW(
+                            process_handle, 0, exe_buffer, ctypes.byref(size)
+                        ):
+                            exe_path = exe_buffer.value
+                    except AttributeError:
+                        pass
+
+                    # Fallback to GetModuleFileNameExW
+                    if not exe_path:
+                        if psapi.GetModuleFileNameExW(
+                            process_handle, None, exe_buffer, 260
+                        ):
+                            exe_path = exe_buffer.value
+
+                    if exe_path:
+                        # Extract filename without extension
+                        app_name = os.path.splitext(os.path.basename(exe_path))[0]
+                finally:
+                    kernel32.CloseHandle(process_handle)
+        except Exception as e:
+            logger.debug(f"Failed to get process name: {e}")
 
         # Try to find icon (Windows icon extraction is complex, skip for now)
         icon_path = None
@@ -184,7 +223,7 @@ def _get_windows_window_info() -> Optional[WindowInfo]:
             wm_class=app_name,
             wm_instance=app_name.lower(),
             window_name=window_name,
-            app_name=app_name.title(),
+            app_name=app_name.title() if app_name != "Unknown" else app_name,
             icon_path=icon_path
         )
 

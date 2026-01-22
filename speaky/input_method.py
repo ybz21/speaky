@@ -141,10 +141,15 @@ class InputMethod:
                     process.communicate(text.encode("utf-8"))
                     return process.returncode == 0
             elif self._system == "Windows":
-                # Windows: use clip.exe
+                # Windows: use clip.exe with hidden window
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startupinfo.wShowWindow = subprocess.SW_HIDE
                 process = subprocess.Popen(
                     ["clip"],
-                    stdin=subprocess.PIPE
+                    stdin=subprocess.PIPE,
+                    startupinfo=startupinfo,
+                    creationflags=subprocess.CREATE_NO_WINDOW
                 )
                 process.communicate(text.encode("utf-16"))
                 return process.returncode == 0
@@ -174,10 +179,15 @@ class InputMethod:
                     )
                     process.communicate(b"")
             elif self._system == "Windows":
-                # Windows: use PowerShell to clear clipboard
+                # Windows: use PowerShell to clear clipboard (hidden window)
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startupinfo.wShowWindow = subprocess.SW_HIDE
                 subprocess.run(
                     ["powershell", "-command", "Set-Clipboard -Value $null"],
-                    check=False, capture_output=True
+                    check=False, capture_output=True,
+                    startupinfo=startupinfo,
+                    creationflags=subprocess.CREATE_NO_WINDOW
                 )
             logger.info("Clipboard cleared")
         except Exception as e:
