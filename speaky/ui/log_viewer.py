@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont, QTextCursor
 
-from ..i18n import t
+from speaky.i18n import t
 
 
 class LogViewerDialog(QDialog):

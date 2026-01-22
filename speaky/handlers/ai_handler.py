@@ -8,12 +8,12 @@ from typing import Optional, Callable, TYPE_CHECKING
 
 from PySide6.QtCore import QTimer
 
-from .base import BaseModeHandler
+from speaky.handlers.base import BaseModeHandler
 
 if TYPE_CHECKING:
-    from ..audio import AudioRecorder
-    from ..engines.base import BaseEngine
-    from ..ui.floating_window import FloatingWindow
+    from speaky.audio import AudioRecorder
+    from speaky.engines.base import BaseEngine
+    from speaky.ui.floating_window import FloatingWindow
     from PySide6.QtCore import QObject
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ class AIModeHandler(BaseModeHandler):
         super().__init__(signals, recorder, engine_getter, floating_window, config)
 
         # Import here to avoid circular imports
-        from ..input_method import input_method
+        from speaky.input_method import input_method
         self._input_method = input_method
 
         # AI mode specific state
@@ -107,12 +107,12 @@ class AIModeHandler(BaseModeHandler):
             logger.info(f"[AI] 识别完成，总耗时 {elapsed:.2f}s，文本长度={text_len}: {text_preview}...")
 
             # Save to history
-            from ..history import add_to_history
+            from speaky.history import add_to_history
             engine_name = self._engine.name if self._engine else ""
             add_to_history(text, engine_name)
 
             # 暂停 pynput 监听器，避免与 Qt X11 操作冲突
-            from ..hotkey import pause_listener, resume_listener
+            from speaky.hotkey import pause_listener, resume_listener
             pause_listener()
 
             # AI 模式：显示结果（会自动在 500ms 后隐藏）

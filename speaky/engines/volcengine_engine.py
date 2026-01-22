@@ -7,7 +7,7 @@ import uuid
 import wave
 from io import BytesIO
 import websockets
-from .base import BaseEngine
+from speaky.engines.base import BaseEngine
 
 logger = logging.getLogger(__name__)
 

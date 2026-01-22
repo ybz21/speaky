@@ -3,7 +3,7 @@
 import io
 import logging
 from typing import Optional
-from .base import BaseEngine
+from speaky.engines.base import BaseEngine
 
 logger = logging.getLogger(__name__)
 

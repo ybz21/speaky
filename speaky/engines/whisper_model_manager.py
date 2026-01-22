@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Callable, Optional, Dict, List
 from dataclasses import dataclass
 
-from ..paths import get_models_path
+from speaky.paths import get_models_path
 
 logger = logging.getLogger(__name__)
 

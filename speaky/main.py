@@ -20,20 +20,20 @@ if platform.system() == "Linux":
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QObject, Signal, QTimer
 
-from .paths import get_log_path, get_user_data_path
-from .config import config
-from .audio import AudioRecorder
-from .hotkey import HotkeyListener
-from .input_method import check_macos_accessibility, open_macos_accessibility_settings
-from .engines.base import BaseEngine
-from .ui.floating_window import FloatingWindow
-from .ui.tray_icon import TrayIcon
-from .ui.settings_dialog import SettingsDialog, apply_theme
-from .i18n import t, i18n
-from .handlers import VoiceModeHandler, AIModeHandler
-from .handlers.llm_agent import LLMAgentHandler
-from .llm import AgentContent
-from .sound import set_sound_enabled
+from speaky.paths import get_log_path, get_user_data_path
+from speaky.config import config
+from speaky.audio import AudioRecorder
+from speaky.hotkey import HotkeyListener
+from speaky.input_method import check_macos_accessibility, open_macos_accessibility_settings
+from speaky.engines.base import BaseEngine
+from speaky.ui.floating_window import FloatingWindow
+from speaky.ui.tray_icon import TrayIcon
+from speaky.ui.settings_dialog import SettingsDialog, apply_theme
+from speaky.i18n import t, i18n
+from speaky.handlers import VoiceModeHandler, AIModeHandler
+from speaky.handlers.llm_agent import LLMAgentHandler
+from speaky.llm import AgentContent
+from speaky.sound import set_sound_enabled
 
 # Setup logging - both console and file
 log_dir = get_log_path()
@@ -199,7 +199,7 @@ class SpeakyApp:
         logger.info(f"Setting up engine: {engine_name}")
 
         if engine_name == "local":
-            from .engines.whisper_engine import WhisperEngine
+            from speaky.engines.whisper_engine import WhisperEngine
             self._engine = WhisperEngine(
                 model_name=config.get("engine.local.model", "base"),
                 device=config.get("engine.local.device", "auto"),
@@ -211,21 +211,21 @@ class SpeakyApp:
             else:
                 logger.warning(f"[Local] 模型未下载，请先在设置中下载模型")
         elif engine_name == "openai":
-            from .engines.openai_engine import OpenAIEngine
+            from speaky.engines.openai_engine import OpenAIEngine
             self._engine = OpenAIEngine(
                 api_key=config.get("engine.openai.api_key", ""),
                 model=config.get("engine.openai.model", "whisper-1"),
                 base_url=config.get("engine.openai.base_url", "https://api.openai.com/v1"),
             )
         elif engine_name == "volcengine":
-            from .engines.volcengine_engine import VolcEngineEngine
+            from speaky.engines.volcengine_engine import VolcEngineEngine
             self._engine = VolcEngineEngine(
                 app_id=config.get("engine.volcengine.app_id", ""),
                 access_key=config.get("engine.volcengine.access_key", ""),
                 secret_key=config.get("engine.volcengine.secret_key", ""),
             )
         elif engine_name == "volc_bigmodel":
-            from .engines.volc_bigmodel_engine import VolcBigModelEngine
+            from speaky.engines.volc_bigmodel_engine import VolcBigModelEngine
             self._engine = VolcBigModelEngine(
                 app_key=config.get("engine.volc_bigmodel.app_key", ""),
                 access_key=config.get("engine.volc_bigmodel.access_key", ""),

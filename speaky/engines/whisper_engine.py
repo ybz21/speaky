@@ -5,8 +5,8 @@ import os
 import tempfile
 from pathlib import Path
 from typing import Optional, Callable
-from .base import BaseEngine
-from ..paths import get_models_path
+from speaky.engines.base import BaseEngine
+from speaky.paths import get_models_path
 
 logger = logging.getLogger(__name__)
 

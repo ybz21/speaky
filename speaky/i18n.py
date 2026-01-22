@@ -4,7 +4,7 @@ from typing import Dict
 
 import yaml
 
-from .paths import get_locales_path
+from speaky.paths import get_locales_path
 
 # Supported languages
 SUPPORTED_LANGUAGES = ["en", "zh", "zh_TW", "ja", "ko", "de", "fr", "es", "pt", "ru"]

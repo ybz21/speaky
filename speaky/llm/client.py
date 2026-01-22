@@ -8,7 +8,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.prebuilt import create_react_agent
 
-from .prompts import AGENT_SYSTEM_PROMPT
+from speaky.llm.prompts import AGENT_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 

@@ -9,7 +9,7 @@ from typing import Optional, Tuple, Callable
 from queue import Queue, Empty
 
 import aiohttp
-from .base import BaseEngine, RealtimeSession
+from speaky.engines.base import BaseEngine, RealtimeSession
 
 logger = logging.getLogger(__name__)
 

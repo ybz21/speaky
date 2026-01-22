@@ -10,7 +10,7 @@ from qfluentwidgets import (
     ProgressBar, MessageBox, InfoBar, InfoBarPosition
 )
 
-from ..i18n import t
+from speaky.i18n import t
 
 
 class ModelDownloadWidget(QWidget):
@@ -368,7 +368,7 @@ class ModelDownloadWidget(QWidget):
 
 def create_whisper_download_widget(parent=None) -> ModelDownloadWidget:
     """创建 Whisper 模型下载组件的工厂函数"""
-    from ..engines.whisper_model_manager import (
+    from speaky.engines.whisper_model_manager import (
         whisper_model_manager, WHISPER_MODELS, ModelSource
     )
 

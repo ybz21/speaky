@@ -11,9 +11,9 @@ from PySide6.QtGui import (
     QFont, QKeyEvent, QPixmap, QBrush
 )
 
-from ..i18n import t
-from ..window_info import get_focused_window_info, WindowInfo
-from ..llm.types import AgentStatus, AgentContent
+from speaky.i18n import t
+from speaky.window_info import get_focused_window_info, WindowInfo
+from speaky.llm.types import AgentStatus, AgentContent
 
 logger = logging.getLogger(__name__)
 

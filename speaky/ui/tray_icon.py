@@ -3,9 +3,9 @@ from PySide6.QtGui import QIcon, QAction, QClipboard
 from PySide6.QtCore import Signal, QObject
 import platform
 
-from ..i18n import t
-from ..history import get_history, clear_history
-from ..paths import get_resources_path
+from speaky.i18n import t
+from speaky.history import get_history, clear_history
+from speaky.paths import get_resources_path
 
 
 def get_app_icon() -> QIcon:

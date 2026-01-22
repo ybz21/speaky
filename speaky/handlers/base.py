@@ -6,9 +6,9 @@ import threading
 from typing import Optional, Callable, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..audio import AudioRecorder
-    from ..engines.base import BaseEngine
-    from ..ui.floating_window import FloatingWindow
+    from speaky.audio import AudioRecorder
+    from speaky.engines.base import BaseEngine
+    from speaky.ui.floating_window import FloatingWindow
     from PySide6.QtCore import QObject
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ class BaseModeHandler:
         self._floating_window.show_recording()
 
         # Play start sound
-        from ..sound import play_start_sound
+        from speaky.sound import play_start_sound
         play_start_sound()
 
         # Check if we should use real-time streaming
@@ -259,17 +259,17 @@ class BaseModeHandler:
 
     def _emit_recognition_done(self, text: str):
         """发送识别完成信号 - 子类可重写以使用不同信号"""
-        from ..sound import play_end_sound
+        from speaky.sound import play_end_sound
         play_end_sound()
         self._signals.recognition_done.emit(text)
 
     def _emit_recognition_error(self, error: str):
         """发送识别错误信号 - 子类可重写以使用不同信号"""
-        from ..sound import play_error_sound
+        from speaky.sound import play_error_sound
         play_error_sound()
         self._signals.recognition_error.emit(error)
 
     def _t(self, key: str) -> str:
         """获取翻译文本"""
-        from ..i18n import t
+        from speaky.i18n import t
         return t(key)

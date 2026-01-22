@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 import yaml
 
-from .paths import get_config_path, get_base_path
+from speaky.paths import get_config_path, get_base_path
 
 DEFAULT_CONFIG = {
     # ========== 核心设置 (Core) ==========

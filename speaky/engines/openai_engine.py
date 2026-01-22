@@ -1,5 +1,5 @@
 import io
-from .base import BaseEngine
+from speaky.engines.base import BaseEngine
 
 
 class OpenAIEngine(BaseEngine):

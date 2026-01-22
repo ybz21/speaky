@@ -15,9 +15,9 @@ from qfluentwidgets import (
 )
 from qfluentwidgets import FluentWindow
 
-from ..i18n import t, i18n
-from ..autostart import is_autostart_enabled, set_autostart
-from .tray_icon import get_app_icon
+from speaky.i18n import t, i18n
+from speaky.autostart import is_autostart_enabled, set_autostart
+from speaky.ui.tray_icon import get_app_icon
 
 
 def apply_theme(theme: str):
@@ -226,7 +226,7 @@ class CorePage(SettingsPage):
         self._local_label.setContentsMargins(0, 10, 0, 5)
         self._layout.addWidget(self._local_label)
 
-        from .model_download_widget import create_whisper_download_widget
+        from speaky.ui.model_download_widget import create_whisper_download_widget
         self.local_widget = create_whisper_download_widget()
         self.local_widget.setContentsMargins(20, 10, 20, 10)
         self._layout.addWidget(self.local_widget)
@@ -268,7 +268,7 @@ class CorePage(SettingsPage):
 
     def _refresh_audio_devices(self):
         """刷新音频设备列表"""
-        from ..audio import AudioRecorder
+        from speaky.audio import AudioRecorder
         try:
             recorder = AudioRecorder()
             devices = recorder.get_input_devices()
@@ -679,7 +679,7 @@ class LLMAgentPage(SettingsPage):
         import asyncio
         import logging
         import threading
-        from ..llm.models import fetch_openai_models
+        from speaky.llm.models import fetch_openai_models
 
         logger = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ import threading
 import time
 from typing import Optional
 
-from ..llm import LLMClient, AgentStatus, AgentContent, ToolCall
+from speaky.llm import LLMClient, AgentStatus, AgentContent, ToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +105,7 @@ class LLMAgentHandler:
         self._signals.agent_content.emit(content)
 
         # Play start sound
-        from ..sound import play_start_sound
+        from speaky.sound import play_start_sound
         play_start_sound()
 
         # Get engine and check streaming support
@@ -304,7 +304,7 @@ class LLMAgentHandler:
             return
 
         # Play end sound
-        from ..sound import play_end_sound
+        from speaky.sound import play_end_sound
         play_end_sound()
 
         # Update status to thinking
