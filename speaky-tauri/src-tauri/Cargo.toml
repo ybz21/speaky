@@ -50,6 +50,8 @@ once_cell = "1"
 parking_lot = "0.12"
 dirs = "5"
 byteorder = "1"
+regex = "1"
+base64 = "0.22"
 
 # Platform-specific
 [target.'cfg(target_os = "linux")'.dependencies]

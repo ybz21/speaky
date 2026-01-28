@@ -1,3 +1,4 @@
+use base64::Engine as _;
 use log::{error, info};
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -60,6 +61,32 @@ impl HotkeyManager {
                     // Start recording
                     is_recording.store(true, Ordering::SeqCst);
 
+                    // Get focused window info and emit app-info event
+                    if let Some(info) = crate::window_info::get_focused_window_info() {
+                        // Convert icon to base64 data URL if it exists
+                        let icon_data = info.icon_path.as_ref().and_then(|path| {
+                            std::fs::read(path).ok().map(|data| {
+                                let ext = std::path::Path::new(path)
+                                    .extension()
+                                    .and_then(|e| e.to_str())
+                                    .unwrap_or("png");
+                                let mime = match ext {
+                                    "svg" => "image/svg+xml",
+                                    "png" => "image/png",
+                                    "jpg" | "jpeg" => "image/jpeg",
+                                    _ => "image/png",
+                                };
+                                format!("data:{};base64,{}", mime, base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data))
+                            })
+                        });
+
+                        let _ = app_handle.emit("app-info", serde_json::json!({
+                            "name": info.app_name,
+                            "icon": icon_data
+                        }));
+                        info!("Focused app: {} (icon: {})", info.app_name, icon_data.is_some());
+                    }
+
                     // Emit recording state event
                     let _ = app_handle.emit("recording-state", serde_json::json!({
                         "state": "started"
@@ -73,6 +100,15 @@ impl HotkeyManager {
 
                     // Start audio recording
                     if let Some(ref mut recorder) = *APP_STATE.recorder.write() {
+                        // Set up audio level callback
+                        let app_for_level = app_handle.clone();
+                        recorder.set_audio_level_callback(move |level| {
+                            // Multiply by 3 to match Python implementation
+                            let _ = app_for_level.emit("audio-level", serde_json::json!({
+                                "level": level * 3.0
+                            }));
+                        });
+
                         if let Err(e) = recorder.start() {
                             error!("Failed to start recording: {}", e);
                             let _ = app_handle.emit("recognition-error", serde_json::json!({
@@ -117,8 +153,16 @@ impl HotkeyManager {
             let config = APP_STATE.config.read().clone();
 
             std::thread::spawn(move || {
+                // Create callback for partial results
+                let app_for_partial = app_handle.clone();
+                let partial_callback = Box::new(move |text: &str| {
+                    let _ = app_for_partial.emit("partial-result", serde_json::json!({
+                        "text": text
+                    }));
+                });
+
                 let result = if let Some(ref engine) = *APP_STATE.engine.read() {
-                    engine.transcribe(&audio_data, &config.core.asr.language)
+                    engine.transcribe_with_callback(&audio_data, &config.core.asr.language, partial_callback)
                 } else {
                     Err("No engine configured".to_string())
                 };
@@ -127,8 +171,17 @@ impl HotkeyManager {
                     Ok(text) => {
                         info!("Recognition result: {}", text);
                         let _ = app_handle.emit("final-result", serde_json::json!({
-                            "text": text
+                            "text": text.clone()
                         }));
+
+                        // Paste text to current application
+                        if !text.is_empty() {
+                            if let Err(e) = crate::input::paste_text(&app_handle, &text) {
+                                error!("Failed to paste text: {}", e);
+                            } else {
+                                info!("Text pasted successfully");
+                            }
+                        }
 
                         // Hide window after a delay
                         std::thread::sleep(Duration::from_millis(500));

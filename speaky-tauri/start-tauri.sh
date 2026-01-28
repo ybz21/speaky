@@ -39,9 +39,24 @@ check_command() {
     fi
 }
 
+# 加载 nvm 环境
+load_nvm() {
+    if [ -f "$HOME/.nvm/nvm.sh" ]; then
+        source "$HOME/.nvm/nvm.sh"
+    fi
+}
+
+# 加载 Rust 环境
+load_cargo() {
+    if [ -f "$HOME/.cargo/env" ]; then
+        source "$HOME/.cargo/env"
+    fi
+}
+
 # 检查 Rust 环境
 check_rust() {
     log_info "检查 Rust 环境..."
+    load_cargo
     if check_command rustc; then
         local version=$(rustc --version)
         log_success "Rust 已安装: $version"
@@ -51,24 +66,61 @@ check_rust() {
         echo ""
         echo "请运行以下命令安装 Rust:"
         echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+        echo "  source ~/.cargo/env"
         echo ""
         return 1
     fi
 }
 
-# 检查 Node.js 环境
+# 检查 Node.js 环境和版本
 check_node() {
     log_info "检查 Node.js 环境..."
+    load_nvm
     if check_command node; then
-        local version=$(node --version)
-        log_success "Node.js 已安装: $version"
-        return 0
+        local version=$(node --version | sed 's/v//')
+        local major=$(echo "$version" | cut -d. -f1)
+        local minor=$(echo "$version" | cut -d. -f2)
+
+        # 需要 Node.js 20.19+ 或 22.12+
+        local version_ok=false
+        if [ "$major" -ge 24 ]; then
+            version_ok=true
+        elif [ "$major" -eq 22 ] && [ "$minor" -ge 12 ]; then
+            version_ok=true
+        elif [ "$major" -eq 20 ] && [ "$minor" -ge 19 ]; then
+            version_ok=true
+        fi
+
+        if [ "$version_ok" = true ]; then
+            log_success "Node.js 已安装: v$version"
+            return 0
+        else
+            log_warn "Node.js 版本过低: v$version (需要 20.19+ 或 22.12+)"
+            echo ""
+            echo "请升级 Node.js:"
+            echo "  nvm install 22"
+            echo "  nvm use 22"
+            echo ""
+
+            # 尝试自动升级
+            if check_command nvm; then
+                read -p "是否自动升级到 Node.js 22? [y/N] " -n 1 -r
+                echo
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    nvm install 22
+                    nvm use 22
+                    return 0
+                fi
+            fi
+            return 1
+        fi
     else
         log_error "Node.js 未安装"
         echo ""
-        echo "请安装 Node.js 18+ (推荐使用 nvm):"
+        echo "请安装 Node.js 20.19+ (推荐使用 nvm):"
         echo "  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash"
-        echo "  nvm install 18"
+        echo "  source ~/.nvm/nvm.sh"
+        echo "  nvm install 22"
         echo ""
         return 1
     fi
@@ -89,9 +141,9 @@ check_linux_deps() {
         missing_deps+=("libwebkit2gtk-4.1-dev")
     fi
 
-    # 检查 appindicator
-    if ! pkg-config --exists appindicator3-0.1 2>/dev/null; then
-        missing_deps+=("libappindicator3-dev")
+    # 检查 appindicator (支持 ayatana 替代版本)
+    if ! pkg-config --exists appindicator3-0.1 2>/dev/null && ! pkg-config --exists ayatana-appindicator3-0.1 2>/dev/null; then
+        missing_deps+=("libayatana-appindicator3-dev")
     fi
 
     # 检查 alsa (音频)
@@ -99,11 +151,36 @@ check_linux_deps() {
         missing_deps+=("libasound2-dev")
     fi
 
+    # 检查 openssl
+    if ! pkg-config --exists openssl 2>/dev/null; then
+        missing_deps+=("libssl-dev")
+    fi
+
+    # 检查 glib-2.0
+    if ! pkg-config --exists glib-2.0 2>/dev/null; then
+        missing_deps+=("libglib2.0-dev")
+    fi
+
+    # 检查 gtk-3.0
+    if ! pkg-config --exists gtk+-3.0 2>/dev/null; then
+        missing_deps+=("libgtk-3-dev")
+    fi
+
+    # 检查 soup-3.0
+    if ! pkg-config --exists libsoup-3.0 2>/dev/null; then
+        missing_deps+=("libsoup-3.0-dev")
+    fi
+
+    # 检查 javascriptcoregtk-4.1
+    if ! pkg-config --exists javascriptcoregtk-4.1 2>/dev/null; then
+        missing_deps+=("libjavascriptcoregtk-4.1-dev")
+    fi
+
     if [ ${#missing_deps[@]} -gt 0 ]; then
         log_warn "缺少以下系统依赖: ${missing_deps[*]}"
         echo ""
         echo "请运行以下命令安装:"
-        echo "  sudo apt install ${missing_deps[*]} librsvg2-dev patchelf"
+        echo "  sudo apt install -y ${missing_deps[*]} librsvg2-dev patchelf"
         echo ""
         read -p "是否现在安装? [y/N] " -n 1 -r
         echo
@@ -148,6 +225,10 @@ main() {
     echo "       Speaky Tauri 开发环境启动"
     echo "=========================================="
     echo ""
+
+    # 加载环境
+    load_nvm
+    load_cargo
 
     # 环境检查
     local checks_passed=true

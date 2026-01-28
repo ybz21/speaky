@@ -3969,6 +3969,7 @@ dependencies = [
 name = "speaky"
 version = "1.0.0"
 dependencies = [
+ "base64 0.22.1",
  "byteorder",
  "cocoa",
  "cpal",
@@ -3980,6 +3981,7 @@ dependencies = [
  "objc",
  "once_cell",
  "parking_lot",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",

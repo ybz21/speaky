@@ -17,7 +17,7 @@ pub struct AudioRecorder {
     frames: Arc<Mutex<Vec<i16>>>,
     is_recording: Arc<AtomicBool>,
     gain: f64,
-    audio_level_callback: Option<Box<dyn Fn(f32) + Send + Sync>>,
+    audio_level_callback: Arc<Mutex<Option<Box<dyn Fn(f32) + Send + Sync>>>>,
     audio_data_callback: Option<Box<dyn Fn(&[u8]) + Send + Sync>>,
 }
 
@@ -49,7 +49,7 @@ impl AudioRecorder {
             frames: Arc::new(Mutex::new(Vec::new())),
             is_recording: Arc::new(AtomicBool::new(false)),
             gain: gain.clamp(0.1, 5.0),
-            audio_level_callback: None,
+            audio_level_callback: Arc::new(Mutex::new(None)),
             audio_data_callback: None,
         }
     }
@@ -74,7 +74,7 @@ impl AudioRecorder {
     where
         F: Fn(f32) + Send + Sync + 'static,
     {
-        self.audio_level_callback = Some(Box::new(callback));
+        *self.audio_level_callback.lock() = Some(Box::new(callback));
     }
 
     /// Set the audio data callback for streaming ASR
@@ -108,6 +108,7 @@ impl AudioRecorder {
 
         let frames = Arc::clone(&self.frames);
         let is_recording = Arc::clone(&self.is_recording);
+        let audio_level_callback = Arc::clone(&self.audio_level_callback);
         let gain = self.gain;
 
         // Build stream with i16 samples
@@ -127,6 +128,16 @@ impl AudioRecorder {
                             sample.clamp(-32768, 32767) as i16
                         })
                         .collect();
+
+                    // Calculate audio level from current chunk
+                    let sum: i64 = processed.iter().map(|&s| (s as i64).abs()).sum();
+                    let avg = sum as f32 / processed.len().max(1) as f32;
+                    let level = (avg / 32768.0).min(1.0);
+
+                    // Emit audio level callback
+                    if let Some(ref callback) = *audio_level_callback.lock() {
+                        callback(level);
+                    }
 
                     frames.lock().extend_from_slice(&processed);
                 },

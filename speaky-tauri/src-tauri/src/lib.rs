@@ -4,6 +4,7 @@ pub mod config;
 pub mod engines;
 pub mod hotkey;
 pub mod input;
+pub mod window_info;
 
 use log::info;
 use once_cell::sync::Lazy;

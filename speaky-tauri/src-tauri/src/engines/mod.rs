@@ -6,6 +6,9 @@ pub use volcengine::VolcBigModelEngine;
 
 use crate::config::Config;
 
+/// Callback type for partial results
+pub type PartialResultCallback = Box<dyn Fn(&str) + Send + Sync>;
+
 /// Trait for ASR engines
 pub trait Engine: Send + Sync {
     /// Get engine name
@@ -16,6 +19,18 @@ pub trait Engine: Send + Sync {
 
     /// Transcribe audio to text
     fn transcribe(&self, audio_data: &[u8], language: &str) -> Result<String, String>;
+
+    /// Transcribe with partial results callback
+    fn transcribe_with_callback(
+        &self,
+        audio_data: &[u8],
+        language: &str,
+        callback: PartialResultCallback,
+    ) -> Result<String, String> {
+        // Default implementation ignores callback
+        let _ = callback;
+        self.transcribe(audio_data, language)
+    }
 
     /// Check if engine supports streaming
     fn supports_streaming(&self) -> bool {

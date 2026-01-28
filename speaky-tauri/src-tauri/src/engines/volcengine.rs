@@ -177,7 +177,12 @@ impl VolcBigModelEngine {
         result
     }
 
-    async fn transcribe_async(&self, audio_data: &[u8], _language: &str) -> Result<String, String> {
+    async fn transcribe_async(
+        &self,
+        audio_data: &[u8],
+        _language: &str,
+        partial_callback: Option<super::PartialResultCallback>,
+    ) -> Result<String, String> {
         let request_id = Uuid::new_v4().to_string();
         info!("Starting BigModel transcription, request_id={}", request_id);
 
@@ -270,14 +275,25 @@ impl VolcBigModelEngine {
 
                 if let Some(payload) = &resp.payload {
                     if let Some(result) = payload.get("result") {
+                        let mut new_text = None;
                         if let Some(arr) = result.as_array() {
                             if let Some(first) = arr.first() {
                                 if let Some(text) = first.get("text").and_then(|t| t.as_str()) {
-                                    result_text = text.to_string();
+                                    new_text = Some(text.to_string());
                                 }
                             }
                         } else if let Some(text) = result.get("text").and_then(|t| t.as_str()) {
-                            result_text = text.to_string();
+                            new_text = Some(text.to_string());
+                        }
+
+                        if let Some(text) = new_text {
+                            result_text = text.clone();
+                            // Emit partial result if callback is provided
+                            if let Some(ref callback) = partial_callback {
+                                if !text.is_empty() {
+                                    callback(&text);
+                                }
+                            }
                         }
                     }
                 }
@@ -306,7 +322,17 @@ impl Engine for VolcBigModelEngine {
 
     fn transcribe(&self, audio_data: &[u8], language: &str) -> Result<String, String> {
         let rt = Runtime::new().map_err(|e| e.to_string())?;
-        rt.block_on(self.transcribe_async(audio_data, language))
+        rt.block_on(self.transcribe_async(audio_data, language, None))
+    }
+
+    fn transcribe_with_callback(
+        &self,
+        audio_data: &[u8],
+        language: &str,
+        callback: super::PartialResultCallback,
+    ) -> Result<String, String> {
+        let rt = Runtime::new().map_err(|e| e.to_string())?;
+        rt.block_on(self.transcribe_async(audio_data, language, Some(callback)))
     }
 
     fn supports_streaming(&self) -> bool {

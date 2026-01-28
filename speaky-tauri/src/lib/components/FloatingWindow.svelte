@@ -149,7 +149,7 @@
 
   .container {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: 12px;
     height: 100%;
     padding: 4px 16px 4px 12px;
@@ -160,16 +160,18 @@
     );
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
   }
 
   .left-panel {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: flex-start;
     gap: 4px;
     width: 80px;
     flex-shrink: 0;
+    padding-top: 2px;
   }
 
   .app-name {
@@ -177,6 +179,8 @@
     color: rgba(255, 255, 255, 0.5);
     text-align: center;
     max-width: 80px;
+    height: 16px;
+    line-height: 16px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -188,11 +192,13 @@
     flex-direction: column;
     gap: 2px;
     min-width: 0;
+    padding: 4px 0;
   }
 
   .status-label {
     font-size: 11px;
     font-weight: 500;
+    line-height: 1.2;
   }
 
   .primary-text {
@@ -204,6 +210,7 @@
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
+    line-height: 1.3;
   }
 
   .primary-text.partial {
@@ -216,5 +223,12 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    line-height: 1.2;
+  }
+
+  /* Spacer to push content to top */
+  .right-panel::after {
+    content: "";
+    flex: 1;
   }
 </style>
