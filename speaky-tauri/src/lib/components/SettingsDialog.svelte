@@ -15,25 +15,11 @@
     { id: "appearance", label: "tab_appearance" },
   ];
 
+  // Valid hotkey options (F-keys and some combinations)
   const hotkeyOptions = [
-    "ctrl",
-    "alt",
-    "shift",
-    "cmd",
-    "f1",
-    "f2",
-    "f3",
-    "f4",
-    "f5",
-    "f6",
-    "f7",
-    "f8",
-    "f9",
-    "f10",
-    "f11",
-    "f12",
-    "space",
-    "tab",
+    "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
+    "space", "tab", "capslock", "pause", "insert", "scrolllock",
+    "ctrl+space", "alt+space", "ctrl+shift+space",
   ];
 
   const engineOptions = [
@@ -106,8 +92,10 @@
 
   <div class="content">
     {#if currentTab === "core"}
-      <div class="section">
-        <h3>{$t("hotkey_label")}</h3>
+      <div class="group-label">{$t("voice_input_group")}</div>
+
+      <div class="card">
+        <span class="card-label">{$t("hotkey_label")}</span>
         <select bind:value={localConfig.core.asr.hotkey}>
           {#each hotkeyOptions as opt}
             <option value={opt}>{opt.toUpperCase()}</option>
@@ -115,9 +103,9 @@
         </select>
       </div>
 
-      <div class="section">
-        <h3>{$t("hold_time_label")}</h3>
-        <div class="range-input">
+      <div class="card">
+        <span class="card-label">{$t("hold_time_label")}</span>
+        <div class="range-group">
           <input
             type="range"
             min="0"
@@ -125,12 +113,12 @@
             step="0.1"
             bind:value={localConfig.core.asr.hotkey_hold_time}
           />
-          <span>{localConfig.core.asr.hotkey_hold_time}{$t("seconds")}</span>
+          <span class="range-value">{localConfig.core.asr.hotkey_hold_time.toFixed(1)}{$t("seconds")}</span>
         </div>
       </div>
 
-      <div class="section">
-        <h3>{$t("recognition_lang")}</h3>
+      <div class="card">
+        <span class="card-label">{$t("recognition_lang")}</span>
         <select bind:value={localConfig.core.asr.language}>
           {#each languageOptions as opt}
             <option value={opt.value}>{opt.label}</option>
@@ -138,8 +126,8 @@
         </select>
       </div>
 
-      <div class="section">
-        <h3>{$t("audio_device")}</h3>
+      <div class="card">
+        <span class="card-label">{$t("audio_device")}</span>
         <select bind:value={localConfig.core.asr.audio_device}>
           <option value={null}>{$t("audio_device_default")}</option>
           {#each audioDevices as device}
@@ -148,9 +136,9 @@
         </select>
       </div>
 
-      <div class="section">
-        <h3>{$t("audio_gain")}</h3>
-        <div class="range-input">
+      <div class="card">
+        <span class="card-label">{$t("audio_gain")}</span>
+        <div class="range-group">
           <input
             type="range"
             min="0.5"
@@ -158,24 +146,24 @@
             step="0.1"
             bind:value={localConfig.core.asr.audio_gain}
           />
-          <span>{localConfig.core.asr.audio_gain.toFixed(1)}x</span>
+          <span class="range-value">{localConfig.core.asr.audio_gain.toFixed(1)}x</span>
         </div>
       </div>
 
-      <div class="section checkbox">
-        <label>
-          <input
-            type="checkbox"
-            bind:checked={localConfig.core.asr.streaming_mode}
-          />
-          {$t("streaming_mode")}
+      <div class="card">
+        <span class="card-label">{$t("streaming_mode")}</span>
+        <label class="switch">
+          <input type="checkbox" bind:checked={localConfig.core.asr.streaming_mode} />
+          <span class="slider"></span>
         </label>
       </div>
     {/if}
 
     {#if currentTab === "engine"}
-      <div class="section">
-        <h3>{$t("engine_label")}</h3>
+      <div class="group-label">{$t("engine_group")}</div>
+
+      <div class="card">
+        <span class="card-label">{$t("engine_label")}</span>
         <select bind:value={localConfig.engine.current}>
           {#each engineOptions as opt}
             <option value={opt.value}>{opt.label}</option>
@@ -184,16 +172,19 @@
       </div>
 
       {#if localConfig.engine.current === "volc_bigmodel"}
-        <div class="section">
-          <h3>{$t("app_key")}</h3>
+        <div class="group-label">{$t("volc_bigmodel_settings")}</div>
+
+        <div class="card vertical">
+          <span class="card-label">{$t("app_key")}</span>
           <input
             type="password"
             bind:value={localConfig.engine.volc_bigmodel.app_key}
             placeholder="Enter app key"
           />
         </div>
-        <div class="section">
-          <h3>{$t("access_key")}</h3>
+
+        <div class="card vertical">
+          <span class="card-label">{$t("access_key")}</span>
           <input
             type="password"
             bind:value={localConfig.engine.volc_bigmodel.access_key}
@@ -203,16 +194,28 @@
       {/if}
 
       {#if localConfig.engine.current === "openai"}
-        <div class="section">
-          <h3>{$t("api_key")}</h3>
+        <div class="group-label">{$t("openai_settings")}</div>
+
+        <div class="card vertical">
+          <span class="card-label">{$t("api_key")}</span>
           <input
             type="password"
             bind:value={localConfig.engine.openai.api_key}
             placeholder="sk-..."
           />
         </div>
-        <div class="section">
-          <h3>{$t("base_url")}</h3>
+
+        <div class="card vertical">
+          <span class="card-label">{$t("model")}</span>
+          <select bind:value={localConfig.engine.openai.model}>
+            <option value="gpt-4o-transcribe">gpt-4o-transcribe</option>
+            <option value="gpt-4o-mini-transcribe">gpt-4o-mini-transcribe</option>
+            <option value="whisper-1">whisper-1</option>
+          </select>
+        </div>
+
+        <div class="card vertical">
+          <span class="card-label">{$t("base_url")}</span>
           <input
             type="text"
             bind:value={localConfig.engine.openai.base_url}
@@ -223,8 +226,10 @@
     {/if}
 
     {#if currentTab === "appearance"}
-      <div class="section">
-        <h3>{$t("theme")}</h3>
+      <div class="group-label">{$t("ui_group")}</div>
+
+      <div class="card">
+        <span class="card-label">{$t("theme")}</span>
         <select bind:value={localConfig.appearance.theme}>
           {#each themeOptions as opt}
             <option value={opt.value}>{$t(opt.labelKey)}</option>
@@ -232,8 +237,8 @@
         </select>
       </div>
 
-      <div class="section">
-        <h3>{$t("ui_lang")}</h3>
+      <div class="card">
+        <span class="card-label">{$t("ui_lang")}</span>
         <select
           value={localConfig.appearance.ui_language}
           on:change={(e) => {
@@ -249,9 +254,9 @@
         </select>
       </div>
 
-      <div class="section">
-        <h3>{$t("window_opacity")}</h3>
-        <div class="range-input">
+      <div class="card">
+        <span class="card-label">{$t("window_opacity")}</span>
+        <div class="range-group">
           <input
             type="range"
             min="0.5"
@@ -259,8 +264,16 @@
             step="0.05"
             bind:value={localConfig.appearance.window_opacity}
           />
-          <span>{Math.round(localConfig.appearance.window_opacity * 100)}%</span>
+          <span class="range-value">{Math.round(localConfig.appearance.window_opacity * 100)}%</span>
         </div>
+      </div>
+
+      <div class="card">
+        <span class="card-label">{$t("show_waveform")}</span>
+        <label class="switch">
+          <input type="checkbox" bind:checked={localConfig.appearance.show_waveform} />
+          <span class="slider"></span>
+        </label>
       </div>
     {/if}
   </div>
@@ -282,15 +295,16 @@
     height: 100vh;
     background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
     color: #f6f6f6;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
 
   .header {
-    padding: 16px 24px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .header h1 {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 600;
     margin: 0;
   }
@@ -298,8 +312,8 @@
   .tabs {
     display: flex;
     gap: 4px;
-    padding: 8px 24px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 12px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .tab {
@@ -326,26 +340,60 @@
   .content {
     flex: 1;
     overflow-y: auto;
-    padding: 24px;
+    padding: 20px 24px;
   }
 
-  .section {
-    margin-bottom: 20px;
-  }
-
-  .section h3 {
+  .group-label {
     font-size: 13px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.7);
-    margin-bottom: 8px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+    margin: 16px 0 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
-  .section select,
-  .section input[type="text"],
-  .section input[type="password"] {
+  .group-label:first-child {
+    margin-top: 0;
+  }
+
+  /* Card style - matches Python qfluentwidgets SettingCard */
+  .card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    padding: 0 20px;
+    margin-bottom: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .card.vertical {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    height: auto;
+    padding: 16px 20px;
+    gap: 8px;
+  }
+
+  .card.vertical input,
+  .card.vertical select {
     width: 100%;
-    padding: 10px 12px;
-    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .card-label {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .card select,
+  .card input[type="text"],
+  .card input[type="password"] {
+    min-width: 150px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 6px;
     color: #f6f6f6;
@@ -354,41 +402,81 @@
     transition: border-color 0.2s;
   }
 
-  .section select:focus,
-  .section input:focus {
+  .card select:focus,
+  .card input:focus {
     border-color: #00d9ff;
   }
 
-  .section.checkbox label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  .card select {
     cursor: pointer;
   }
 
-  .section.checkbox input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    accent-color: #00d9ff;
-  }
-
-  .range-input {
+  /* Range input group */
+  .range-group {
     display: flex;
     align-items: center;
     gap: 12px;
+    min-width: 180px;
   }
 
-  .range-input input[type="range"] {
+  .range-group input[type="range"] {
     flex: 1;
     height: 4px;
     accent-color: #00d9ff;
+    cursor: pointer;
   }
 
-  .range-input span {
-    min-width: 60px;
+  .range-value {
+    min-width: 50px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.7);
     text-align: right;
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.8);
+  }
+
+  /* Toggle switch */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+  }
+
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.15);
+    transition: 0.3s;
+    border-radius: 24px;
+  }
+
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+  }
+
+  .switch input:checked + .slider {
+    background-color: #00d9ff;
+  }
+
+  .switch input:checked + .slider:before {
+    transform: translateX(20px);
   }
 
   .footer {
@@ -396,7 +484,7 @@
     justify-content: flex-end;
     gap: 12px;
     padding: 16px 24px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .btn {
@@ -424,11 +512,11 @@
   }
 
   .btn.secondary {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.08);
     color: rgba(255, 255, 255, 0.8);
   }
 
   .btn.secondary:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.12);
   }
 </style>

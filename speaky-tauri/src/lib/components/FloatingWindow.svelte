@@ -5,8 +5,12 @@
   import { setupEventListeners, cleanupEventListeners } from "../utils/tauri";
   import AppIconOrb from "./AppIconOrb.svelte";
 
-  // State colors configuration
-  const STATE_COLORS = {
+  // State colors - matching Python version exactly
+  const STATE_COLORS: Record<string, {
+    text: string;
+    gradientStart: string;
+    gradientEnd: string;
+  }> = {
     recording: {
       text: "#00D9FF",
       gradientStart: "rgba(0, 180, 220, 0.10)",
@@ -96,16 +100,14 @@
   });
 </script>
 
-<div
-  class="floating-window"
-  style="
-    --gradient-start: {colors.gradientStart};
-    --gradient-end: {colors.gradientEnd};
-    --status-color: {colors.text};
-  "
->
-  <div class="container">
-    <!-- Left: App icon with animation -->
+<div class="floating-window">
+  <div
+    class="container"
+    style="
+      background: linear-gradient(135deg, {colors.gradientStart}, {colors.gradientEnd});
+    "
+  >
+    <!-- Left panel: App icon + name -->
     <div class="left-panel">
       <AppIconOrb
         audioLevel={$appState.audioLevel}
@@ -113,16 +115,16 @@
         appIcon={$appState.appIcon}
         animating={isAnimating}
       />
-      {#if $appState.appName}
-        <span class="app-name">
+      <div class="app-name">
+        {#if $appState.appName}
           {$appState.appName.length > 8
             ? $appState.appName.slice(0, 7) + "…"
             : $appState.appName}
-        </span>
-      {/if}
+        {/if}
+      </div>
     </div>
 
-    <!-- Right: Status and text -->
+    <!-- Right panel: Status + Text -->
     <div class="right-panel">
       <div class="status-label" style="color: {colors.text}">
         {statusText}
@@ -141,94 +143,102 @@
 </div>
 
 <style>
+  /* Window: 500x88px with 4px padding for shadow space */
   .floating-window {
     width: 500px;
     height: 88px;
     padding: 4px;
+    box-sizing: border-box;
   }
 
+  /* Container: fills window minus padding, with gradient background */
   .container {
-    display: flex;
-    align-items: stretch;
-    gap: 12px;
+    width: 100%;
     height: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
     padding: 4px 16px 4px 12px;
-    background: linear-gradient(
-      135deg,
-      var(--gradient-start),
-      var(--gradient-end)
-    );
+    gap: 12px;
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    box-sizing: border-box;
   }
 
+  /* Left panel: 80px width, icon + app name stacked */
   .left-panel {
+    width: 80px;
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    gap: 4px;
-    width: 80px;
-    flex-shrink: 0;
     padding-top: 2px;
+    gap: 4px;
   }
 
+  /* App name: 9pt, 16px height, centered */
   .app-name {
-    font-size: 9px;
+    width: 80px;
+    height: 16px;
+    font-size: 9pt;
+    line-height: 16px;
     color: rgba(255, 255, 255, 0.5);
     text-align: center;
-    max-width: 80px;
-    height: 16px;
-    line-height: 16px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    background: transparent;
   }
 
+  /* Right panel: fills remaining space, content stacked top */
   .right-panel {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    min-width: 0;
+    justify-content: flex-start;
+    align-items: flex-start;
     padding: 4px 0;
+    gap: 2px;
   }
 
+  /* Status label: 11pt, medium weight */
   .status-label {
-    font-size: 11px;
+    font-size: 11pt;
     font-weight: 500;
-    line-height: 1.2;
+    line-height: 1.3;
+    background: transparent;
   }
 
+  /* Primary text: 13pt, white 90% */
   .primary-text {
-    font-size: 13px;
+    font-size: 13pt;
     color: rgba(255, 255, 255, 0.9);
+    line-height: 1.3;
     word-wrap: break-word;
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-    line-height: 1.3;
+    background: transparent;
   }
 
+  /* Partial result: yellow text */
   .primary-text.partial {
-    color: #ffe066;
+    color: #FFE066;
   }
 
+  /* Secondary text: 11pt, white 50% */
   .secondary-text {
-    font-size: 11px;
+    font-size: 11pt;
     color: rgba(255, 255, 255, 0.5);
+    line-height: 1.3;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    line-height: 1.2;
-  }
-
-  /* Spacer to push content to top */
-  .right-panel::after {
-    content: "";
-    flex: 1;
+    background: transparent;
   }
 </style>
