@@ -17,7 +17,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 # Tauri
 tauri = { version = "2", features = ["tray-icon"] }
-tauri-plugin-global-shortcut = "2"
+# Note: Using rdev instead of tauri-plugin-global-shortcut for modifier key support
 tauri-plugin-clipboard-manager = "2"
 
 # Async runtime
@@ -52,6 +52,9 @@ dirs = "5"
 byteorder = "1"
 regex = "1"
 base64 = "0.22"
+
+# Keyboard listener (for modifier key detection)
+rdev = "0.5"
 
 # Platform-specific
 [target.'cfg(target_os = "linux")'.dependencies]

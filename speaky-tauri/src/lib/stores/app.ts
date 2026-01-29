@@ -84,10 +84,21 @@ function createAppStore() {
       })),
 
     reset: () => set(initialState),
+
+    setRecordingState: (state: RecordingState) =>
+      update((s) => ({
+        ...s,
+        recordingState: state,
+      })),
   };
 }
 
 export const appState = createAppStore();
+
+// Helper function for direct state setting
+export function setRecordingState(state: RecordingState) {
+  appState.setRecordingState(state);
+}
 
 // Derived store for display text
 export const displayText = derived(appState, ($state) => {

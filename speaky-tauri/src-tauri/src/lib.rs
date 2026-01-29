@@ -50,7 +50,8 @@ pub fn run() {
     info!("Starting Speaky...");
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        // Note: Using rdev for keyboard listening instead of global-shortcut plugin
+        // to support modifier keys (ctrl, alt, shift) as hotkeys
         .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             info!("Setting up application...");

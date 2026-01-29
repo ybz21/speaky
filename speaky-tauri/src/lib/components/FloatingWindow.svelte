@@ -1,9 +1,35 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { appState, displayText } from "../stores/app";
+  import { appState, displayText, setRecordingState } from "../stores/app";
   import { t } from "../stores/i18n";
-  import { setupEventListeners, cleanupEventListeners } from "../utils/tauri";
+  import { setupEventListeners, cleanupEventListeners, startRecording, stopRecording } from "../utils/tauri";
   import AppIconOrb from "./AppIconOrb.svelte";
+
+  // Development mode detection
+  const isDev = import.meta.env.DEV;
+  let isTestRecording = false;
+
+  async function handleTestRecord() {
+    if (isTestRecording) {
+      // Stop recording
+      isTestRecording = false;
+      setRecordingState("recognizing");
+      try {
+        await stopRecording();
+      } catch (e) {
+        console.error("Stop recording error:", e);
+      }
+    } else {
+      // Start recording
+      isTestRecording = true;
+      setRecordingState("recording");
+      try {
+        await startRecording();
+      } catch (e) {
+        console.error("Start recording error:", e);
+      }
+    }
+  }
 
   // State colors - matching Python version exactly
   const STATE_COLORS: Record<string, {
@@ -139,6 +165,13 @@
         <div class="secondary-text">{formattedText.secondary}</div>
       {/if}
     </div>
+
+    <!-- Dev mode test button -->
+    {#if isDev}
+      <button class="dev-test-btn" on:click={handleTestRecord}>
+        {isTestRecording ? "⏹" : "🎤"}
+      </button>
+    {/if}
   </div>
 </div>
 
@@ -240,5 +273,33 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     background: transparent;
+  }
+
+  /* Dev mode test button */
+  .dev-test-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+
+  .dev-test-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .container {
+    position: relative;
   }
 </style>

@@ -15,11 +15,15 @@
     { id: "appearance", label: "tab_appearance" },
   ];
 
-  // Valid hotkey options (F-keys and some combinations)
+  // Hotkey options - now supports modifier keys with rdev
   const hotkeyOptions = [
+    // Modifier keys (supported with rdev)
+    "ctrl", "alt", "shift", "cmd",
+    "ctrl_l", "ctrl_r", "alt_l", "alt_r", "shift_l", "shift_r",
+    // Function keys
     "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
-    "space", "tab", "capslock", "pause", "insert", "scrolllock",
-    "ctrl+space", "alt+space", "ctrl+shift+space",
+    // Other keys
+    "space", "tab", "capslock", "pause", "insert", "scrolllock", "backquote",
   ];
 
   const engineOptions = [
@@ -393,7 +397,7 @@
   .card input[type="password"] {
     min-width: 150px;
     padding: 8px 12px;
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(30, 30, 40, 0.9);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 6px;
     color: #f6f6f6;
@@ -409,6 +413,14 @@
 
   .card select {
     cursor: pointer;
+    /* Fix dropdown options styling */
+    color-scheme: dark;
+  }
+
+  .card select option {
+    background: #1a1a2e;
+    color: #f6f6f6;
+    padding: 8px;
   }
 
   /* Range input group */

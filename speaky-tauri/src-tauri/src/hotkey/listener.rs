@@ -1,11 +1,11 @@
 use base64::Engine as _;
 use log::{error, info};
 use parking_lot::Mutex;
+use rdev::{listen, Event, EventType, Key};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 use crate::APP_STATE;
 
@@ -16,6 +16,7 @@ pub struct HotkeyManager {
     press_time: Arc<Mutex<Option<Instant>>>,
     is_recording: Arc<AtomicBool>,
     hold_triggered: Arc<AtomicBool>,
+    app_handle: Arc<Mutex<Option<AppHandle>>>,
 }
 
 impl HotkeyManager {
@@ -26,7 +27,12 @@ impl HotkeyManager {
             press_time: Arc::new(Mutex::new(None)),
             is_recording: Arc::new(AtomicBool::new(false)),
             hold_triggered: Arc::new(AtomicBool::new(false)),
+            app_handle: Arc::new(Mutex::new(None)),
         }
+    }
+
+    pub fn set_app_handle(&self, app: AppHandle) {
+        *self.app_handle.lock() = Some(app);
     }
 
     pub fn update_hotkey(&mut self, hotkey: &str) {
@@ -37,7 +43,16 @@ impl HotkeyManager {
         self.hold_time = Duration::from_secs_f64(hold_time);
     }
 
-    pub fn on_press(&self, app: &AppHandle) {
+    pub fn get_hotkey(&self) -> &str {
+        &self.hotkey
+    }
+
+    pub fn on_press(&self) {
+        let app = match self.app_handle.lock().clone() {
+            Some(app) => app,
+            None => return,
+        };
+
         let mut press_time = self.press_time.lock();
         if press_time.is_none() {
             *press_time = Some(Instant::now());
@@ -76,21 +91,38 @@ impl HotkeyManager {
                                     "jpg" | "jpeg" => "image/jpeg",
                                     _ => "image/png",
                                 };
-                                format!("data:{};base64,{}", mime, base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data))
+                                format!(
+                                    "data:{};base64,{}",
+                                    mime,
+                                    base64::Engine::encode(
+                                        &base64::engine::general_purpose::STANDARD,
+                                        &data
+                                    )
+                                )
                             })
                         });
 
-                        let _ = app_handle.emit("app-info", serde_json::json!({
-                            "name": info.app_name,
-                            "icon": icon_data
-                        }));
-                        info!("Focused app: {} (icon: {})", info.app_name, icon_data.is_some());
+                        let _ = app_handle.emit(
+                            "app-info",
+                            serde_json::json!({
+                                "name": info.app_name,
+                                "icon": icon_data
+                            }),
+                        );
+                        info!(
+                            "Focused app: {} (icon: {})",
+                            info.app_name,
+                            icon_data.is_some()
+                        );
                     }
 
                     // Emit recording state event
-                    let _ = app_handle.emit("recording-state", serde_json::json!({
-                        "state": "started"
-                    }));
+                    let _ = app_handle.emit(
+                        "recording-state",
+                        serde_json::json!({
+                            "state": "started"
+                        }),
+                    );
 
                     // Show main window
                     if let Some(window) = app_handle.get_webview_window("main") {
@@ -104,16 +136,22 @@ impl HotkeyManager {
                         let app_for_level = app_handle.clone();
                         recorder.set_audio_level_callback(move |level| {
                             // Multiply by 3 to match Python implementation
-                            let _ = app_for_level.emit("audio-level", serde_json::json!({
-                                "level": level * 3.0
-                            }));
+                            let _ = app_for_level.emit(
+                                "audio-level",
+                                serde_json::json!({
+                                    "level": level * 3.0
+                                }),
+                            );
                         });
 
                         if let Err(e) = recorder.start() {
                             error!("Failed to start recording: {}", e);
-                            let _ = app_handle.emit("recognition-error", serde_json::json!({
-                                "message": e
-                            }));
+                            let _ = app_handle.emit(
+                                "recognition-error",
+                                serde_json::json!({
+                                    "message": e
+                                }),
+                            );
                         }
                     }
                 }
@@ -121,7 +159,12 @@ impl HotkeyManager {
         }
     }
 
-    pub fn on_release(&self, app: &AppHandle) {
+    pub fn on_release(&self) {
+        let app = match self.app_handle.lock().clone() {
+            Some(app) => app,
+            None => return,
+        };
+
         let mut press_time = self.press_time.lock();
         *press_time = None;
 
@@ -130,9 +173,12 @@ impl HotkeyManager {
             self.is_recording.store(false, Ordering::SeqCst);
 
             // Emit recognizing state
-            let _ = app.emit("recording-state", serde_json::json!({
-                "state": "recognizing"
-            }));
+            let _ = app.emit(
+                "recording-state",
+                serde_json::json!({
+                    "state": "recognizing"
+                }),
+            );
 
             // Stop recording and get audio data
             let audio_data = if let Some(ref mut recorder) = *APP_STATE.recorder.write() {
@@ -142,9 +188,12 @@ impl HotkeyManager {
             };
 
             if audio_data.is_empty() {
-                let _ = app.emit("recognition-error", serde_json::json!({
-                    "message": "No audio captured"
-                }));
+                let _ = app.emit(
+                    "recognition-error",
+                    serde_json::json!({
+                        "message": "No audio captured"
+                    }),
+                );
                 return;
             }
 
@@ -156,13 +205,20 @@ impl HotkeyManager {
                 // Create callback for partial results
                 let app_for_partial = app_handle.clone();
                 let partial_callback = Box::new(move |text: &str| {
-                    let _ = app_for_partial.emit("partial-result", serde_json::json!({
-                        "text": text
-                    }));
+                    let _ = app_for_partial.emit(
+                        "partial-result",
+                        serde_json::json!({
+                            "text": text
+                        }),
+                    );
                 });
 
                 let result = if let Some(ref engine) = *APP_STATE.engine.read() {
-                    engine.transcribe_with_callback(&audio_data, &config.core.asr.language, partial_callback)
+                    engine.transcribe_with_callback(
+                        &audio_data,
+                        &config.core.asr.language,
+                        partial_callback,
+                    )
                 } else {
                     Err("No engine configured".to_string())
                 };
@@ -170,9 +226,12 @@ impl HotkeyManager {
                 match result {
                     Ok(text) => {
                         info!("Recognition result: {}", text);
-                        let _ = app_handle.emit("final-result", serde_json::json!({
-                            "text": text.clone()
-                        }));
+                        let _ = app_handle.emit(
+                            "final-result",
+                            serde_json::json!({
+                                "text": text.clone()
+                            }),
+                        );
 
                         // Paste text to current application
                         if !text.is_empty() {
@@ -191,9 +250,12 @@ impl HotkeyManager {
                     }
                     Err(e) => {
                         error!("Recognition error: {}", e);
-                        let _ = app_handle.emit("recognition-error", serde_json::json!({
-                            "message": e
-                        }));
+                        let _ = app_handle.emit(
+                            "recognition-error",
+                            serde_json::json!({
+                                "message": e
+                            }),
+                        );
                     }
                 }
             });
@@ -203,43 +265,77 @@ impl HotkeyManager {
     }
 }
 
-/// Convert hotkey string to Tauri shortcut
-fn parse_hotkey(hotkey: &str) -> Option<Shortcut> {
+/// Convert hotkey string to rdev Key
+fn parse_hotkey(hotkey: &str) -> Option<Key> {
     let key = hotkey.to_lowercase();
 
-    // Note: Standalone modifier keys (ctrl, alt, shift) cannot be registered
-    // as global shortcuts in Tauri. Use F-keys or key combinations instead.
     match key.as_str() {
-        // Combination shortcuts (modifier + key)
-        "ctrl+space" => Some(Shortcut::new(Some(Modifiers::CONTROL), Code::Space)),
-        "alt+space" => Some(Shortcut::new(Some(Modifiers::ALT), Code::Space)),
-        "ctrl+shift+space" => Some(Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space)),
-        // Function keys (recommended for push-to-talk)
-        "f1" => Some(Shortcut::new(None, Code::F1)),
-        "f2" => Some(Shortcut::new(None, Code::F2)),
-        "f3" => Some(Shortcut::new(None, Code::F3)),
-        "f4" => Some(Shortcut::new(None, Code::F4)),
-        "f5" => Some(Shortcut::new(None, Code::F5)),
-        "f6" => Some(Shortcut::new(None, Code::F6)),
-        "f7" => Some(Shortcut::new(None, Code::F7)),
-        "f8" => Some(Shortcut::new(None, Code::F8)),
-        "f9" => Some(Shortcut::new(None, Code::F9)),
-        "f10" => Some(Shortcut::new(None, Code::F10)),
-        "f11" => Some(Shortcut::new(None, Code::F11)),
-        "f12" => Some(Shortcut::new(None, Code::F12)),
+        // Modifier keys (now supported with rdev!)
+        "ctrl" | "control" => Some(Key::ControlLeft),
+        "ctrl_l" | "control_l" => Some(Key::ControlLeft),
+        "ctrl_r" | "control_r" => Some(Key::ControlRight),
+        "alt" => Some(Key::Alt),
+        "alt_l" => Some(Key::Alt),
+        "alt_r" => Some(Key::AltGr),
+        "shift" => Some(Key::ShiftLeft),
+        "shift_l" => Some(Key::ShiftLeft),
+        "shift_r" => Some(Key::ShiftRight),
+        "cmd" | "super" | "meta" => Some(Key::MetaLeft),
+        "cmd_l" | "super_l" | "meta_l" => Some(Key::MetaLeft),
+        "cmd_r" | "super_r" | "meta_r" => Some(Key::MetaRight),
+        // Function keys
+        "f1" => Some(Key::F1),
+        "f2" => Some(Key::F2),
+        "f3" => Some(Key::F3),
+        "f4" => Some(Key::F4),
+        "f5" => Some(Key::F5),
+        "f6" => Some(Key::F6),
+        "f7" => Some(Key::F7),
+        "f8" => Some(Key::F8),
+        "f9" => Some(Key::F9),
+        "f10" => Some(Key::F10),
+        "f11" => Some(Key::F11),
+        "f12" => Some(Key::F12),
         // Other keys
-        "space" => Some(Shortcut::new(None, Code::Space)),
-        "tab" => Some(Shortcut::new(None, Code::Tab)),
-        "capslock" => Some(Shortcut::new(None, Code::CapsLock)),
-        "scrolllock" => Some(Shortcut::new(None, Code::ScrollLock)),
-        "pause" => Some(Shortcut::new(None, Code::Pause)),
-        "insert" => Some(Shortcut::new(None, Code::Insert)),
+        "space" => Some(Key::Space),
+        "tab" => Some(Key::Tab),
+        "caps_lock" | "capslock" => Some(Key::CapsLock),
+        "scroll_lock" | "scrolllock" => Some(Key::ScrollLock),
+        "pause" => Some(Key::Pause),
+        "insert" => Some(Key::Insert),
+        "backquote" | "`" => Some(Key::BackQuote),
         _ => None,
     }
 }
 
-/// Register global hotkeys
-pub fn register_hotkeys(app: AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+/// Check if the event key matches the target key
+fn key_matches(event_key: &Key, target_key: &Key) -> bool {
+    // Handle left/right variants matching generic key
+    match (event_key, target_key) {
+        // Control key variants
+        (Key::ControlLeft, Key::ControlLeft)
+        | (Key::ControlRight, Key::ControlLeft)
+        | (Key::ControlLeft, Key::ControlRight)
+        | (Key::ControlRight, Key::ControlRight) => true,
+        // Shift key variants
+        (Key::ShiftLeft, Key::ShiftLeft)
+        | (Key::ShiftRight, Key::ShiftLeft)
+        | (Key::ShiftLeft, Key::ShiftRight)
+        | (Key::ShiftRight, Key::ShiftRight) => true,
+        // Alt key variants
+        (Key::Alt, Key::Alt) | (Key::AltGr, Key::Alt) | (Key::Alt, Key::AltGr) => true,
+        // Meta/Super key variants
+        (Key::MetaLeft, Key::MetaLeft)
+        | (Key::MetaRight, Key::MetaLeft)
+        | (Key::MetaLeft, Key::MetaRight)
+        | (Key::MetaRight, Key::MetaRight) => true,
+        // Exact match for all other keys
+        _ => event_key == target_key,
+    }
+}
+
+/// Start keyboard listener in a separate thread using rdev
+pub fn start_keyboard_listener(app: AppHandle) {
     let config = APP_STATE.config.read();
     let hotkey_str = config.core.asr.hotkey.clone();
     let hold_time = config.core.asr.hotkey_hold_time;
@@ -247,33 +343,54 @@ pub fn register_hotkeys(app: AppHandle) -> Result<(), Box<dyn std::error::Error>
 
     // Create hotkey manager
     let manager = HotkeyManager::new(&hotkey_str, hold_time);
+    manager.set_app_handle(app.clone());
     *APP_STATE.hotkey_manager.write() = Some(manager);
 
-    // Note: Tauri's global shortcut plugin uses keyboard events
-    // For press-and-hold detection, we need to handle key down/up states
-    // This is a simplified implementation using shortcut events
+    let target_key = match parse_hotkey(&hotkey_str) {
+        Some(key) => key,
+        None => {
+            error!("Invalid hotkey: {}, using Ctrl as default", hotkey_str);
+            Key::ControlLeft
+        }
+    };
 
-    if let Some(shortcut) = parse_hotkey(&hotkey_str) {
-        let app_clone = app.clone();
+    info!(
+        "Starting keyboard listener for hotkey: {} (key: {:?})",
+        hotkey_str, target_key
+    );
 
-        // Note: on_shortcut() automatically registers the shortcut
-        app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
-            if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
-                match event.state {
-                    ShortcutState::Pressed => {
-                        manager.on_press(&app_clone);
-                    }
-                    ShortcutState::Released => {
-                        manager.on_release(&app_clone);
+    // Start listener in a separate thread
+    std::thread::spawn(move || {
+        let callback = move |event: Event| {
+            match event.event_type {
+                EventType::KeyPress(key) => {
+                    if key_matches(&key, &target_key) {
+                        if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+                            manager.on_press();
+                        }
                     }
                 }
+                EventType::KeyRelease(key) => {
+                    if key_matches(&key, &target_key) {
+                        if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+                            manager.on_release();
+                        }
+                    }
+                }
+                _ => {}
             }
-        })?;
+        };
 
-        info!("Registered hotkey: {}", hotkey_str);
-    } else {
-        error!("Invalid hotkey: {}", hotkey_str);
-    }
+        if let Err(error) = listen(callback) {
+            error!("Keyboard listener error: {:?}", error);
+        }
+    });
 
+    info!("Keyboard listener started");
+}
+
+/// Register global hotkeys (now using rdev for modifier key support)
+pub fn register_hotkeys(app: AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    start_keyboard_listener(app);
     Ok(())
 }

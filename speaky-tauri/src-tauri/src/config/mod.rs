@@ -23,7 +23,7 @@ pub struct AsrConfig {
 }
 
 fn default_hotkey() -> String {
-    "f8".to_string()
+    "ctrl".to_string()
 }
 fn default_hold_time() -> f64 {
     1.0
