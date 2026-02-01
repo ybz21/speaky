@@ -5,7 +5,30 @@
   import { getAudioDevices } from "../utils/tauri";
 
   let currentTab = "core";
-  let localConfig: Config;
+  let localConfig: Config = {
+    core: {
+      asr: {
+        hotkey: "ctrl",
+        hotkey_hold_time: 1.0,
+        language: "zh",
+        streaming_mode: true,
+        audio_device: null,
+        audio_gain: 1.0,
+        sound_notification: true,
+      },
+    },
+    engine: {
+      current: "volc_bigmodel",
+      volc_bigmodel: { app_key: "", access_key: "" },
+      openai: { api_key: "", model: "gpt-4o-transcribe", base_url: "https://api.openai.com/v1" },
+    },
+    appearance: {
+      theme: "auto",
+      ui_language: "auto",
+      show_waveform: true,
+      window_opacity: 0.9,
+    },
+  };
   let audioDevices: Array<{ index: number; name: string }> = [];
   let saving = false;
 
@@ -296,38 +319,40 @@
   .settings-dialog {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
+    min-height: 100vh;
     background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
     color: #f6f6f6;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
 
   .header {
-    padding: 20px 24px 16px;
+    padding: 12px 16px 10px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .header h1 {
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 600;
     margin: 0;
   }
 
   .tabs {
     display: flex;
-    gap: 4px;
-    padding: 12px 24px;
+    gap: 2px;
+    padding: 8px 16px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .tab {
-    padding: 8px 16px;
+    padding: 6px 12px;
     background: transparent;
     border: none;
     color: rgba(255, 255, 255, 0.6);
     cursor: pointer;
-    border-radius: 6px;
-    font-size: 14px;
+    border-radius: 4px;
+    font-size: 13px;
     transition: all 0.2s;
   }
 
@@ -344,14 +369,14 @@
   .content {
     flex: 1;
     overflow-y: auto;
-    padding: 20px 24px;
+    padding: 12px 16px;
   }
 
   .group-label {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.5);
-    margin: 16px 0 12px;
+    margin: 10px 0 6px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
@@ -360,16 +385,16 @@
     margin-top: 0;
   }
 
-  /* Card style - matches Python qfluentwidgets SettingCard */
+  /* Card style - compact native-like */
   .card {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 56px;
-    padding: 0 20px;
-    margin-bottom: 8px;
+    height: 40px;
+    padding: 0 12px;
+    margin-bottom: 4px;
     background: rgba(255, 255, 255, 0.04);
-    border-radius: 8px;
+    border-radius: 6px;
     border: 1px solid rgba(255, 255, 255, 0.06);
   }
 
@@ -378,8 +403,8 @@
     align-items: flex-start;
     justify-content: center;
     height: auto;
-    padding: 16px 20px;
-    gap: 8px;
+    padding: 10px 12px;
+    gap: 6px;
   }
 
   .card.vertical input,
@@ -388,20 +413,20 @@
   }
 
   .card-label {
-    font-size: 14px;
+    font-size: 13px;
     color: rgba(255, 255, 255, 0.9);
   }
 
   .card select,
   .card input[type="text"],
   .card input[type="password"] {
-    min-width: 150px;
-    padding: 8px 12px;
+    min-width: 140px;
+    padding: 5px 10px;
     background: rgba(30, 30, 40, 0.9);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 6px;
+    border-radius: 4px;
     color: #f6f6f6;
-    font-size: 14px;
+    font-size: 13px;
     outline: none;
     transition: border-color 0.2s;
   }
@@ -427,30 +452,30 @@
   .range-group {
     display: flex;
     align-items: center;
-    gap: 12px;
-    min-width: 180px;
+    gap: 8px;
+    min-width: 160px;
   }
 
   .range-group input[type="range"] {
     flex: 1;
-    height: 4px;
+    height: 3px;
     accent-color: #00d9ff;
     cursor: pointer;
   }
 
   .range-value {
-    min-width: 50px;
-    font-size: 13px;
+    min-width: 45px;
+    font-size: 12px;
     color: rgba(255, 255, 255, 0.7);
     text-align: right;
   }
 
-  /* Toggle switch */
+  /* Toggle switch - smaller */
   .switch {
     position: relative;
     display: inline-block;
-    width: 44px;
-    height: 24px;
+    width: 36px;
+    height: 20px;
   }
 
   .switch input {
@@ -468,14 +493,14 @@
     bottom: 0;
     background-color: rgba(255, 255, 255, 0.15);
     transition: 0.3s;
-    border-radius: 24px;
+    border-radius: 20px;
   }
 
   .slider:before {
     position: absolute;
     content: "";
-    height: 18px;
-    width: 18px;
+    height: 14px;
+    width: 14px;
     left: 3px;
     bottom: 3px;
     background-color: white;
@@ -488,22 +513,22 @@
   }
 
   .switch input:checked + .slider:before {
-    transform: translateX(20px);
+    transform: translateX(16px);
   }
 
   .footer {
     display: flex;
     justify-content: flex-end;
-    gap: 12px;
-    padding: 16px 24px;
+    gap: 8px;
+    padding: 10px 16px;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .btn {
-    padding: 10px 24px;
+    padding: 6px 16px;
     border: none;
-    border-radius: 6px;
-    font-size: 14px;
+    border-radius: 4px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;

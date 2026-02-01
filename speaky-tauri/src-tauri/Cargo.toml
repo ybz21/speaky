@@ -16,7 +16,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 # Tauri
-tauri = { version = "2", features = ["tray-icon"] }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
 # Note: Using rdev instead of tauri-plugin-global-shortcut for modifier key support
 tauri-plugin-clipboard-manager = "2"
 

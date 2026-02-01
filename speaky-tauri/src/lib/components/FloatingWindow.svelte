@@ -118,7 +118,9 @@
     $appState.recordingState === "recognizing";
 
   onMount(async () => {
+    console.log("FloatingWindow mounted, setting up event listeners...");
     await setupEventListeners();
+    console.log("Event listeners set up successfully");
   });
 
   onDestroy(async () => {

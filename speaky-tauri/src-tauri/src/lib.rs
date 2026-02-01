@@ -22,11 +22,19 @@ use engines::Engine;
 use hotkey::HotkeyManager;
 
 /// Global application state
+/// Cached app info (name and icon base64)
+#[derive(Debug, Clone, Default)]
+pub struct CachedAppInfo {
+    pub name: String,
+    pub icon: Option<String>,
+}
+
 pub struct AppState {
     pub config: RwLock<Config>,
     pub recorder: RwLock<Option<AudioRecorder>>,
     pub engine: RwLock<Option<Box<dyn Engine + Send + Sync>>>,
     pub hotkey_manager: RwLock<Option<HotkeyManager>>,
+    pub last_focused_app: RwLock<CachedAppInfo>,
 }
 
 impl AppState {
@@ -37,6 +45,7 @@ impl AppState {
             recorder: RwLock::new(None),
             engine: RwLock::new(None),
             hotkey_manager: RwLock::new(None),
+            last_focused_app: RwLock::new(CachedAppInfo::default()),
         }
     }
 }
@@ -77,8 +86,9 @@ pub fn run() {
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&settings_item, &quit_item])?;
 
-            // Create tray icon
+            // Create tray icon with icon
             let _tray = TrayIconBuilder::new()
+                .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))?)
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "settings" => {
@@ -125,6 +135,7 @@ pub fn run() {
             commands::show_window,
             commands::hide_window,
             commands::paste_text,
+            commands::get_focused_app_info,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

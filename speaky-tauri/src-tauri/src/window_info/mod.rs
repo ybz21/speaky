@@ -1,6 +1,6 @@
 //! Window information utilities for getting focused app name and icon.
 
-use log::{debug, warn};
+use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -254,17 +254,21 @@ fn parse_desktop_file(filepath: &Path) -> Option<DesktopEntry> {
 
 fn find_icon_for_wm_class(wm_class: &str, wm_instance: &str) -> Option<String> {
     let cache_key = format!("{}|{}", wm_class, wm_instance);
+    info!("Finding icon for wm_class: {}, wm_instance: {}", wm_class, wm_instance);
 
     // Check cache
     {
         let cache = ICON_CACHE.lock().ok()?;
         if let Some(icon) = cache.get(&cache_key) {
+            info!("Icon cache hit: {:?}", icon);
             return icon.clone();
         }
     }
 
     // Find desktop entry for icon name
     let entry = find_desktop_entry(wm_class, wm_instance);
+    info!("Desktop entry found: {:?}", entry);
+
     let icon_name = entry
         .as_ref()
         .and_then(|e| e.icon.clone())
@@ -275,9 +279,11 @@ fn find_icon_for_wm_class(wm_class: &str, wm_instance: &str) -> Option<String> {
                 wm_instance.to_lowercase()
             }
         });
+    info!("Icon name to resolve: {}", icon_name);
 
     // Resolve icon path
     let icon_path = resolve_icon_path(&icon_name);
+    info!("Resolved icon path: {:?}", icon_path);
 
     // Cache result
     {

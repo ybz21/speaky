@@ -1,4 +1,4 @@
-use base64::Engine as _;
+use base64::Engine;
 use log::{error, info};
 use parking_lot::Mutex;
 use rdev::{listen, Event, EventType, Key};
@@ -11,8 +11,9 @@ use crate::APP_STATE;
 
 /// Hotkey manager for handling press-and-hold detection
 pub struct HotkeyManager {
-    hotkey: String,
-    hold_time: Duration,
+    hotkey: Arc<Mutex<String>>,
+    target_key: Arc<Mutex<Key>>,
+    hold_time: Arc<Mutex<Duration>>,
     press_time: Arc<Mutex<Option<Instant>>>,
     is_recording: Arc<AtomicBool>,
     hold_triggered: Arc<AtomicBool>,
@@ -21,9 +22,12 @@ pub struct HotkeyManager {
 
 impl HotkeyManager {
     pub fn new(hotkey: &str, hold_time: f64) -> Self {
+        let hotkey_lower = hotkey.to_lowercase();
+        let target_key = parse_hotkey(&hotkey_lower).unwrap_or(Key::ControlLeft);
         Self {
-            hotkey: hotkey.to_lowercase(),
-            hold_time: Duration::from_secs_f64(hold_time),
+            hotkey: Arc::new(Mutex::new(hotkey_lower)),
+            target_key: Arc::new(Mutex::new(target_key)),
+            hold_time: Arc::new(Mutex::new(Duration::from_secs_f64(hold_time))),
             press_time: Arc::new(Mutex::new(None)),
             is_recording: Arc::new(AtomicBool::new(false)),
             hold_triggered: Arc::new(AtomicBool::new(false)),
@@ -35,16 +39,31 @@ impl HotkeyManager {
         *self.app_handle.lock() = Some(app);
     }
 
-    pub fn update_hotkey(&mut self, hotkey: &str) {
-        self.hotkey = hotkey.to_lowercase();
+    pub fn update_hotkey(&self, hotkey: &str) {
+        let hotkey_lower = hotkey.to_lowercase();
+        if let Some(key) = parse_hotkey(&hotkey_lower) {
+            *self.target_key.lock() = key;
+            *self.hotkey.lock() = hotkey_lower;
+            info!("Hotkey updated to: {} (key: {:?})", hotkey, key);
+        } else {
+            error!("Invalid hotkey: {}", hotkey);
+        }
     }
 
-    pub fn update_hold_time(&mut self, hold_time: f64) {
-        self.hold_time = Duration::from_secs_f64(hold_time);
+    pub fn update_hold_time(&self, hold_time: f64) {
+        *self.hold_time.lock() = Duration::from_secs_f64(hold_time);
     }
 
-    pub fn get_hotkey(&self) -> &str {
-        &self.hotkey
+    pub fn get_hotkey(&self) -> String {
+        self.hotkey.lock().clone()
+    }
+
+    pub fn get_target_key(&self) -> Key {
+        *self.target_key.lock()
+    }
+
+    pub fn get_hold_time(&self) -> Duration {
+        *self.hold_time.lock()
     }
 
     pub fn on_press(&self) {
@@ -56,10 +75,11 @@ impl HotkeyManager {
         let mut press_time = self.press_time.lock();
         if press_time.is_none() {
             *press_time = Some(Instant::now());
-            info!("Hotkey {} pressed, waiting for hold...", self.hotkey);
+            let hotkey = self.get_hotkey();
+            info!("Hotkey {} pressed, waiting for hold...", hotkey);
 
             // Spawn a timer to check hold time
-            let hold_time = self.hold_time;
+            let hold_time = self.get_hold_time();
             let press_time_arc = Arc::clone(&self.press_time);
             let is_recording = Arc::clone(&self.is_recording);
             let hold_triggered = Arc::clone(&self.hold_triggered);
@@ -76,9 +96,11 @@ impl HotkeyManager {
                     // Start recording
                     is_recording.store(true, Ordering::SeqCst);
 
-                    // Get focused window info and emit app-info event
-                    if let Some(info) = crate::window_info::get_focused_window_info() {
-                        // Convert icon to base64 data URL if it exists
+                    // Get focused window info BEFORE showing our window
+                    let window_info = crate::window_info::get_focused_window_info();
+
+                    // Save app info to state for later retrieval
+                    if let Some(info) = &window_info {
                         let icon_data = info.icon_path.as_ref().and_then(|path| {
                             std::fs::read(path).ok().map(|data| {
                                 let ext = std::path::Path::new(path)
@@ -94,26 +116,28 @@ impl HotkeyManager {
                                 format!(
                                     "data:{};base64,{}",
                                     mime,
-                                    base64::Engine::encode(
-                                        &base64::engine::general_purpose::STANDARD,
-                                        &data
-                                    )
+                                    base64::engine::general_purpose::STANDARD.encode(&data)
                                 )
                             })
                         });
 
-                        let _ = app_handle.emit(
-                            "app-info",
-                            serde_json::json!({
-                                "name": info.app_name,
-                                "icon": icon_data
-                            }),
-                        );
                         info!(
-                            "Focused app: {} (icon: {})",
+                            "Saving app info: {} (icon: {})",
                             info.app_name,
                             icon_data.is_some()
                         );
+
+                        // Save to global state
+                        *APP_STATE.last_focused_app.write() = crate::CachedAppInfo {
+                            name: info.app_name.clone(),
+                            icon: icon_data,
+                        };
+                    }
+
+                    // Show main window
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
                     }
 
                     // Emit recording state event
@@ -123,12 +147,6 @@ impl HotkeyManager {
                             "state": "started"
                         }),
                     );
-
-                    // Show main window
-                    if let Some(window) = app_handle.get_webview_window("main") {
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
 
                     // Start audio recording
                     if let Some(ref mut recorder) = *APP_STATE.recorder.write() {
@@ -346,22 +364,22 @@ pub fn start_keyboard_listener(app: AppHandle) {
     manager.set_app_handle(app.clone());
     *APP_STATE.hotkey_manager.write() = Some(manager);
 
-    let target_key = match parse_hotkey(&hotkey_str) {
-        Some(key) => key,
-        None => {
-            error!("Invalid hotkey: {}, using Ctrl as default", hotkey_str);
-            Key::ControlLeft
-        }
-    };
-
     info!(
         "Starting keyboard listener for hotkey: {} (key: {:?})",
-        hotkey_str, target_key
+        hotkey_str,
+        parse_hotkey(&hotkey_str)
     );
 
     // Start listener in a separate thread
     std::thread::spawn(move || {
         let callback = move |event: Event| {
+            // Get current target key from manager (allows dynamic updates)
+            let target_key = if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+                manager.get_target_key()
+            } else {
+                return;
+            };
+
             match event.event_type {
                 EventType::KeyPress(key) => {
                     if key_matches(&key, &target_key) {

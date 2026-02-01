@@ -57,6 +57,10 @@ export async function pasteText(text: string): Promise<void> {
   return invoke("paste_text", { text });
 }
 
+export async function getFocusedAppInfo(): Promise<AppInfoEvent> {
+  return invoke("get_focused_app_info");
+}
+
 // Event listeners
 let unlistenFns: UnlistenFn[] = [];
 
@@ -94,10 +98,18 @@ export async function setupEventListeners(): Promise<void> {
 
   // Recording state changes
   unlistenFns.push(
-    await listen<RecordingStateEvent>("recording-state", (event) => {
+    await listen<RecordingStateEvent>("recording-state", async (event) => {
       switch (event.payload.state) {
         case "started":
           appState.startRecording();
+          // Fetch app info via command (more reliable than events)
+          try {
+            const appInfo = await getFocusedAppInfo();
+            console.log("Got app info via command:", appInfo.name, "icon:", appInfo.icon ? "yes" : "no");
+            appState.setAppInfo(appInfo.name, appInfo.icon);
+          } catch (e) {
+            console.error("Failed to get app info:", e);
+          }
           break;
         case "recognizing":
           appState.setRecognizing();
@@ -112,6 +124,7 @@ export async function setupEventListeners(): Promise<void> {
   // App info updates
   unlistenFns.push(
     await listen<AppInfoEvent>("app-info", (event) => {
+      console.log("Received app-info event:", event.payload.name, "icon length:", event.payload.icon?.length);
       appState.setAppInfo(event.payload.name, event.payload.icon);
     })
   );

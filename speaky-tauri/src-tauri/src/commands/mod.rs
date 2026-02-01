@@ -86,7 +86,7 @@ pub fn set_hotkey(app: AppHandle, hotkey: String, hold_time: f64) -> Result<(), 
     }
 
     // Update hotkey manager
-    if let Some(ref mut manager) = *APP_STATE.hotkey_manager.write() {
+    if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
         manager.update_hotkey(&hotkey);
         manager.update_hold_time(hold_time);
     }
@@ -121,4 +121,17 @@ pub fn hide_window(app: AppHandle) -> Result<(), String> {
 pub fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
     info!("Pasting text via command");
     input::paste_text(&app, &text)
+}
+
+/// Get last focused app info (cached from before window was shown)
+#[command]
+pub fn get_focused_app_info() -> Result<serde_json::Value, String> {
+    let app_info = APP_STATE.last_focused_app.read();
+
+    info!("get_focused_app_info: {} (icon: {})", app_info.name, app_info.icon.is_some());
+
+    Ok(serde_json::json!({
+        "name": if app_info.name.is_empty() { "Unknown".to_string() } else { app_info.name.clone() },
+        "icon": app_info.icon.clone()
+    }))
 }

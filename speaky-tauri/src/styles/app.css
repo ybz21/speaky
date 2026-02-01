@@ -28,13 +28,15 @@ html, body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background-color: transparent;
+}
+
+/* Settings page needs solid background */
+html:has(.settings-dialog),
+html:has(.settings-dialog) body {
+  background: #1a1a2e !important;
 }
 
 #app {
   width: 100%;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
