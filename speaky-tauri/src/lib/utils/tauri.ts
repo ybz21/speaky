@@ -68,66 +68,57 @@ export async function setupEventListeners(): Promise<void> {
   // Clean up any existing listeners
   await cleanupEventListeners();
 
+  // Helper to push and track listeners
+  const addListener = async <T>(event: string, handler: (event: T) => void) => {
+    unlistenFns.push(await listen<T>(event, handler));
+  };
+
   // Audio level updates
-  unlistenFns.push(
-    await listen<AudioLevelEvent>("audio-level", (event) => {
-      appState.updateAudioLevel(event.payload.level);
-    })
-  );
+  await addListener<AudioLevelEvent>("audio-level", (event) => {
+    appState.updateAudioLevel(event.payload.level);
+  });
 
   // Partial recognition results
-  unlistenFns.push(
-    await listen<PartialResultEvent>("partial-result", (event) => {
-      appState.updatePartialResult(event.payload.text);
-    })
-  );
+  await addListener<PartialResultEvent>("partial-result", (event) => {
+    appState.updatePartialResult(event.payload.text);
+  });
 
   // Final recognition result
-  unlistenFns.push(
-    await listen<FinalResultEvent>("final-result", (event) => {
-      appState.setResult(event.payload.text);
-    })
-  );
+  await addListener<FinalResultEvent>("final-result", (event) => {
+    appState.setResult(event.payload.text);
+  });
 
   // Error events
-  unlistenFns.push(
-    await listen<ErrorEvent>("recognition-error", (event) => {
-      appState.setError(event.payload.message);
-    })
-  );
+  await addListener<ErrorEvent>("recognition-error", (event) => {
+    appState.setError(event.payload.message);
+  });
 
   // Recording state changes
-  unlistenFns.push(
-    await listen<RecordingStateEvent>("recording-state", async (event) => {
-      switch (event.payload.state) {
-        case "started":
-          appState.startRecording();
-          // Fetch app info via command (more reliable than events)
-          try {
-            const appInfo = await getFocusedAppInfo();
-            console.log("Got app info via command:", appInfo.name, "icon:", appInfo.icon ? "yes" : "no");
-            appState.setAppInfo(appInfo.name, appInfo.icon);
-          } catch (e) {
-            console.error("Failed to get app info:", e);
-          }
-          break;
-        case "recognizing":
-          appState.setRecognizing();
-          break;
-        case "stopped":
-          // State will be updated by final-result or error event
-          break;
-      }
-    })
-  );
+  await addListener<RecordingStateEvent>("recording-state", async (event) => {
+    switch (event.payload.state) {
+      case "started":
+        appState.startRecording();
+        try {
+          const appInfo = await getFocusedAppInfo();
+          console.log("Got app info via command:", appInfo.name);
+          appState.setAppInfo(appInfo.name, appInfo.icon);
+        } catch (e) {
+          console.error("Failed to get app info:", e);
+        }
+        break;
+      case "recognizing":
+        appState.setRecognizing();
+        break;
+      case "stopped":
+        break;
+    }
+  });
 
   // App info updates
-  unlistenFns.push(
-    await listen<AppInfoEvent>("app-info", (event) => {
-      console.log("Received app-info event:", event.payload.name, "icon length:", event.payload.icon?.length);
-      appState.setAppInfo(event.payload.name, event.payload.icon);
-    })
-  );
+  await addListener<AppInfoEvent>("app-info", (event) => {
+    console.log("Received app-info event:", event.payload.name);
+    appState.setAppInfo(event.payload.name, event.payload.icon);
+  });
 }
 
 export async function cleanupEventListeners(): Promise<void> {
