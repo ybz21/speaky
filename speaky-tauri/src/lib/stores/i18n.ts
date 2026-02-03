@@ -105,8 +105,14 @@ function getSystemLocale(): Locale {
   if (lang.startsWith("zh")) {
     return lang.includes("tw") || lang.includes("hk") ? "zh_TW" : "zh";
   }
-  const primary = lang.split("-")[0];
-  return (locales.includes(primary as Locale) ? primary : "en") as Locale;
+  if (lang.startsWith("ja")) return "ja";
+  if (lang.startsWith("ko")) return "ko";
+  if (lang.startsWith("de")) return "de";
+  if (lang.startsWith("fr")) return "fr";
+  if (lang.startsWith("es")) return "es";
+  if (lang.startsWith("pt")) return "pt";
+  if (lang.startsWith("ru")) return "ru";
+  return "en";
 }
 
 function createI18nStore() {
