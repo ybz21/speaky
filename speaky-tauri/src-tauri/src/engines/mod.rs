@@ -5,40 +5,126 @@ pub use openai::OpenAIEngine;
 pub use volcengine::VolcBigModelEngine;
 
 use crate::config::Config;
+use log::{debug, info, warn};
 
-/// Callback type for partial results
+/// Callback type for partial transcription results
+/// 
+/// This callback is invoked during streaming transcription to provide
+/// incremental results as they become available.
 pub type PartialResultCallback = Box<dyn Fn(&str) + Send + Sync>;
 
-/// Trait for ASR engines
+/// Result type for engine operations
+pub type EngineResult = Result<String, EngineError>;
+
+/// Errors that can occur during engine operations
+#[derive(Debug, Clone, PartialEq)]
+pub enum EngineError {
+    /// Engine not properly configured (missing API keys, etc.)
+    NotConfigured,
+    
+    /// Network or API error
+    NetworkError(String),
+    
+    /// Audio processing error
+    AudioProcessingError(String),
+    
+    /// Invalid response from API
+    InvalidResponse(String),
+    
+    /// Rate limiting or quota exceeded
+    RateLimited(String),
+    
+    /// Unknown error
+    Unknown(String),
+}
+
+impl std::fmt::Display for EngineError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EngineError::NotConfigured => write!(f, "Engine not configured"),
+            EngineError::NetworkError(msg) => write!(f, "Network error: {}", msg),
+            EngineError::AudioProcessingError(msg) => write!(f, "Audio processing error: {}", msg),
+            EngineError::InvalidResponse(msg) => write!(f, "Invalid response: {}", msg),
+            EngineError::RateLimited(msg) => write!(f, "Rate limited: {}", msg),
+            EngineError::Unknown(msg) => write!(f, "Unknown error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for EngineError {}
+
+/// Trait for ASR (Automatic Speech Recognition) engines
+/// 
+/// Implement this trait to add support for different speech recognition
+/// backends. Each engine handles the communication with its respective
+/// API and audio transcription.
 pub trait Engine: Send + Sync {
-    /// Get engine name
+    /// Get the human-readable name of this engine
+    /// 
+    /// # Returns
+    /// A string identifier for the engine (e.g., "OpenAI", "Volcengine BigModel")
     fn name(&self) -> &str;
 
-    /// Check if engine is available (has required credentials)
+    /// Check if engine is properly configured and ready to use
+    /// 
+    /// # Returns
+    /// true if required credentials are present, false otherwise
     fn is_available(&self) -> bool;
 
-    /// Transcribe audio to text
-    fn transcribe(&self, audio_data: &[u8], language: &str) -> Result<String, String>;
+    /// Transcribe audio data to text
+    /// 
+    /// # Arguments
+    /// * `audio_data` - WAV-encoded audio bytes
+    /// * `language` - ISO language code (e.g., "zh", "en")
+    /// 
+    /// # Returns
+    /// Transcription result or error
+    fn transcribe(&self, audio_data: &[u8], language: &str) -> EngineResult;
 
     /// Transcribe with partial results callback
+    /// 
+    /// This method supports streaming transcription where partial
+    /// results are provided via the callback as transcription progresses.
+    /// 
+    /// # Arguments
+    /// * `audio_data` - WAV-encoded audio bytes
+    /// * `language` - ISO language code
+    /// * `callback` - Function to receive partial results
+    /// 
+    /// # Returns
+    /// Final transcription result or error
     fn transcribe_with_callback(
         &self,
         audio_data: &[u8],
         language: &str,
         callback: PartialResultCallback,
-    ) -> Result<String, String> {
-        // Default implementation ignores callback
+    ) -> EngineResult {
+        // Default implementation ignores callback for non-streaming engines
         let _ = callback;
         self.transcribe(audio_data, language)
     }
 
-    /// Check if engine supports streaming
+    /// Check if engine supports streaming transcription
+    /// 
+    /// # Returns
+    /// true if streaming is supported, false otherwise
     fn supports_streaming(&self) -> bool {
         false
     }
 }
 
-/// Create engine based on configuration
+/// Create an engine based on configuration
+/// 
+/// This function instantiates the appropriate engine based on the
+/// current configuration settings. If the configured engine is not
+/// available (missing credentials), a warning is logged and None
+/// is returned.
+/// 
+/// # Arguments
+/// * `config` - Application configuration
+/// 
+/// # Returns
+/// Some(Box<dyn Engine>) if engine is available, None otherwise
 pub fn create_engine(config: &Config) -> Option<Box<dyn Engine + Send + Sync>> {
     match config.engine.current.as_str() {
         "volc_bigmodel" => {
@@ -47,9 +133,10 @@ pub fn create_engine(config: &Config) -> Option<Box<dyn Engine + Send + Sync>> {
                 &config.engine.volc_bigmodel.access_key,
             );
             if engine.is_available() {
+                info!("Using Volcengine BigModel engine");
                 Some(Box::new(engine))
             } else {
-                log::warn!("Volcengine BigModel engine not configured");
+                warn!("Volcengine BigModel engine not configured (missing credentials)");
                 None
             }
         }
@@ -60,14 +147,15 @@ pub fn create_engine(config: &Config) -> Option<Box<dyn Engine + Send + Sync>> {
                 &config.engine.openai.base_url,
             );
             if engine.is_available() {
+                info!("Using OpenAI engine (model: {})", config.engine.openai.model);
                 Some(Box::new(engine))
             } else {
-                log::warn!("OpenAI engine not configured");
+                warn!("OpenAI engine not configured (missing API key)");
                 None
             }
         }
         _ => {
-            log::error!("Unknown engine: {}", config.engine.current);
+            warn!("Unknown engine: {}, falling back to none", config.engine.current);
             None
         }
     }
