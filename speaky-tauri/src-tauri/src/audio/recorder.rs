@@ -1,6 +1,6 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, SampleRate, Stream, StreamConfig};
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -11,6 +11,7 @@ const CHANNELS: u16 = 1;
 const SAMPLE_WIDTH: u16 = 2; // 16-bit
 
 /// Audio recorder using cpal for cross-platform support
+#[derive(Debug)]
 pub struct AudioRecorder {
     device: Option<Device>,
     stream: Option<Stream>,
@@ -23,6 +24,13 @@ pub struct AudioRecorder {
 
 impl AudioRecorder {
     /// Create a new audio recorder
+    /// 
+    /// # Arguments
+    /// * `device_index` - Optional index of audio device to use
+    /// * `gain` - Audio gain factor (clamped between 0.1 and 5.0)
+    /// 
+    /// # Returns
+    /// A new AudioRecorder instance
     pub fn new(device_index: Option<u32>, gain: f64) -> Self {
         let host = cpal::default_host();
 
@@ -35,12 +43,9 @@ impl AudioRecorder {
         };
 
         if device.is_none() {
-            warn!("No audio input device found");
-        } else {
-            info!(
-                "Audio device: {:?}",
-                device.as_ref().and_then(|d| d.name().ok())
-            );
+            warn!("No audio input device found, recording may not work");
+        } else if let Ok(device_name) = device.as_ref().unwrap().name() {
+            info!("Using audio device: {}", device_name);
         }
 
         Self {
@@ -55,6 +60,9 @@ impl AudioRecorder {
     }
 
     /// Get list of available input devices
+    /// 
+    /// # Returns
+    /// Vector of tuples containing (device_index, device_name)
     pub fn get_devices() -> Vec<(u32, String)> {
         let host = cpal::default_host();
         let mut devices = Vec::new();
@@ -66,6 +74,7 @@ impl AudioRecorder {
             }
         }
 
+        debug!("Found {} audio input devices", devices.len());
         devices
     }
 
@@ -86,8 +95,15 @@ impl AudioRecorder {
     }
 
     /// Start recording
+    /// 
+    /// # Returns
+    /// Result indicating success or error message
+    /// 
+    /// # Notes
+    /// If already recording, this is a no-op and returns Ok(())
     pub fn start(&mut self) -> Result<(), String> {
         if self.is_recording.load(Ordering::SeqCst) {
+            debug!("Already recording, ignoring start request");
             return Ok(());
         }
 
@@ -120,7 +136,7 @@ impl AudioRecorder {
                         return;
                     }
 
-                    // Apply gain
+                    // Apply gain with clamping to prevent overflow
                     let processed: Vec<i16> = data
                         .iter()
                         .map(|&s| {
@@ -130,8 +146,12 @@ impl AudioRecorder {
                         .collect();
 
                     // Calculate audio level from current chunk
+                    if processed.is_empty() {
+                        return;
+                    }
+                    
                     let sum: i64 = processed.iter().map(|&s| (s as i64).abs()).sum();
-                    let avg = sum as f32 / processed.len().max(1) as f32;
+                    let avg = sum as f32 / processed.len() as f32;
                     let level = (avg / 32768.0).min(1.0);
 
                     // Emit audio level callback
@@ -146,17 +166,28 @@ impl AudioRecorder {
                 },
                 None,
             )
-            .map_err(|e| format!("Failed to build stream: {}", e))?;
+            .map_err(|e| format!("Failed to build audio stream: {}", e))?;
 
-        stream.play().map_err(|e| format!("Failed to play stream: {}", e))?;
+        stream.play().map_err(|e| format!("Failed to start audio stream: {}", e))?;
         self.stream = Some(stream);
 
-        info!("Recording started");
+        info!("Recording started successfully");
         Ok(())
     }
 
     /// Stop recording and return WAV data
+    /// 
+    /// # Returns
+    /// WAV-encoded audio data as bytes
+    /// 
+    /// # Notes
+    /// Returns empty Vec if no audio was captured
     pub fn stop(&mut self) -> Vec<u8> {
+        if !self.is_recording.load(Ordering::SeqCst) {
+            debug!("Not recording, stop is no-op");
+            return Vec::new();
+        }
+        
         self.is_recording.store(false, Ordering::SeqCst);
 
         if let Some(stream) = self.stream.take() {
@@ -171,7 +202,7 @@ impl AudioRecorder {
 
         let wav_data = self.create_wav(&frames);
         info!(
-            "Recording stopped, {} frames, {} bytes WAV",
+            "Recording stopped: {} frames, {} bytes WAV",
             frames.len(),
             wav_data.len()
         );
@@ -179,6 +210,9 @@ impl AudioRecorder {
     }
 
     /// Check if currently recording
+    /// 
+    /// # Returns
+    /// true if recording, false otherwise
     pub fn is_recording(&self) -> bool {
         self.is_recording.load(Ordering::SeqCst)
     }
