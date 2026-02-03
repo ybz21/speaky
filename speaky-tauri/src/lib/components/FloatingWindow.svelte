@@ -64,20 +64,16 @@
     },
   };
 
-  function getStatusText(state: string, trans: (key: string) => string): string {
-    switch (state) {
-      case "recording":
-        return trans("listening");
-      case "recognizing":
-        return trans("recognizing");
-      case "done":
-        return trans("done");
-      case "error":
-        return trans("error");
-      default:
-        return "";
-    }
-  }
+  const STATE_TRANS_KEYS: Record<string, string> = {
+    recording: "listening",
+    recognizing: "recognizing",
+    done: "done",
+    error: "error",
+  };
+
+  $: statusText = $appState.recordingState in STATE_TRANS_KEYS
+    ? $t(STATE_TRANS_KEYS[$appState.recordingState])
+    : "";
 
   function formatResultText(text: string): { primary: string; secondary: string } {
     if (!text) return { primary: "", secondary: "" };
@@ -111,7 +107,6 @@
   }
 
   $: colors = STATE_COLORS[$appState.recordingState] || STATE_COLORS.idle;
-  $: statusText = getStatusText($appState.recordingState, $t);
   $: formattedText = formatResultText($displayText);
   $: isAnimating =
     $appState.recordingState === "recording" ||
