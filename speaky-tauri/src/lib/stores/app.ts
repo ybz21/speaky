@@ -44,10 +44,7 @@ function createAppStore() {
       })),
 
     setRecognizing: () =>
-      update((state) => ({
-        ...state,
-        recordingState: "recognizing",
-      })),
+      update((state) => ({ ...state, recordingState: "recognizing" })),
 
     updateAudioLevel: (level: number) =>
       update((state) => ({
@@ -56,10 +53,7 @@ function createAppStore() {
       })),
 
     updatePartialResult: (text: string) =>
-      update((state) => ({
-        ...state,
-        partialResult: text,
-      })),
+      update((state) => ({ ...state, partialResult: text })),
 
     setResult: (text: string) =>
       update((state) => ({
@@ -70,18 +64,10 @@ function createAppStore() {
       })),
 
     setError: (message: string) =>
-      update((state) => ({
-        ...state,
-        recordingState: "error",
-        errorMessage: message,
-      })),
+      update((state) => ({ ...state, recordingState: "error", errorMessage: message })),
 
     setAppInfo: (name: string, icon: string | null) =>
-      update((state) => ({
-        ...state,
-        appName: name,
-        appIcon: icon,
-      })),
+      update((state) => ({ ...state, appName: name, appIcon: icon })),
 
     reset: () => set(initialState),
 
