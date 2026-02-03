@@ -1,34 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { config, type Config } from "../stores/config";
+  import { config, type Config, defaultConfig } from "../stores/config";
   import { t, locale, locales, type Locale } from "../stores/i18n";
   import { getAudioDevices } from "../utils/tauri";
 
   let currentTab = "core";
-  let localConfig: Config = {
-    core: {
-      asr: {
-        hotkey: "ctrl",
-        hotkey_hold_time: 1.0,
-        language: "zh",
-        streaming_mode: true,
-        audio_device: null,
-        audio_gain: 1.0,
-        sound_notification: true,
-      },
-    },
-    engine: {
-      current: "volc_bigmodel",
-      volc_bigmodel: { app_key: "", access_key: "" },
-      openai: { api_key: "", model: "gpt-4o-transcribe", base_url: "https://api.openai.com/v1" },
-    },
-    appearance: {
-      theme: "auto",
-      ui_language: "auto",
-      show_waveform: true,
-      window_opacity: 0.9,
-    },
-  };
+  let localConfig: Config = JSON.parse(JSON.stringify(defaultConfig));
   let audioDevices: Array<{ index: number; name: string }> = [];
   let saving = false;
 
