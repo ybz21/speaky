@@ -1,5 +1,5 @@
 use base64::Engine;
-use log::{error, info};
+use log::{debug, error, info};
 use parking_lot::Mutex;
 use rdev::{listen, Event, EventType, Key};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -8,8 +8,13 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::APP_STATE;
+use crate::window_info::WindowInfo;
 
 /// Hotkey manager for handling press-and-hold detection
+///
+/// This manager monitors keyboard events and triggers actions when the
+/// configured hotkey is held for a specified duration.
+#[derive(Debug)]
 pub struct HotkeyManager {
     hotkey: Arc<Mutex<String>>,
     target_key: Arc<Mutex<Key>>,
@@ -21,9 +26,16 @@ pub struct HotkeyManager {
 }
 
 impl HotkeyManager {
+    /// Create a new hotkey manager
+    ///
+    /// # Arguments
+    /// * `hotkey` - String representation of the hotkey
+    /// * `hold_time` - Duration (in seconds) the key must be held to trigger
     pub fn new(hotkey: &str, hold_time: f64) -> Self {
         let hotkey_lower = hotkey.to_lowercase();
         let target_key = parse_hotkey(&hotkey_lower).unwrap_or(Key::ControlLeft);
+        info!("Initializing HotkeyManager: key={:?}, hold_time={}s", target_key, hold_time);
+
         Self {
             hotkey: Arc::new(Mutex::new(hotkey_lower)),
             target_key: Arc::new(Mutex::new(target_key)),
@@ -35,10 +47,15 @@ impl HotkeyManager {
         }
     }
 
+    /// Set the application handle for event emission
     pub fn set_app_handle(&self, app: AppHandle) {
         *self.app_handle.lock() = Some(app);
     }
 
+    /// Update the hotkey configuration
+    ///
+    /// # Arguments
+    /// * `hotkey` - New hotkey string
     pub fn update_hotkey(&self, hotkey: &str) {
         let hotkey_lower = hotkey.to_lowercase();
         if let Some(key) = parse_hotkey(&hotkey_lower) {
@@ -50,23 +67,32 @@ impl HotkeyManager {
         }
     }
 
+    /// Update the hold time configuration
+    ///
+    /// # Arguments
+    /// * `hold_time` - New hold time in seconds
     pub fn update_hold_time(&self, hold_time: f64) {
         *self.hold_time.lock() = Duration::from_secs_f64(hold_time);
+        debug!("Hold time updated to: {}s", hold_time);
     }
 
+    /// Get the current hotkey string
     pub fn get_hotkey(&self) -> String {
         self.hotkey.lock().clone()
     }
 
+    /// Get the current target key
     pub fn get_target_key(&self) -> Key {
         *self.target_key.lock()
     }
 
+    /// Get the current hold time duration
     pub fn get_hold_time(&self) -> Duration {
         *self.hold_time.lock()
     }
 
-    pub fn on_press(&self) {
+    /// Handle hotkey press event
+    fn on_press(&self) {
         let app = match self.app_handle.lock().clone() {
             Some(app) => app,
             None => return,
@@ -76,7 +102,9 @@ impl HotkeyManager {
         if press_time.is_none() {
             *press_time = Some(Instant::now());
             let hotkey = self.get_hotkey();
-            info!("Hotkey {} pressed, waiting for hold...", hotkey);
+            info!("Hotkey '{}' pressed, waiting {}s for hold...",
+                  hotkey,
+                  self.get_hold_time().as_secs_f64());
 
             // Spawn a timer to check hold time
             let hold_time = self.get_hold_time();
@@ -88,96 +116,100 @@ impl HotkeyManager {
             std::thread::spawn(move || {
                 std::thread::sleep(hold_time);
 
-                // Check if still pressed
+                // Check if still pressed and not already triggered
                 if press_time_arc.lock().is_some() && !hold_triggered.load(Ordering::SeqCst) {
                     hold_triggered.store(true, Ordering::SeqCst);
-                    info!("Hold time reached, starting recording");
-
-                    // Start recording
-                    is_recording.store(true, Ordering::SeqCst);
-
-                    // Get focused window info BEFORE showing our window
-                    let window_info = crate::window_info::get_focused_window_info();
-
-                    // Save app info to state for later retrieval
-                    if let Some(info) = &window_info {
-                        let icon_data = info.icon_path.as_ref().and_then(|path| {
-                            std::fs::read(path).ok().map(|data| {
-                                let ext = std::path::Path::new(path)
-                                    .extension()
-                                    .and_then(|e| e.to_str())
-                                    .unwrap_or("png");
-                                let mime = match ext {
-                                    "svg" => "image/svg+xml",
-                                    "png" => "image/png",
-                                    "jpg" | "jpeg" => "image/jpeg",
-                                    _ => "image/png",
-                                };
-                                format!(
-                                    "data:{};base64,{}",
-                                    mime,
-                                    base64::engine::general_purpose::STANDARD.encode(&data)
-                                )
-                            })
-                        });
-
-                        info!(
-                            "Saving app info: {} (icon: {})",
-                            info.app_name,
-                            icon_data.is_some()
-                        );
-
-                        // Save to global state
-                        *APP_STATE.last_focused_app.write() = crate::CachedAppInfo {
-                            name: info.app_name.clone(),
-                            icon: icon_data,
-                        };
-                    }
-
-                    // Show main window
-                    if let Some(window) = app_handle.get_webview_window("main") {
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
-
-                    // Emit recording state event
-                    let _ = app_handle.emit(
-                        "recording-state",
-                        serde_json::json!({
-                            "state": "started"
-                        }),
-                    );
-
-                    // Start audio recording
-                    if let Some(ref mut recorder) = *APP_STATE.recorder.write() {
-                        // Set up audio level callback
-                        let app_for_level = app_handle.clone();
-                        recorder.set_audio_level_callback(move |level| {
-                            // Multiply by 3 to match Python implementation
-                            let _ = app_for_level.emit(
-                                "audio-level",
-                                serde_json::json!({
-                                    "level": level * 3.0
-                                }),
-                            );
-                        });
-
-                        if let Err(e) = recorder.start() {
-                            error!("Failed to start recording: {}", e);
-                            let _ = app_handle.emit(
-                                "recognition-error",
-                                serde_json::json!({
-                                    "message": e
-                                }),
-                            );
-                        }
-                    }
+                    Self::start_recording(&app_handle);
                 }
             });
         }
     }
 
-    pub fn on_release(&self) {
+    /// Start recording after hold threshold reached
+    fn start_recording(app_handle: &AppHandle) {
+        info!("Hold time reached, starting recording");
+        is_recording.store(true, Ordering::SeqCst);
+
+        // Get focused window info BEFORE showing our window
+        let window_info = WindowInfo::get_focused();
+
+        // Save app info to state for later retrieval
+        if let Some(info) = &window_info {
+            let icon_data = info.icon_path.as_ref().and_then(|path| {
+                std::fs::read(path).ok().map(|data| {
+                    let ext = std::path::Path::new(path)
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .unwrap_or("png");
+                    let mime = match ext {
+                        "svg" => "image/svg+xml",
+                        "png" => "image/png",
+                        "jpg" | "jpeg" => "image/jpeg",
+                        _ => "image/png",
+                    };
+                    format!(
+                        "data:{};base64,{}",
+                        mime,
+                        base64::engine::general_purpose::STANDARD.encode(&data)
+                    )
+                })
+            });
+
+            info!(
+                "Saving app info: {} (has icon: {})",
+                info.app_name,
+                icon_data.is_some()
+            );
+
+            // Save to global state
+            *APP_STATE.last_focused_app.write() = crate::CachedAppInfo {
+                name: info.app_name.clone(),
+                icon: icon_data,
+            };
+        }
+
+        // Show main window
+        if let Some(window) = app_handle.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+
+        // Emit recording state event
+        let _ = app_handle.emit(
+            "recording-state",
+            serde_json::json!({
+                "state": "started"
+            }),
+        );
+
+        // Start audio recording
+        if let Some(ref mut recorder) = *APP_STATE.recorder.write() {
+            // Set up audio level callback
+            let app_for_level = app_handle.clone();
+            recorder.set_audio_level_callback(move |level| {
+                // Multiply by 3 to match Python implementation
+                let _ = app_for_level.emit(
+                    "audio-level",
+                    serde_json::json!({
+                        "level": level * 3.0
+                    }),
+                );
+            });
+
+            if let Err(e) = recorder.start() {
+                error!("Failed to start recording: {}", e);
+                let _ = app_handle.emit(
+                    "recognition-error",
+                    serde_json::json!({
+                        "message": e
+                    }),
+                );
+            }
+        }
+    }
+
+    /// Handle hotkey release event
+    fn on_release(&self) {
         let app = match self.app_handle.lock().clone() {
             Some(app) => app,
             None => return,
@@ -188,7 +220,7 @@ impl HotkeyManager {
 
         if self.hold_triggered.swap(false, Ordering::SeqCst) {
             info!("Hotkey released, stopping recording");
-            self.is_recording.store(false, Ordering::SeqCst);
+            is_recording.store(false, Ordering::SeqCst);
 
             // Emit recognizing state
             let _ = app.emit(
@@ -238,12 +270,12 @@ impl HotkeyManager {
                         partial_callback,
                     )
                 } else {
-                    Err("No engine configured".to_string())
+                    Err(crate::engines::EngineError::NotConfigured)
                 };
 
                 match result {
                     Ok(text) => {
-                        info!("Recognition result: {}", text);
+                        info!("Recognition result: {} chars", text.len());
                         let _ = app_handle.emit(
                             "final-result",
                             serde_json::json!({
@@ -271,14 +303,14 @@ impl HotkeyManager {
                         let _ = app_handle.emit(
                             "recognition-error",
                             serde_json::json!({
-                                "message": e
+                                "message": e.to_string()
                             }),
                         );
                     }
                 }
             });
         } else {
-            info!("Released before hold time, ignoring");
+            info!("Released before hold time threshold, ignoring");
         }
     }
 }
@@ -365,7 +397,7 @@ pub fn start_keyboard_listener(app: AppHandle) {
     *APP_STATE.hotkey_manager.write() = Some(manager);
 
     info!(
-        "Starting keyboard listener for hotkey: {} (key: {:?})",
+        "Starting keyboard listener for hotkey: '{}' (key: {:?})",
         hotkey_str,
         parse_hotkey(&hotkey_str)
     );
@@ -404,7 +436,7 @@ pub fn start_keyboard_listener(app: AppHandle) {
         }
     });
 
-    info!("Keyboard listener started");
+    info!("Keyboard listener started successfully");
 }
 
 /// Register global hotkeys (now using rdev for modifier key support)

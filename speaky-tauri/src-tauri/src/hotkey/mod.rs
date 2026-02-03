@@ -1,3 +1,3 @@
 mod listener;
 
-pub use listener::{register_hotkeys, HotkeyManager};
+pub use listener::{HotkeyManager, register_hotkeys, start_keyboard_listener};
