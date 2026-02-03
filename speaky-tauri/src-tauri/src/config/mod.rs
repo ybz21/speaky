@@ -1,7 +1,56 @@
-use log::info;
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use thiserror::Error;
+
+/// Configuration-related errors
+#[derive(Error, Debug)]
+pub enum ConfigError {
+    #[error("Config file not found at {path}")]
+    NotFound { path: PathBuf },
+    
+    #[error("Failed to read config file: {source}")]
+    ReadError { source: std::io::Error },
+    
+    #[error("Failed to parse config YAML: {source}")]
+    ParseError { source: serde_yaml::Error },
+    
+    #[error("Failed to write config file: {source}")]
+    WriteError { source: std::io::Error },
+    
+    #[error("Config directory creation failed: {source}")]
+    DirCreationError { source: std::io::Error },
+    
+    #[error("Invalid config value: {message}")]
+    ValidationError { message: String },
+}
+
+impl ConfigError {
+    fn not_found(path: PathBuf) -> Self {
+        ConfigError::NotFound { path }
+    }
+    
+    fn read_error(source: std::io::Error) -> Self {
+        ConfigError::ReadError { source }
+    }
+    
+    fn parse_error(source: serde_yaml::Error) -> Self {
+        ConfigError::ParseError { source }
+    }
+    
+    fn write_error(source: std::io::Error) -> Self {
+        ConfigError::WriteError { source }
+    }
+    
+    fn dir_creation_error(source: std::io::Error) -> Self {
+        ConfigError::DirCreationError { source }
+    }
+    
+    fn validation_error(message: String) -> Self {
+        ConfigError::ValidationError { message }
+    }
+}
 
 /// ASR configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,6 +101,32 @@ impl Default for AsrConfig {
             audio_gain: default_audio_gain(),
             sound_notification: default_sound_notification(),
         }
+    }
+}
+
+impl AsrConfig {
+    /// Validate ASR configuration
+    pub fn validate(&self) -> Result<(), ConfigError> {
+        // Validate hotkey is not empty
+        if self.hotkey.is_empty() {
+            return Err(ConfigError::validation_error(
+                "Hotkey cannot be empty".to_string(),
+            ));
+        }
+        
+        // Validate hold time is positive
+        if self.hotkey_hold_time <= 0.0 {
+            return Err(ConfigError::validation_error(
+                format!("Hold time must be positive, got {}", self.hotkey_hold_time),
+            ));
+        }
+        
+        // Validate audio gain range
+        if !(0.1..=10.0).contains(&self.audio_gain) {
+            warn!("Audio gain {} outside typical range [0.1, 10.0]", self.audio_gain);
+        }
+        
+        Ok(())
     }
 }
 
@@ -173,6 +248,11 @@ pub struct Config {
 }
 
 impl Config {
+    /// Validate entire configuration
+    pub fn validate(&self) -> Result<(), ConfigError> {
+        self.core.asr.validate()?;
+        Ok(())
+    }
     /// Get the config directory path
     pub fn config_dir() -> PathBuf {
         dirs::config_dir()
@@ -186,7 +266,7 @@ impl Config {
     }
 
     /// Load configuration from file
-    pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn load() -> Result<Self, ConfigError> {
         let path = Self::config_path();
         info!("Loading config from {:?}", path);
 
@@ -195,24 +275,27 @@ impl Config {
             return Ok(Self::default());
         }
 
-        let content = fs::read_to_string(&path)?;
-        let config: Config = serde_yaml::from_str(&content)?;
+        let content = fs::read_to_string(&path).map_err(|e| ConfigError::read_error(e))?;
+        let config: Config = serde_yaml::from_str(&content)
+            .map_err(|e| ConfigError::parse_error(e))?;
         info!("Config loaded successfully");
         Ok(config)
     }
 
     /// Save configuration to file
-    pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn save(&self) -> Result<(), ConfigError> {
         let dir = Self::config_dir();
         if !dir.exists() {
-            fs::create_dir_all(&dir)?;
+            fs::create_dir_all(&dir)
+                .map_err(|e| ConfigError::dir_creation_error(e))?;
         }
 
         let path = Self::config_path();
         info!("Saving config to {:?}", path);
 
-        let content = serde_yaml::to_string(self)?;
-        fs::write(&path, content)?;
+        let content = serde_yaml::to_string(self)
+            .map_err(|e| ConfigError::parse_error(e))?;
+        fs::write(&path, content).map_err(|e| ConfigError::write_error(e))?;
         info!("Config saved successfully");
         Ok(())
     }
