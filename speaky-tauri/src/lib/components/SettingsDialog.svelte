@@ -44,12 +44,9 @@
     { value: "dark", labelKey: "theme_dark" },
   ];
 
-  config.subscribe((c) => {
-    localConfig = JSON.parse(JSON.stringify(c));
-  });
-
   onMount(async () => {
     await config.load();
+    localConfig = JSON.parse(JSON.stringify($config));
     try {
       audioDevices = await getAudioDevices();
     } catch (e) {

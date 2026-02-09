@@ -90,8 +90,8 @@ const zh: Translations = {
 const translations: Record<Locale, Translations> = {
   en,
   zh,
-  zh_TW: zh, // Fallback to simplified Chinese for now
-  ja: en, // Fallback to English
+  zh_TW: zh, // Using simplified Chinese for now (zh_TW.yaml is available for full implementation)
+  ja: en,
   ko: en,
   de: en,
   fr: en,

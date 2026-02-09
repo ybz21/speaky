@@ -70,8 +70,16 @@ pub fn run() {
                 let config = APP_STATE.config.read();
                 let device_index = config.core.asr.audio_device;
                 let gain = config.core.asr.audio_gain;
-                let recorder = AudioRecorder::new(device_index, gain);
-                *APP_STATE.recorder.write() = Some(recorder);
+                match AudioRecorder::new(device_index, gain) {
+                    Ok(recorder) => {
+                        *APP_STATE.recorder.write() = Some(recorder);
+                        info!("Audio recorder initialized successfully");
+                    }
+                    Err(e) => {
+                        error!("Failed to initialize audio recorder: {}", e);
+                        *APP_STATE.recorder.write() = None;
+                    }
+                }
             }
 
             // Initialize engine based on config

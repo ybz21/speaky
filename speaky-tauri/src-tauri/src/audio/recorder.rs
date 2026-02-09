@@ -24,14 +24,14 @@ pub struct AudioRecorder {
 
 impl AudioRecorder {
     /// Create a new audio recorder
-    /// 
+    ///
     /// # Arguments
     /// * `device_index` - Optional index of audio device to use
     /// * `gain` - Audio gain factor (clamped between 0.1 and 5.0)
-    /// 
+    ///
     /// # Returns
     /// A new AudioRecorder instance
-    pub fn new(device_index: Option<u32>, gain: f64) -> Self {
+    pub fn new(device_index: Option<u32>, gain: f64) -> Result<Self, String> {
         let host = cpal::default_host();
 
         let device = if let Some(index) = device_index {
@@ -42,21 +42,22 @@ impl AudioRecorder {
             host.default_input_device()
         };
 
+        let clamped_gain = gain.clamp(0.1, 5.0);
         if device.is_none() {
             warn!("No audio input device found, recording may not work");
         } else if let Ok(device_name) = device.as_ref().unwrap().name() {
-            info!("Using audio device: {}", device_name);
+            info!("Using audio device: {} with gain {}", device_name, clamped_gain);
         }
 
-        Self {
+        Ok(Self {
             device,
             stream: None,
             frames: Arc::new(Mutex::new(Vec::new())),
             is_recording: Arc::new(AtomicBool::new(false)),
-            gain: gain.clamp(0.1, 5.0),
+            gain: clamped_gain,
             audio_level_callback: Arc::new(Mutex::new(None)),
             audio_data_callback: None,
-        }
+        })
     }
 
     /// Get list of available input devices
