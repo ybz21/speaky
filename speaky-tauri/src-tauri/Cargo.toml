@@ -21,7 +21,14 @@ tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-clipboard-manager = "2"
 
 # Async runtime
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = [
+    "rt",
+    "rt-multi-thread",
+    "macros",
+    "sync",
+    "time",
+    "io-util",
+] }
 
 # Audio
 cpal = "0.15"
@@ -31,7 +38,7 @@ tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
 futures-util = "0.3"
 
 # HTTP client
-reqwest = { version = "0.12", features = ["json", "multipart", "native-tls", "blocking"] }
+reqwest = { version = "0.12", features = ["json", "multipart", "native-tls"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
