@@ -10,16 +10,21 @@ const SAMPLE_RATE: u32 = 16000;
 const CHANNELS: u16 = 1;
 const SAMPLE_WIDTH: u16 = 2; // 16-bit
 
+/// Thread-safe wrapper for cpal Stream
+/// cpal::Stream doesn't implement Send/Sync, so we need to protect it with a Mutex
+/// and only allow access through our controlled methods
+struct StreamHandle(Option<Stream>);
+
 /// Audio recorder using cpal for cross-platform support
 #[derive(Debug)]
 pub struct AudioRecorder {
     device: Option<Device>,
-    stream: Option<Stream>,
+    stream: Mutex<StreamHandle>,
     frames: Arc<Mutex<Vec<i16>>>,
     is_recording: Arc<AtomicBool>,
     gain: f64,
     audio_level_callback: Arc<Mutex<Option<Box<dyn Fn(f32) + Send + Sync>>>>,
-    audio_data_callback: Option<Box<dyn Fn(&[u8]) + Send + Sync>>,
+    audio_data_callback: Arc<Mutex<Option<Box<dyn Fn(&[u8]) + Send + Sync>>>>,
 }
 
 impl AudioRecorder {
@@ -51,12 +56,12 @@ impl AudioRecorder {
 
         Ok(Self {
             device,
-            stream: None,
+            stream: Mutex::new(StreamHandle(None)),
             frames: Arc::new(Mutex::new(Vec::new())),
             is_recording: Arc::new(AtomicBool::new(false)),
             gain: clamped_gain,
             audio_level_callback: Arc::new(Mutex::new(None)),
-            audio_data_callback: None,
+            audio_data_callback: Arc::new(Mutex::new(None)),
         })
     }
 
@@ -92,7 +97,7 @@ impl AudioRecorder {
     where
         F: Fn(&[u8]) + Send + Sync + 'static,
     {
-        self.audio_data_callback = Some(Box::new(callback));
+        *self.audio_data_callback.lock() = Some(Box::new(callback));
     }
 
     /// Start recording
@@ -170,7 +175,7 @@ impl AudioRecorder {
             .map_err(|e| format!("Failed to build audio stream: {}", e))?;
 
         stream.play().map_err(|e| format!("Failed to start audio stream: {}", e))?;
-        self.stream = Some(stream);
+        self.stream.lock().0 = Some(stream);
 
         info!("Recording started successfully");
         Ok(())
@@ -191,7 +196,7 @@ impl AudioRecorder {
         
         self.is_recording.store(false, Ordering::SeqCst);
 
-        if let Some(stream) = self.stream.take() {
+        if let Some(stream) = self.stream.lock().0.take() {
             drop(stream);
         }
 
@@ -284,10 +289,10 @@ impl AudioRecorder {
 impl Drop for AudioRecorder {
     fn drop(&mut self) {
         self.is_recording.store(false, Ordering::SeqCst);
-        self.stream.take();
+        self.stream.lock().0.take();
     }
 }
 
-// AudioRecorder is Send + Sync because all its fields are thread-safe
+// Make AudioRecorder thread-safe by using Arc<Mutex<>> internally
 unsafe impl Send for AudioRecorder {}
 unsafe impl Sync for AudioRecorder {}
