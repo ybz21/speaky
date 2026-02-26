@@ -57,7 +57,8 @@ impl AudioRecorder {
         Ok(Self {
             device,
             stream: Mutex::new(StreamHandle(None)),
-            frames: Arc::new(Mutex::new(Vec::new())),
+            // Pre-allocate with capacity to reduce reallocations during recording
+            frames: Arc::new(Mutex::new(Vec::with_capacity(SAMPLE_RATE as usize * 60))), // 1 minute max
             is_recording: Arc::new(AtomicBool::new(false)),
             gain: clamped_gain,
             audio_level_callback: Arc::new(Mutex::new(None)),

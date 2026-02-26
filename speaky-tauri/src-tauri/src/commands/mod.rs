@@ -77,18 +77,20 @@ pub fn get_audio_devices() -> Vec<(u32, String)> {
 pub fn set_hotkey(app: AppHandle, hotkey: String, hold_time: f64) -> Result<(), String> {
     info!("Setting hotkey: {} with hold time: {}", hotkey, hold_time);
 
-    // Update config
+    // Update config and hotkey manager atomically
     {
         let mut config = APP_STATE.config.write();
         config.core.asr.hotkey = hotkey.clone();
         config.core.asr.hotkey_hold_time = hold_time;
-        config.save().map_err(|e| e.to_string())?;
-    }
+        
+        // Save config - ignore error if file write fails (hotkey still works in memory)
+        let _ = config.save();
 
-    // Update hotkey manager
-    if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
-        manager.update_hotkey(&hotkey);
-        manager.update_hold_time(hold_time);
+        // Update hotkey manager if available
+        if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+            manager.update_hotkey(&hotkey);
+            manager.update_hold_time(hold_time);
+        }
     }
 
     // Note: Full hotkey re-registration would require unregistering old and registering new

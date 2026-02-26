@@ -22,7 +22,12 @@ impl OpenAIEngine {
     /// * `model` - Model name (e.g., "whisper-1", "gpt-4o-transcribe")
     /// * `base_url` - Base URL for API requests
     pub fn new(api_key: &str, model: &str, base_url: &str) -> Self {
-        let client = reqwest::Client::new();
+        // Reusable HTTP client with timeout
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(60))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
+        
         Self {
             api_key: api_key.to_string(),
             model: model.to_string(),

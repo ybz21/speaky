@@ -4,6 +4,7 @@ use flate2::write::GzEncoder;
 use flate2::Compression;
 use futures_util::{SinkExt, StreamExt};
 use log::{debug, error, info};
+use once_cell::sync::Lazy;
 use std::io::Write;
 use tokio::runtime::Runtime;
 use tokio_tungstenite::{
@@ -11,6 +12,17 @@ use tokio_tungstenite::{
     tungstenite::{http::Request, Message},
 };
 use uuid::Uuid;
+
+/// Global Tokio runtime for WebSocket connections
+/// Using a static runtime avoids creating a new runtime for each transcription
+static RUNTIME: Lazy<Runtime> = Lazy::new(|| {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .thread_name("speaky-ws")
+        .worker_threads(2)
+        .build()
+        .expect("Failed to create Tokio runtime")
+});
 
 // Protocol constants
 const PROTOCOL_VERSION: u8 = 0b0001;
@@ -321,8 +333,8 @@ impl Engine for VolcBigModelEngine {
     }
 
     fn transcribe(&self, audio_data: &[u8], language: &str) -> Result<String, String> {
-        let rt = Runtime::new().map_err(|e| e.to_string())?;
-        rt.block_on(self.transcribe_async(audio_data, language, None))
+        // Use global runtime instead of creating a new one each time
+        RUNTIME.block_on(self.transcribe_async(audio_data, language, None))
     }
 
     fn transcribe_with_callback(
@@ -331,8 +343,8 @@ impl Engine for VolcBigModelEngine {
         language: &str,
         callback: super::PartialResultCallback,
     ) -> Result<String, String> {
-        let rt = Runtime::new().map_err(|e| e.to_string())?;
-        rt.block_on(self.transcribe_async(audio_data, language, Some(callback)))
+        // Use global runtime instead of creating a new one each time
+        RUNTIME.block_on(self.transcribe_async(audio_data, language, Some(callback)))
     }
 
     fn supports_streaming(&self) -> bool {
