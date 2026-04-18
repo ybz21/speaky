@@ -12,11 +12,10 @@ DEFAULT_CONFIG = {
         "asr": {
             "hotkey": "ctrl",
             "hotkey_hold_time": 1.0,  # 长按多少秒后开始录音
-            "language": "zh",  # 识别语言: zh, en, ja, ko
-            "streaming_mode": True,  # 流式识别
             "audio_device": None,  # 音频设备索引，None 表示默认设备
             "audio_gain": 1.0,  # 录音增益，1.0 为原始音量，2.0 为 2 倍放大
             "sound_notification": True,  # 开始/结束录音时播放提示音
+            "llm_polish": False,  # AI 润色
         },
 
         # AI 键
@@ -73,29 +72,15 @@ DEFAULT_CONFIG = {
 
     # ========== 引擎设置 (Engine) ==========
     "engine": {
-        "current": "volc_bigmodel",  # 当前引擎
+        "current": "volc_bigmodel",  # 当前引擎: volc_bigmodel 或 local
 
-        # 1. 火山引擎-语音识别大模型 (固定使用 bigmodel_async)
+        # 火山引擎-语音识别大模型
         "volc_bigmodel": {
             "app_key": "",
             "access_key": "",
         },
 
-        # 2. 火山引擎-一句话识别
-        "volcengine": {
-            "app_id": "",
-            "access_key": "",
-            "secret_key": "",
-        },
-
-        # 3. OpenAI (原生 & 兼容)
-        "openai": {
-            "api_key": "",
-            "model": "gpt-4o-transcribe",
-            "base_url": "https://api.openai.com/v1",
-        },
-
-        # 4. 本地模式
+        # 本地模式
         "local": {
             "model": "base",  # tiny, base, small, medium, large
             "device": "auto",  # auto, cpu, cuda
@@ -199,7 +184,7 @@ class Config:
 
     @property
     def language(self) -> str:
-        return self.get("core.asr.language", "zh")
+        return self.get("core.asr.language", "auto")
 
 
 config = Config()

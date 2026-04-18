@@ -15,6 +15,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+LLM_POLISH_PROMPT = """请润色以下语音识别的文本，使其更通顺、准确。要求：
+1. 修正明显的语音识别错误
+2. 添加适当的标点符号
+3. 保持原意不变，不要添加或删除内容
+4. 直接输出润色后的文本，不要有任何解释或前缀
+
+原文：
+{text}"""
+
 
 class VoiceModeHandler(BaseModeHandler):
     """语音输入模式处理器
@@ -70,14 +79,73 @@ class VoiceModeHandler(BaseModeHandler):
         engine_name = self._engine.name if self._engine else ""
         add_to_history(text, engine_name)
 
+        # 检查是否启用 LLM 润色
+        if self._config.get("core.asr.llm_polish", False):
+            self._polish_and_input(text)
+        else:
+            self._finish_input(text)
+
+    def _finish_input(self, text: str):
+        """显示结果并输入文本"""
         self._floating_window.show_result(text)
 
-        # 在后台线程执行输入，避免阻塞主线程导致定时器延迟
         def do_type():
-            time.sleep(0.1)  # 等待 100ms
+            time.sleep(0.1)
             self._input_method.type_text(text)
 
         logger.info("[Voice] 100ms后输入文本")
+        threading.Thread(target=do_type, daemon=True).start()
+
+    def _polish_and_input(self, text: str):
+        """通过 LLM 润色文本后再输入"""
+        from speaky.i18n import t
+        self._floating_window.show_recognizing()
+        self._floating_window.update_partial_result(t("polishing"))
+
+        def do_polish():
+            try:
+                from openai import OpenAI
+                api_key = self._config.get("llm.openai.api_key", "")
+                base_url = (self._config.get("llm.openai.base_url", "") or "https://api.openai.com/v1").strip()
+                model = self._config.get("llm.openai.model", "") or "gpt-4o-mini"
+
+                if not api_key:
+                    logger.warning("[Voice] LLM polish enabled but no API key, skipping")
+                    self._do_finish_input(text)
+                    return
+
+                client = OpenAI(api_key=api_key, base_url=base_url)
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": LLM_POLISH_PROMPT.format(text=text)}],
+                    temperature=0.3,
+                    max_tokens=len(text) * 3 + 100,
+                )
+                polished = response.choices[0].message.content.strip()
+                logger.info(f"[Voice] LLM 润色完成: {polished[:50]}...")
+
+                # 用润色后的文本完成输入（通过信号回到主线程）
+                from speaky.history import add_to_history
+                engine_name = self._engine.name if self._engine else ""
+                add_to_history(polished, engine_name + "+llm")
+                self._do_finish_input(polished)
+            except Exception as e:
+                logger.error(f"[Voice] LLM 润色失败: {e}", exc_info=True)
+                # 润色失败，使用原始文本
+                self._do_finish_input(text)
+
+        threading.Thread(target=do_polish, daemon=True).start()
+
+    def _do_finish_input(self, text: str):
+        """在后台线程中完成输入（线程安全）"""
+        # 使用 partial_result 信号更新 UI（回到主线程）
+        self._signals.partial_result.emit(text)
+        self._floating_window.show_result(text)
+
+        def do_type():
+            time.sleep(0.1)
+            self._input_method.type_text(text)
+
         threading.Thread(target=do_type, daemon=True).start()
 
     def on_recognition_error(self, error: str):

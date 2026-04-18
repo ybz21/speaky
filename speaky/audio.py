@@ -160,10 +160,12 @@ class AudioRecorder:
                     device_id=self._device_id,
                     sample_rate=RATE,
                     nchannels=CHANNELS,
-                    output_format=SAMPLE_FORMAT,
+                    input_format=SAMPLE_FORMAT,
                     buffersize_msec=int(CHUNK * 1000 / RATE),
                 )
-                self._capture.start(self._audio_callback)
+                gen = self._audio_generator()
+                next(gen)  # prime the generator
+                self._capture.start(gen)
                 logger.info(f"[Recorder] Started in {time.time()-t0:.3f}s")
             except Exception as e:
                 logger.error(f"[Recorder] Failed to start: {e}")
@@ -210,6 +212,13 @@ class AudioRecorder:
             duration = sum(len(f) for f in self._frames) / (RATE * SAMPLE_WIDTH) if frame_count > 0 else 0
             logger.info(f"[Recorder] Stopped, {frame_count} frames, {duration:.2f}s, {len(wav_data)} bytes, took {time.time()-t0:.3f}s")
             return wav_data
+
+    def _audio_generator(self):
+        """Generator-based callback for miniaudio >= 1.70."""
+        while True:
+            data = yield
+            if data:
+                self._audio_callback(bytes(data))
 
     def _apply_gain(self, data: bytes) -> bytes:
         """Apply gain to audio data."""

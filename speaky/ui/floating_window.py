@@ -3,7 +3,7 @@ import math
 import platform
 from PySide6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout,
-    QGraphicsDropShadowEffect
+    QGraphicsDropShadowEffect, QScrollArea
 )
 from PySide6.QtCore import Qt, Signal, QTimer, QPointF, QSize, QRectF
 from PySide6.QtGui import (
@@ -409,7 +409,7 @@ class FloatingWindow(QWidget):
 
         h_layout.addWidget(left_panel)
 
-        # === 右侧：状态 + 双层文本 ===
+        # === 右侧：状态 + 可滚动文本区域 ===
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(0, 4, 0, 4)
@@ -426,6 +426,20 @@ class FloatingWindow(QWidget):
         self._update_status_text("recording")
         right_layout.addWidget(self._status_label)
 
+        # 可滚动文本区域
+        self._scroll_area = QScrollArea()
+        self._scroll_area.setWidgetResizable(True)
+        self._scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+        self._scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._scroll_area.setStyleSheet("background: transparent;")
+
+        scroll_content = QWidget()
+        scroll_content.setStyleSheet("background: transparent;")
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(2)
+
         # 主信息文本（13pt）
         self._text_label = QLabel("")
         text_font = self._text_label.font()
@@ -434,7 +448,7 @@ class FloatingWindow(QWidget):
         self._text_label.setStyleSheet("color: rgba(255,255,255,0.9); background: transparent;")
         self._text_label.setWordWrap(True)
         self._text_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        right_layout.addWidget(self._text_label)
+        scroll_layout.addWidget(self._text_label)
 
         # 次要信息文本（11pt，灰色）
         self._secondary_label = QLabel("")
@@ -444,10 +458,11 @@ class FloatingWindow(QWidget):
         self._secondary_label.setStyleSheet("color: rgba(255,255,255,0.5); background: transparent;")
         self._secondary_label.setWordWrap(True)
         self._secondary_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        right_layout.addWidget(self._secondary_label)
+        scroll_layout.addWidget(self._secondary_label)
 
-        # 弹簧，推动内容靠上
-        right_layout.addStretch(1)
+        scroll_layout.addStretch(1)
+        self._scroll_area.setWidget(scroll_content)
+        right_layout.addWidget(self._scroll_area, 1)
 
         h_layout.addWidget(right_panel, 1)
         layout.addWidget(self._container)
@@ -549,12 +564,19 @@ class FloatingWindow(QWidget):
         self._icon_orb.set_mode("recognizing")
         self._icon_orb.start_animation()
 
+    def _scroll_to_bottom(self):
+        """滚动到文本底部"""
+        vbar = self._scroll_area.verticalScrollBar()
+        vbar.setValue(vbar.maximum())
+
     def update_partial_result(self, text: str):
         if text:
             self._text_label.setText(text)
             self._text_label.setStyleSheet("color: #FFE066; background: transparent;")
             self._secondary_label.setText("")
             self._secondary_label.setVisible(False)
+            # 自动滚动到最新内容
+            QTimer.singleShot(0, self._scroll_to_bottom)
 
     def show_result(self, text: str):
         import time
@@ -706,6 +728,9 @@ class FloatingWindow(QWidget):
         self._secondary_label.setText(secondary_text)
         # 次要信息始终使用灰色
         self._secondary_label.setVisible(bool(secondary_text))
+
+        # 自动滚动到最新内容
+        QTimer.singleShot(0, self._scroll_to_bottom)
 
         # 3. 更新背景
         self._update_llm_background(state)

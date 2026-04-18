@@ -80,11 +80,9 @@ class BaseModeHandler:
         from speaky.sound import play_start_sound
         play_start_sound()
 
-        # Check if we should use real-time streaming
-        streaming_enabled = self._config.get("core.asr.streaming_mode", True)
+        # 如果引擎支持实时流式识别，直接使用
         use_realtime = (
-            streaming_enabled
-            and self._engine is not None
+            self._engine is not None
             and self._engine.supports_realtime_streaming()
         )
 
@@ -231,11 +229,10 @@ class BaseModeHandler:
                     self._emit_recognition_error(self._t("no_engine"))
                     return
 
-                streaming_enabled = self._config.get("core.asr.streaming_mode", True)
-                logger.info(f"Transcribing with engine: {self._engine.name}, streaming={streaming_enabled}")
+                logger.info(f"Transcribing with engine: {self._engine.name}")
 
-                # Use streaming API if engine supports it and streaming is enabled
-                if streaming_enabled and self._engine.supports_streaming():
+                # Use streaming API if engine supports it
+                if self._engine.supports_streaming():
                     def on_partial(partial_text: str):
                         self._signals.partial_result.emit(partial_text)
 

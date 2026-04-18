@@ -210,20 +210,6 @@ class SpeakyApp:
                 threading.Thread(target=self._engine.preload, daemon=True).start()
             else:
                 logger.warning(f"[Local] 模型未下载，请先在设置中下载模型")
-        elif engine_name == "openai":
-            from speaky.engines.openai_engine import OpenAIEngine
-            self._engine = OpenAIEngine(
-                api_key=config.get("engine.openai.api_key", ""),
-                model=config.get("engine.openai.model", "whisper-1"),
-                base_url=config.get("engine.openai.base_url", "https://api.openai.com/v1"),
-            )
-        elif engine_name == "volcengine":
-            from speaky.engines.volcengine_engine import VolcEngineEngine
-            self._engine = VolcEngineEngine(
-                app_id=config.get("engine.volcengine.app_id", ""),
-                access_key=config.get("engine.volcengine.access_key", ""),
-                secret_key=config.get("engine.volcengine.secret_key", ""),
-            )
         elif engine_name == "volc_bigmodel":
             from speaky.engines.volc_bigmodel_engine import VolcBigModelEngine
             self._engine = VolcBigModelEngine(
