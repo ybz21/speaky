@@ -180,10 +180,21 @@ class CorePage(SettingsPage):
         self.llm_api_key.setMinimumWidth(250)
         self.add_card(t("api_key"), self.llm_api_key)
 
-        self.llm_model = LineEdit()
+        # 模型选择（下拉 + 手动输入）
+        model_widget = QWidget()
+        model_layout = QHBoxLayout(model_widget)
+        model_layout.setContentsMargins(0, 0, 0, 0)
+        self.llm_model = EditableComboBox()
         self.llm_model.setPlaceholderText("gpt-4o-mini")
-        self.llm_model.setMinimumWidth(200)
-        self.add_card(t("model"), self.llm_model)
+        self.llm_model.setMinimumWidth(180)
+        self._llm_fetch_btn = PushButton(t("fetch_models"))
+        self._llm_fetch_btn.clicked.connect(self._fetch_models)
+        model_layout.addWidget(self.llm_model)
+        model_layout.addWidget(self._llm_fetch_btn)
+        self.add_card(t("model"), model_widget)
+
+        # api_key 填完后自动拉取模型
+        self.llm_api_key.editingFinished.connect(self._auto_fetch_models)
 
         # ═══════════════ 系统 ═══════════════
         self.add_group_label(t("system_group"))
@@ -243,6 +254,63 @@ class CorePage(SettingsPage):
         self._advanced_btn.setText(
             t("hide_advanced") if self._advanced_visible else t("advanced_settings")
         )
+
+    def _auto_fetch_models(self):
+        """api_key 编辑完成后自动拉取模型列表"""
+        base_url = self.llm_base_url.text().strip()
+        api_key = self.llm_api_key.text().strip()
+        if base_url and api_key and self.llm_model.count() == 0:
+            self._fetch_models()
+
+    def _fetch_models(self):
+        """从 OpenAI 兼容 API 拉取模型列表"""
+        import asyncio
+        import threading
+
+        # 防止重复触发
+        if not self._llm_fetch_btn.isEnabled():
+            return
+
+        base_url = (self.llm_base_url.text().strip() or "https://api.openai.com/v1")
+        api_key = self.llm_api_key.text().strip()
+
+        if not api_key:
+            return
+
+        self._llm_fetch_btn.setEnabled(False)
+        self._llm_fetch_btn.setText(t("fetching"))
+
+        def run():
+            try:
+                from speaky.llm.models import fetch_openai_models
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                result = loop.run_until_complete(fetch_openai_models(base_url, api_key))
+                loop.close()
+                QTimer.singleShot(0, lambda m=result: self._on_models_fetched(m))
+            except Exception:
+                QTimer.singleShot(0, lambda: self._on_models_fetched([]))
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _on_models_fetched(self, models: list):
+        """模型列表拉取完成"""
+        self._llm_fetch_btn.setEnabled(True)
+        self._llm_fetch_btn.setText(t("fetch_models"))
+        if models:
+            current = self.llm_model.currentText()
+            self.llm_model.clear()
+            for m in models:
+                self.llm_model.addItem(m)
+            if current:
+                idx = self.llm_model.findText(current)
+                if idx >= 0:
+                    self.llm_model.setCurrentIndex(idx)
+                else:
+                    self.llm_model.setCurrentText(current)
+            # 缓存模型列表
+            self._config.set("llm.openai.cached_models", models)
+            self._config.save()
 
     def _refresh_audio_devices(self):
         """刷新音频设备列表"""
@@ -725,7 +793,12 @@ class SettingsDialog(FluentWindow):
         # 大模型配置（共用）
         self._core_page.llm_base_url.setText(self._config.get("llm.openai.base_url", ""))
         self._core_page.llm_api_key.setText(self._config.get("llm.openai.api_key", ""))
-        self._core_page.llm_model.setText(self._config.get("llm.openai.model", "gpt-4o-mini"))
+        self._core_page.llm_model.setCurrentText(self._config.get("llm.openai.model", "gpt-4o-mini"))
+        # 加载缓存的模型列表
+        cached_models = self._config.get("llm.openai.cached_models", [])
+        if cached_models:
+            for m in cached_models:
+                self._core_page.llm_model.addItem(m)
 
         # Engine page
         engine = self._config.get("engine.current", "volc_bigmodel")
@@ -793,7 +866,7 @@ class SettingsDialog(FluentWindow):
         # 大模型配置（共用，润色和 LLM Agent 都用这个）
         self._config.set("llm.openai.base_url", self._core_page.llm_base_url.text() or "https://api.openai.com/v1")
         self._config.set("llm.openai.api_key", self._core_page.llm_api_key.text())
-        self._config.set("llm.openai.model", self._core_page.llm_model.text() or "gpt-4o-mini")
+        self._config.set("llm.openai.model", self._core_page.llm_model.currentText() or "gpt-4o-mini")
 
         # Set auto-start
         set_autostart(self._core_page.auto_start.isChecked())

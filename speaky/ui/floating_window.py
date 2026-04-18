@@ -559,6 +559,20 @@ class FloatingWindow(QWidget):
         self._cancel_all_timers()
         self._update_container_style("recognizing")
         self._update_status_text("recognizing")
+        self._text_label.setText("")
+        self._secondary_label.setText("")
+        self._secondary_label.setVisible(False)
+        self._icon_orb.set_mode("recognizing")
+        self._icon_orb.start_animation()
+
+    def show_polishing(self, status_text: str = ""):
+        """显示润色中状态"""
+        logger.info("[浮窗] 显示润色中状态")
+        self._cancel_all_timers()
+        self._update_container_style("recognizing")
+        colors = self.STATE_COLORS.get("recognizing", self.STATE_COLORS["recording"])
+        self._status_label.setText(f'<span style="color: {colors["text"]}">{status_text}</span>')
+        self._text_label.setText("")
         self._secondary_label.setText("")
         self._secondary_label.setVisible(False)
         self._icon_orb.set_mode("recognizing")
@@ -578,13 +592,17 @@ class FloatingWindow(QWidget):
             # 自动滚动到最新内容
             QTimer.singleShot(0, self._scroll_to_bottom)
 
-    def show_result(self, text: str):
+    def show_result(self, text: str, status_text: str = None):
         import time
         self._result_show_time = time.time()
         self._cancel_all_timers()
         logger.info(f"[浮窗] 显示最终结果: {repr(text[:50]) if text else 'None'}...")
         self._update_container_style("done")
-        self._update_status_text("done")
+        if status_text:
+            colors = self.STATE_COLORS.get("done", self.STATE_COLORS["recording"])
+            self._status_label.setText(f'<span style="color: {colors["text"]}">{status_text}</span>')
+        else:
+            self._update_status_text("done")
         # 使用双层显示
         primary, secondary = format_result_text(text)
         self._text_label.setText(primary)
@@ -593,7 +611,7 @@ class FloatingWindow(QWidget):
         self._secondary_label.setVisible(bool(secondary))
         self._icon_orb.set_mode("done")
         self._schedule_stop_animation(500)
-        self._schedule_hide(500)
+        self._schedule_hide(1500)
 
     def _do_hide(self):
         import time

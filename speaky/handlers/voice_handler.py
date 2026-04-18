@@ -1,6 +1,8 @@
 """Voice input mode handler"""
 
+import json
 import logging
+import re
 import time
 import threading
 from typing import Optional, Callable, TYPE_CHECKING
@@ -15,93 +17,94 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-LLM_POLISH_PROMPT = """请润色以下语音识别的文本，使其更通顺、准确。要求：
-1. 修正明显的语音识别错误
-2. 添加适当的标点符号
-3. 保持原意不变，不要添加或删除内容
-4. 直接输出润色后的文本，不要有任何解释或前缀
+LLM_POLISH_PROMPT = """你是语音转文字润色助手。请润色以下语音识别文本：
+1. 修正错别字和同音字
+2. 添加标点，合理分句分段
+3. 去除口语冗余词（嗯、那个、就是说等）
+4. 如果内容包含多个要点或任务，用分点列出使其更有条理
+5. 保持原意，代码和英文专有名词不改
+6. 直接输出润色后的文本，不要解释
 
-原文：
-{text}"""
+原文：{text}"""
+
+
+def clean_llm_output(raw: str) -> str:
+    """清理 LLM 输出：去除 think 标签、引号包裹等"""
+    # 去除 <think>...</think>（闭合的）
+    text = re.sub(r'<think>[\s\S]*?</think>', '', raw).strip()
+    # 去除未闭合的 <think>...（被截断时）
+    text = re.sub(r'<think>[\s\S]*$', '', text).strip()
+    # 去除可能的引号包裹
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+        text = text[1:-1]
+    # 尝试从 JSON 提取（兼容某些模型）
+    if text.startswith('{'):
+        try:
+            return json.loads(text).get("text", text)
+        except (json.JSONDecodeError, AttributeError):
+            pass
+    return text
 
 
 class VoiceModeHandler(BaseModeHandler):
-    """语音输入模式处理器
-
-    处理普通语音输入：
-    1. 按下快捷键 -> 保存焦点 -> 开始录音
-    2. 松开快捷键 -> 停止录音 -> 识别
-    3. 识别完成 -> 显示结果 -> 输入文本到原窗口
-    """
-
-    def __init__(
-        self,
-        signals: "QObject",
-        recorder: "AudioRecorder",
-        engine_getter: Callable[[], Optional["BaseEngine"]],
-        floating_window: "FloatingWindow",
-        config,
-    ):
+    def __init__(self, signals, recorder, engine_getter, floating_window, config):
         super().__init__(signals, recorder, engine_getter, floating_window, config)
-        # Import here to avoid circular imports
         from speaky.input_method import input_method
         self._input_method = input_method
 
     def on_hotkey_press(self):
-        """快捷键按下：保存焦点并开始录音"""
-        logger.info("Voice hotkey pressed - starting recording")
-        # Save current focus before showing floating window
+        logger.info("Voice hotkey pressed")
         self._input_method.save_focus()
         self._signals.start_recording.emit()
 
     def on_hotkey_release(self):
-        """快捷键松开：停止录音"""
-        logger.info("Voice hotkey released - stopping recording")
+        logger.info("Voice hotkey released")
         self._signals.stop_recording.emit()
 
+    def _show_processing_state(self):
+        from speaky.i18n import t
+        if self._config.get("core.asr.llm_polish", False):
+            self._floating_window.show_polishing(t("polishing"))
+        else:
+            self._floating_window.show_recognizing()
+
     def on_start_recording(self):
-        """开始录音（信号槽回调）"""
         self._start_recording()
 
     def on_stop_recording(self):
-        """停止录音（信号槽回调）"""
         self._stop_recording()
 
     def on_recognition_done(self, text: str):
-        """识别完成：显示结果并输入文本"""
         elapsed = time.time() - self._recording_start_time if self._recording_start_time else 0
-        text_preview = text[:50] if text else 'None'
-        text_len = len(text) if text else 0
-        logger.info(f"[Voice] 识别完成，总耗时 {elapsed:.2f}s，文本长度={text_len}: {text_preview}...")
+        logger.info(f"[Voice] 识别完成 {elapsed:.2f}s len={len(text)}: {text[:50]}...")
 
-        # Save to history
         from speaky.history import add_to_history
-        engine_name = self._engine.name if self._engine else ""
-        add_to_history(text, engine_name)
+        add_to_history(text, self._engine.name if self._engine else "")
 
-        # 检查是否启用 LLM 润色
         if self._config.get("core.asr.llm_polish", False):
-            self._polish_and_input(text)
+            self._polish_and_type(text)
         else:
-            self._finish_input(text)
+            self._show_and_type(text)
 
-    def _finish_input(self, text: str):
-        """显示结果并输入文本"""
-        self._floating_window.show_result(text)
+    def on_recognition_error(self, error: str):
+        logger.info(f"[Voice] 识别错误: {error}")
+        self._floating_window.show_error(error)
+
+    def _show_and_type(self, text: str, polish_done: bool = False):
+        """显示结果并输入文本（必须在主线程调用）"""
+        if polish_done:
+            from speaky.i18n import t
+            self._floating_window.show_result(text, status_text=t("polish_done"))
+        else:
+            self._floating_window.show_result(text)
 
         def do_type():
             time.sleep(0.1)
             self._input_method.type_text(text)
-
-        logger.info("[Voice] 100ms后输入文本")
         threading.Thread(target=do_type, daemon=True).start()
 
-    def _polish_and_input(self, text: str):
-        """通过 LLM 润色文本后再输入"""
-        from speaky.i18n import t
-        self._floating_window.show_recognizing()
-        self._floating_window.update_partial_result(t("polishing"))
-
+    def _polish_and_type(self, text: str):
+        """后台润色，完成后通过信号回主线程"""
         def do_polish():
             try:
                 from openai import OpenAI
@@ -110,45 +113,50 @@ class VoiceModeHandler(BaseModeHandler):
                 model = self._config.get("llm.openai.model", "") or "gpt-4o-mini"
 
                 if not api_key:
-                    logger.warning("[Voice] LLM polish enabled but no API key, skipping")
-                    self._do_finish_input(text)
+                    logger.warning("[Voice] No API key, skip polish")
+                    self._type_and_finish(text)
                     return
 
                 client = OpenAI(api_key=api_key, base_url=base_url)
-                response = client.chat.completions.create(
+                stream = client.chat.completions.create(
                     model=model,
                     messages=[{"role": "user", "content": LLM_POLISH_PROMPT.format(text=text)}],
                     temperature=0.3,
-                    max_tokens=len(text) * 3 + 100,
+                    max_tokens=len(text) * 5 + 500,
+                    stream=True,
                 )
-                polished = response.choices[0].message.content.strip()
-                logger.info(f"[Voice] LLM 润色完成: {polished[:50]}...")
 
-                # 用润色后的文本完成输入（通过信号回到主线程）
+                full = ""
+                for chunk in stream:
+                    delta = chunk.choices[0].delta.content or ""
+                    full += delta
+                    # 实时显示（过滤 think 标签）
+                    if '<think>' in full and '</think>' not in full:
+                        continue  # 还在思考中，不显示
+                    cleaned = clean_llm_output(full)
+                    if cleaned:
+                        self._signals.partial_result.emit(cleaned)
+
+                polished = clean_llm_output(full) or text
+                logger.info(f"[Voice] 润色完成: {polished[:50]}...")
+
                 from speaky.history import add_to_history
-                engine_name = self._engine.name if self._engine else ""
-                add_to_history(polished, engine_name + "+llm")
-                self._do_finish_input(polished)
+                add_to_history(polished, (self._engine.name if self._engine else "") + "+llm")
+
+                self._type_and_finish(polished)
             except Exception as e:
-                logger.error(f"[Voice] LLM 润色失败: {e}", exc_info=True)
-                # 润色失败，使用原始文本
-                self._do_finish_input(text)
+                logger.error(f"[Voice] 润色失败: {e}", exc_info=True)
+                self._type_and_finish(text)
 
         threading.Thread(target=do_polish, daemon=True).start()
 
-    def _do_finish_input(self, text: str):
-        """在后台线程中完成输入（线程安全）"""
-        # 使用 partial_result 信号更新 UI（回到主线程）
-        self._signals.partial_result.emit(text)
-        self._floating_window.show_result(text)
-
-        def do_type():
-            time.sleep(0.1)
-            self._input_method.type_text(text)
-
-        threading.Thread(target=do_type, daemon=True).start()
-
-    def on_recognition_error(self, error: str):
-        """识别错误：显示错误"""
-        logger.info(f"[Voice] 识别错误: {error}")
-        self._floating_window.show_error(error)
+    def _type_and_finish(self, text: str):
+        """输入文本并通过信号让浮窗显示结果+自动隐藏（线程安全）"""
+        # 用信号更新浮窗状态（跨线程安全）
+        from speaky.i18n import t
+        self._signals.partial_result.emit(t("polish_done") + "  " + text)
+        # 输入文本
+        time.sleep(0.1)
+        self._input_method.type_text(text)
+        # 通过信号让主线程隐藏窗口
+        self._signals.schedule_hide.emit(1500)

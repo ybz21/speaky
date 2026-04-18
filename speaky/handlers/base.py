@@ -167,7 +167,7 @@ class BaseModeHandler:
         # Check if we were using real-time streaming
         if self._realtime_session is not None:
             logger.info("[流式识别] 结束流式会话")
-            self._floating_window.show_recognizing()
+            self._show_processing_state()
 
             # Capture session reference before starting thread
             session = self._realtime_session
@@ -220,7 +220,7 @@ class BaseModeHandler:
             return
 
         logger.info(f"Recorded {len(audio_data)} bytes of audio data")
-        self._floating_window.show_recognizing()
+        self._show_processing_state()
 
         def recognize():
             try:
@@ -253,6 +253,10 @@ class BaseModeHandler:
                 self._emit_recognition_error(str(e))
 
         threading.Thread(target=recognize, daemon=True).start()
+
+    def _show_processing_state(self):
+        """显示处理中状态 - 子类可重写"""
+        self._floating_window.show_recognizing()
 
     def _emit_recognition_done(self, text: str):
         """发送识别完成信号 - 子类可重写以使用不同信号"""
