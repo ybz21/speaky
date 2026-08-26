@@ -2,6 +2,7 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, SampleFormat, Stream, StreamConfig};
 use log::{debug, error, info, warn};
 use parking_lot::Mutex;
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -63,7 +64,6 @@ impl AreaResampler {
 /// Audio recorder using cpal for cross-platform support
 pub struct AudioRecorder {
     device: Option<Device>,
-    device_index: Option<u32>,
     stream: Mutex<StreamHandle>,
     frames: Arc<Mutex<Vec<i16>>>,
     is_recording: Arc<AtomicBool>,
@@ -118,7 +118,6 @@ impl AudioRecorder {
 
         Ok(Self {
             device,
-            device_index,
             stream: Mutex::new(StreamHandle(None)),
             // Pre-allocate with capacity to reduce reallocations during recording
             frames: Arc::new(Mutex::new(Vec::with_capacity(SAMPLE_RATE as usize * 60))), // 1 minute max
@@ -191,29 +190,39 @@ impl AudioRecorder {
         let audio_data_callback = Arc::clone(&self.audio_data_callback);
         let gain = self.gain;
 
-        // Prefer the configured/default device, but fall back to another
-        // capture device when the system default points at an unavailable
-        // PipeWire/PulseAudio endpoint (common on minimal Linux setups).
+        // Prefer the configured/default device, but always keep every current
+        // input device as a fallback. Device indices are not stable across
+        // PipeWire/ALSA restarts or USB reconnects, so restricting an
+        // explicitly configured index to one candidate can permanently make
+        // recording fail after the device list changes.
         let mut candidates = Vec::new();
         if let Some(device) = self.device.take() {
             candidates.push(device);
         }
-        if self.device_index.is_none() {
-            if let Ok(devices) = cpal::default_host().input_devices() {
-                candidates.extend(devices);
-            }
+        if let Ok(devices) = cpal::default_host().input_devices() {
+            candidates.extend(devices);
         }
 
         // On Linux, PipeWire/ALSA may expose a virtual "default" endpoint
         // before the physical USB microphone. Try named devices first so a
         // stale default cannot block the streaming session.
+        let preferred_name = candidates
+            .first()
+            .and_then(|device| device.name().ok())
+            .unwrap_or_default();
         candidates.sort_by_key(|device| {
-            device
-                .name()
-                .map(|name| name.eq_ignore_ascii_case("default"))
-                .unwrap_or(false)
+            let name = device.name().unwrap_or_default();
+            (name != preferred_name, name.eq_ignore_ascii_case("default"))
         });
-        candidates.truncate(8);
+        // The same ALSA/PipeWire endpoint can be returned twice (once as the
+        // configured handle and once during enumeration). Remove duplicates
+        // before trying fallbacks so a short candidate list cannot crowd out
+        // the physical microphone.
+        let mut seen_names = HashSet::new();
+        candidates.retain(|device| {
+            let name = device.name().unwrap_or_default();
+            seen_names.insert(name)
+        });
 
         if candidates.is_empty() {
             self.is_recording.store(false, Ordering::SeqCst);

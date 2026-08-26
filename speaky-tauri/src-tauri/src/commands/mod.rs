@@ -51,10 +51,10 @@ pub fn save_config(app: AppHandle, config: Config) -> Result<(), String> {
         let devices = AudioRecorder::get_devices();
         if !devices.iter().any(|(candidate, _)| *candidate == index) {
             warn!(
-                "Ignoring unavailable audio device index {}; keeping the current selection",
+                "Ignoring unavailable audio device index {}; falling back to automatic device selection",
                 index
             );
-            config.core.asr.audio_device = APP_STATE.config.read().core.asr.audio_device;
+            config.core.asr.audio_device = None;
         }
     }
     config.validate().map_err(|error| error.to_string())?;
