@@ -7,13 +7,13 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 pub enum PasteError {
     /// Failed to write text to clipboard
     ClipboardWriteFailed(String),
-    
+
     /// Failed to simulate keyboard input
     SimulationFailed(String),
-    
+
     /// Required tool not available
     ToolNotAvailable(String),
-    
+
     /// Unknown error
     Unknown(String),
 }
@@ -32,15 +32,15 @@ impl std::fmt::Display for PasteError {
 impl std::error::Error for PasteError {}
 
 /// Write text to clipboard and simulate paste
-/// 
+///
 /// This function writes the provided text to the system clipboard and then
 /// simulates the appropriate keyboard shortcut (Ctrl+V or Cmd+V) to paste
 /// the text into the currently focused application.
-/// 
+///
 /// # Arguments
 /// * `app` - Tauri application handle
 /// * `text` - Text to paste
-/// 
+///
 /// # Returns
 /// Result indicating success or error
 pub fn paste_text(app: &AppHandle, text: &str) -> Result<(), PasteError> {
@@ -63,7 +63,7 @@ pub fn paste_text(app: &AppHandle, text: &str) -> Result<(), PasteError> {
 
     // Simulate Ctrl+V / Cmd+V based on platform
     simulate_paste()?;
-    
+
     debug!("Paste simulation completed");
     Ok(())
 }
@@ -136,7 +136,7 @@ fn simulate_paste() -> Result<(), PasteError> {
         if result != inputs.len() as u32 {
             error!("SendInput failed, returned {}", result);
             return Err(PasteError::SimulationFailed(
-                "Failed to send keyboard input".to_string()
+                "Failed to send keyboard input".to_string(),
             ));
         }
     }
@@ -160,7 +160,10 @@ fn simulate_paste() -> Result<(), PasteError> {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         error!("osascript failed: {}", stderr);
-        return Err(PasteError::SimulationFailed(format!("osascript error: {}", stderr)));
+        return Err(PasteError::SimulationFailed(format!(
+            "osascript error: {}",
+            stderr
+        )));
     }
 
     debug!("macOS paste simulated successfully");
@@ -173,10 +176,7 @@ fn simulate_paste() -> Result<(), PasteError> {
     use std::process::Command;
 
     // Try xdotool first (works on X11)
-    let result = Command::new("xdotool")
-        .arg("key")
-        .arg("ctrl+v")
-        .output();
+    let result = Command::new("xdotool").arg("key").arg("ctrl+v").output();
 
     match result {
         Ok(output) if output.status.success() => {
@@ -194,10 +194,10 @@ fn simulate_paste() -> Result<(), PasteError> {
     // Fallback: try using ydotool for Wayland
     let result = Command::new("ydotool")
         .arg("key")
-        .arg("29:1")  // Ctrl down
-        .arg("47:1")  // V down
-        .arg("47:0")  // V up
-        .arg("29:0")  // Ctrl up
+        .arg("29:1") // Ctrl down
+        .arg("47:1") // V down
+        .arg("47:0") // V up
+        .arg("29:0") // Ctrl up
         .output();
 
     match result {
@@ -208,13 +208,13 @@ fn simulate_paste() -> Result<(), PasteError> {
         Ok(output) => {
             error!("ydotool failed with exit code: {:?}", output.status);
             Err(PasteError::ToolNotAvailable(
-                "Neither xdotool nor ydotool is available".to_string()
+                "Neither xdotool nor ydotool is available".to_string(),
             ))
         }
         Err(e) => {
             debug!("ydotool not available: {}", e);
             Err(PasteError::ToolNotAvailable(
-                "Neither xdotool nor ydotool is installed".to_string()
+                "Neither xdotool nor ydotool is installed".to_string(),
             ))
         }
     }

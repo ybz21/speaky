@@ -5,10 +5,9 @@ use rdev::{listen, Event, EventType, Key};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition};
 
 use crate::APP_STATE;
-use crate::window_info::WindowInfo;
 
 /// Hotkey manager for handling press-and-hold detection
 ///
@@ -20,7 +19,6 @@ pub struct HotkeyManager {
     target_key: Arc<Mutex<Key>>,
     hold_time: Arc<Mutex<Duration>>,
     press_time: Arc<Mutex<Option<Instant>>>,
-    is_recording: Arc<AtomicBool>,
     hold_triggered: Arc<AtomicBool>,
     app_handle: Arc<Mutex<Option<AppHandle>>>,
 }
@@ -34,14 +32,16 @@ impl HotkeyManager {
     pub fn new(hotkey: &str, hold_time: f64) -> Self {
         let hotkey_lower = hotkey.to_lowercase();
         let target_key = parse_hotkey(&hotkey_lower).unwrap_or(Key::ControlLeft);
-        info!("Initializing HotkeyManager: key={:?}, hold_time={}s", target_key, hold_time);
+        info!(
+            "Initializing HotkeyManager: key={:?}, hold_time={}s",
+            target_key, hold_time
+        );
 
         Self {
             hotkey: Arc::new(Mutex::new(hotkey_lower)),
             target_key: Arc::new(Mutex::new(target_key)),
             hold_time: Arc::new(Mutex::new(Duration::from_secs_f64(hold_time))),
             press_time: Arc::new(Mutex::new(None)),
-            is_recording: Arc::new(AtomicBool::new(false)),
             hold_triggered: Arc::new(AtomicBool::new(false)),
             app_handle: Arc::new(Mutex::new(None)),
         }
@@ -102,14 +102,15 @@ impl HotkeyManager {
         if press_time.is_none() {
             *press_time = Some(Instant::now());
             let hotkey = self.get_hotkey();
-            info!("Hotkey '{}' pressed, waiting {}s for hold...",
-                  hotkey,
-                  self.get_hold_time().as_secs_f64());
+            info!(
+                "Hotkey '{}' pressed, waiting {}s for hold...",
+                hotkey,
+                self.get_hold_time().as_secs_f64()
+            );
 
             // Spawn a timer to check hold time
             let hold_time = self.get_hold_time();
             let press_time_arc = Arc::clone(&self.press_time);
-            let is_recording = Arc::clone(&self.is_recording);
             let hold_triggered = Arc::clone(&self.hold_triggered);
             let app_handle = app.clone();
 
@@ -128,10 +129,8 @@ impl HotkeyManager {
     /// Start recording after hold threshold reached
     fn start_recording(app_handle: &AppHandle) {
         info!("Hold time reached, starting recording");
-        is_recording.store(true, Ordering::SeqCst);
-
         // Get focused window info BEFORE showing our window
-        let window_info = WindowInfo::get_focused();
+        let window_info = crate::window_info::get_focused_window_info();
 
         // Save app info to state for later retrieval
         if let Some(info) = &window_info {
@@ -164,14 +163,38 @@ impl HotkeyManager {
             // Save to global state
             *APP_STATE.last_focused_app.write() = crate::CachedAppInfo {
                 name: info.app_name.clone(),
-                icon: icon_data,
+                icon: icon_data.clone(),
+                window_id: Some(info.window_id.clone()),
             };
         }
 
-        // Show main window
+        // Persist UI state before mapping the hidden webview. On Linux the
+        // first event can otherwise arrive before the page registers a
+        // listener, leaving the floating window in its idle placeholder.
+        {
+            let app_info = APP_STATE.last_focused_app.read().clone();
+            let mut ui = APP_STATE.ui.write();
+            ui.phase = "recording".to_string();
+            ui.audio_level = 0.0;
+            ui.partial_result.clear();
+            ui.final_result.clear();
+            ui.error_message.clear();
+            ui.app_name = app_info.name;
+            ui.app_icon = app_info.icon;
+        }
+
+        // Show the floating window without requesting focus. Keeping the
+        // original target focused is what makes the later paste land in the
+        // user's editor instead of in Speaky itself.
         if let Some(window) = app_handle.get_webview_window("main") {
             let _ = window.show();
-            let _ = window.set_focus();
+            // Mutter applies the configured initial centering when a hidden
+            // window is mapped for the first time, overriding any position
+            // set beforehand. Move it immediately after mapping instead.
+            position_floating_window(
+                &window,
+                window_info.as_ref().map(|info| info.window_id.as_str()),
+            );
         }
 
         // Emit recording state event
@@ -188,6 +211,7 @@ impl HotkeyManager {
             let app_for_level = app_handle.clone();
             recorder.set_audio_level_callback(move |level| {
                 // Multiply by 3 to match Python implementation
+                APP_STATE.ui.write().audio_level = level * 3.0;
                 let _ = app_for_level.emit(
                     "audio-level",
                     serde_json::json!({
@@ -196,8 +220,40 @@ impl HotkeyManager {
                 );
             });
 
+            // In streaming mode connect before recording and feed converted
+            // PCM chunks directly to the WebSocket while the key is held.
+            let config = APP_STATE.config.read().clone();
+            if config.core.asr.streaming_mode && config.engine.current == "volc_bigmodel" {
+                let api_key = if config.engine.volc_bigmodel.api_key.is_empty() {
+                    std::env::var("SPEAKY_VOLC_API_KEY").unwrap_or_default()
+                } else {
+                    config.engine.volc_bigmodel.api_key.clone()
+                };
+                let engine = crate::engines::VolcBigModelEngine::new(
+                    &api_key,
+                    &config.engine.volc_bigmodel.app_key,
+                    &config.engine.volc_bigmodel.access_key,
+                    &config.engine.volc_bigmodel.resource_id,
+                );
+                let app_for_partial = app_handle.clone();
+                let session = engine.start_realtime(Box::new(move |text: &str| {
+                    APP_STATE.ui.write().partial_result = text.to_string();
+                    let _ =
+                        app_for_partial.emit("partial-result", serde_json::json!({"text": text}));
+                }));
+                let audio_sender = session.audio_sender();
+                recorder.set_audio_data_callback(move |pcm| audio_sender.send(pcm));
+                *APP_STATE.realtime_session.write() = Some(session);
+            } else {
+                recorder.clear_audio_data_callback();
+                *APP_STATE.realtime_session.write() = None;
+            }
+
             if let Err(e) = recorder.start() {
                 error!("Failed to start recording: {}", e);
+                let mut ui = APP_STATE.ui.write();
+                ui.phase = "error".to_string();
+                ui.error_message = e.clone();
                 let _ = app_handle.emit(
                     "recognition-error",
                     serde_json::json!({
@@ -220,8 +276,7 @@ impl HotkeyManager {
 
         if self.hold_triggered.swap(false, Ordering::SeqCst) {
             info!("Hotkey released, stopping recording");
-            is_recording.store(false, Ordering::SeqCst);
-
+            APP_STATE.ui.write().phase = "recognizing".to_string();
             // Emit recognizing state
             let _ = app.emit(
                 "recording-state",
@@ -238,6 +293,9 @@ impl HotkeyManager {
             };
 
             if audio_data.is_empty() {
+                let mut ui = APP_STATE.ui.write();
+                ui.phase = "error".to_string();
+                ui.error_message = "No audio captured".to_string();
                 let _ = app.emit(
                     "recognition-error",
                     serde_json::json!({
@@ -247,70 +305,224 @@ impl HotkeyManager {
                 return;
             }
 
-            // Perform recognition
-            let app_handle = app.clone();
-            let config = APP_STATE.config.read().clone();
+            if let Some(session) = APP_STATE.realtime_session.write().take() {
+                std::thread::spawn(move || {
+                    // Keep realtime captions while the key is held, then run
+                    // the complete WAV through the more accurate final model.
+                    // Both requests finish concurrently, so correction adds
+                    // little latency and safely falls back to realtime.
+                    let config = APP_STATE.config.read().clone();
+                    let correction_audio = audio_data;
+                    let correction = std::thread::spawn(move || {
+                        let api_key = if config.engine.volc_bigmodel.api_key.is_empty() {
+                            std::env::var("SPEAKY_VOLC_API_KEY").unwrap_or_default()
+                        } else {
+                            config.engine.volc_bigmodel.api_key.clone()
+                        };
+                        let engine = crate::engines::VolcBigModelEngine::new(
+                            &api_key,
+                            &config.engine.volc_bigmodel.app_key,
+                            &config.engine.volc_bigmodel.access_key,
+                            &config.engine.volc_bigmodel.resource_id,
+                        );
+                        engine.transcribe_final(&correction_audio, &config.core.asr.language)
+                    });
 
-            std::thread::spawn(move || {
-                // Create callback for partial results
-                let app_for_partial = app_handle.clone();
-                let partial_callback = Box::new(move |text: &str| {
-                    let _ = app_for_partial.emit(
-                        "partial-result",
-                        serde_json::json!({
-                            "text": text
-                        }),
-                    );
+                    let realtime_result = session.finish();
+                    let result = match correction.join() {
+                        Ok(Ok(text)) if !text.trim().is_empty() => Ok(text),
+                        Ok(Err(error)) => {
+                            error!(
+                                "Final accuracy pass failed, using realtime result: {}",
+                                error
+                            );
+                            realtime_result
+                        }
+                        Ok(Ok(_)) => realtime_result,
+                        Err(_) => {
+                            error!("Final accuracy pass panicked, using realtime result");
+                            realtime_result
+                        }
+                    };
+                    deliver_recognition_result(app, result);
                 });
-
-                let result = if let Some(ref engine) = *APP_STATE.engine.read() {
-                    engine.transcribe_with_callback(
-                        &audio_data,
-                        &config.core.asr.language,
-                        partial_callback,
-                    )
-                } else {
-                    Err(crate::engines::EngineError::NotConfigured)
-                };
-
-                match result {
-                    Ok(text) => {
-                        info!("Recognition result: {} chars", text.len());
-                        let _ = app_handle.emit(
-                            "final-result",
-                            serde_json::json!({
-                                "text": text.clone()
-                            }),
-                        );
-
-                        // Paste text to current application
-                        if !text.is_empty() {
-                            if let Err(e) = crate::input::paste_text(&app_handle, &text) {
-                                error!("Failed to paste text: {}", e);
-                            } else {
-                                info!("Text pasted successfully");
-                            }
-                        }
-
-                        // Hide window after a delay
-                        std::thread::sleep(Duration::from_millis(500));
-                        if let Some(window) = app_handle.get_webview_window("main") {
-                            let _ = window.hide();
-                        }
-                    }
-                    Err(e) => {
-                        error!("Recognition error: {}", e);
-                        let _ = app_handle.emit(
-                            "recognition-error",
-                            serde_json::json!({
-                                "message": e.to_string()
-                            }),
-                        );
-                    }
-                }
-            });
+            } else {
+                recognize_and_deliver(app, audio_data);
+            }
         } else {
             info!("Released before hold time threshold, ignoring");
+        }
+    }
+}
+
+/// Place the recording overlay near the bottom center of the monitor that
+/// contains the target application. Monitor positions and window geometry are
+/// both physical desktop coordinates, including negative coordinates in
+/// left/upper multi-monitor layouts.
+fn position_floating_window(window: &tauri::WebviewWindow, target_window_id: Option<&str>) {
+    const BOTTOM_MARGIN: i32 = 56;
+
+    let monitors = match window.available_monitors() {
+        Ok(monitors) if !monitors.is_empty() => monitors,
+        Ok(_) => return,
+        Err(error) => {
+            error!("Failed to enumerate monitors: {}", error);
+            return;
+        }
+    };
+
+    let target_center = target_window_id.and_then(crate::window_info::window_center);
+    let selected = target_center
+        .and_then(|(x, y)| {
+            monitors.iter().find(|monitor| {
+                let origin = monitor.position();
+                let size = monitor.size();
+                let right = origin.x.saturating_add(size.width as i32);
+                let bottom = origin.y.saturating_add(size.height as i32);
+                x >= origin.x && x < right && y >= origin.y && y < bottom
+            })
+        })
+        .or_else(|| monitors.first());
+
+    let Some(monitor) = selected else {
+        return;
+    };
+    let overlay_size = match window.outer_size() {
+        Ok(size) => size,
+        Err(error) => {
+            error!("Failed to read floating window size: {}", error);
+            return;
+        }
+    };
+    let origin = monitor.position();
+    let monitor_size = monitor.size();
+    let x = origin.x + ((monitor_size.width as i64 - overlay_size.width as i64) / 2).max(0) as i32;
+    let y = origin.y
+        + (monitor_size.height as i64 - overlay_size.height as i64 - BOTTOM_MARGIN as i64).max(0)
+            as i32;
+
+    match window.set_position(PhysicalPosition::new(x, y)) {
+        Ok(()) => info!(
+            "Positioned floating window at ({}, {}) on target monitor (target center: {:?})",
+            x, y, target_center
+        ),
+        Err(error) => error!("Failed to position floating window: {}", error),
+    }
+}
+
+/// Recognize captured WAV audio and deliver the result to the UI and the
+/// previously focused application. The work is performed off the keyboard
+/// listener thread so a slow network request never blocks hotkey handling.
+pub fn recognize_and_deliver(app_handle: AppHandle, audio_data: Vec<u8>) {
+    if audio_data.is_empty() {
+        let _ = app_handle.emit(
+            "recognition-error",
+            serde_json::json!({"message": "No audio captured"}),
+        );
+        return;
+    }
+
+    let config = APP_STATE.config.read().clone();
+
+    std::thread::spawn(move || {
+        let result = if let Some(ref engine) = *APP_STATE.engine.read() {
+            if config.core.asr.streaming_mode {
+                let app_for_partial = app_handle.clone();
+                let partial_callback = Box::new(move |text: &str| {
+                    APP_STATE.ui.write().partial_result = text.to_string();
+                    let _ =
+                        app_for_partial.emit("partial-result", serde_json::json!({"text": text}));
+                });
+                engine.transcribe_with_callback(
+                    &audio_data,
+                    &config.core.asr.language,
+                    partial_callback,
+                )
+            } else {
+                engine.transcribe(&audio_data, &config.core.asr.language)
+            }
+        } else {
+            Err(crate::engines::EngineError::NotConfigured)
+        };
+
+        deliver_recognition_result(app_handle, result);
+    });
+}
+
+fn deliver_recognition_result(app_handle: AppHandle, result: crate::engines::EngineResult) {
+    match result {
+        Ok(text) => {
+            info!("Recognition result: {} chars", text.len());
+            if text.trim().is_empty() {
+                let mut ui = APP_STATE.ui.write();
+                ui.phase = "error".to_string();
+                ui.error_message = "识别结果为空，请确认麦克风有声音".to_string();
+                drop(ui);
+                let _ = app_handle.emit(
+                    "recognition-error",
+                    serde_json::json!({"message": "识别结果为空，请确认麦克风有声音"}),
+                );
+                std::thread::sleep(Duration::from_secs(2));
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+                return;
+            }
+
+            {
+                let mut ui = APP_STATE.ui.write();
+                ui.phase = "done".to_string();
+                ui.final_result = text.clone();
+                ui.partial_result.clear();
+                ui.error_message.clear();
+            }
+            let _ = app_handle.emit("final-result", serde_json::json!({"text": text.clone()}));
+
+            // Mapping the floating window can change focus on some Linux
+            // window managers even when it is marked non-focusable.
+            // Restore the exact window that was active at key-down.
+            if let Some(window_id) = APP_STATE.last_focused_app.read().window_id.clone() {
+                match crate::window_info::focus_window(&window_id) {
+                    Ok(()) => {
+                        info!("Restored target window focus before paste");
+                        std::thread::sleep(Duration::from_millis(100));
+                    }
+                    Err(error) => {
+                        error!("Failed to restore target window focus: {}", error);
+                    }
+                }
+            }
+
+            if let Err(e) = crate::input::paste_text(&app_handle, &text) {
+                error!("Failed to paste text: {}", e);
+                let mut ui = APP_STATE.ui.write();
+                ui.phase = "error".to_string();
+                ui.error_message = e.to_string();
+                drop(ui);
+                let _ = app_handle.emit(
+                    "recognition-error",
+                    serde_json::json!({"message": e.to_string()}),
+                );
+            } else {
+                info!("Text pasted successfully");
+            }
+
+            // Keep the final result visible long enough to be readable.
+            std::thread::sleep(Duration::from_secs(2));
+            if let Some(window) = app_handle.get_webview_window("main") {
+                let _ = window.hide();
+            }
+        }
+        Err(e) => {
+            error!("Recognition error: {}", e);
+            let mut ui = APP_STATE.ui.write();
+            ui.phase = "error".to_string();
+            ui.error_message = e.to_string();
+            drop(ui);
+            let _ = app_handle.emit(
+                "recognition-error",
+                serde_json::json!({"message": e.to_string()}),
+            );
         }
     }
 }

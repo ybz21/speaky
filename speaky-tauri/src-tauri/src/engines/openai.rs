@@ -1,9 +1,22 @@
 use super::{Engine, EngineError, EngineResult};
-use log::{debug, error, info};
+use log::{debug, error};
+use once_cell::sync::Lazy;
 use reqwest::multipart;
+use tokio::runtime::Runtime;
+
+/// Recognition is called from a worker thread, so provide a runtime for the
+/// async HTTP implementation instead of assuming a Tokio context exists.
+static RUNTIME: Lazy<Runtime> = Lazy::new(|| {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .thread_name("speaky-http")
+        .worker_threads(2)
+        .build()
+        .expect("Failed to create Tokio runtime")
+});
 
 /// OpenAI Whisper API engine
-/// 
+///
 /// This engine uses OpenAI's Whisper API for speech recognition.
 /// It requires an API key to be configured in the application settings.
 #[derive(Debug, Clone)]
@@ -16,7 +29,7 @@ pub struct OpenAIEngine {
 
 impl OpenAIEngine {
     /// Create a new OpenAI engine instance
-    /// 
+    ///
     /// # Arguments
     /// * `api_key` - OpenAI API key
     /// * `model` - Model name (e.g., "whisper-1", "gpt-4o-transcribe")
@@ -27,7 +40,7 @@ impl OpenAIEngine {
             .timeout(std::time::Duration::from_secs(60))
             .build()
             .unwrap_or_else(|_| reqwest::Client::new());
-        
+
         Self {
             api_key: api_key.to_string(),
             model: model.to_string(),
@@ -43,7 +56,7 @@ impl OpenAIEngine {
                 "Empty audio data provided".to_string(),
             ));
         }
-        
+
         debug!(
             "Starting OpenAI transcription, model={}, language={}, size={} bytes",
             self.model,
@@ -61,13 +74,26 @@ impl OpenAIEngine {
                 EngineError::AudioProcessingError(format!("Failed to create multipart form: {}", e))
             })?;
 
-        let form = multipart::Form::new()
+        let mut form = multipart::Form::new()
             .part("file", part)
             .text("model", self.model.clone())
-            .text("language", language.to_string())
             .text("response_format", "text");
 
-        let response = self.client
+        // Omit the language field for automatic detection. BCP 47 values from
+        // older configs are converted at this provider boundary when present.
+        if !language.is_empty() && language != "auto" {
+            form = form.text(
+                "language",
+                language
+                    .split(['-', '_'])
+                    .next()
+                    .unwrap_or("zh")
+                    .to_string(),
+            );
+        }
+
+        let response = self
+            .client
             .post(&url)
             .bearer_auth(&self.api_key)
             .multipart(form)
@@ -79,21 +105,19 @@ impl OpenAIEngine {
             let status = response.status();
             let text = response.text().await.unwrap_or_default();
             error!("OpenAI API error: {} - {}", status, text);
-            
-            return Err(
-                if status == 429 {
-                    EngineError::RateLimited("Rate limit exceeded".to_string())
-                } else {
-                    EngineError::NetworkError(format!("API error {}: {}", status, text))
-                }
-            );
+
+            return Err(if status == 429 {
+                EngineError::RateLimited("Rate limit exceeded".to_string())
+            } else {
+                EngineError::NetworkError(format!("API error {}: {}", status, text))
+            });
         }
 
         let text = response
             .text()
             .await
             .map_err(|e| EngineError::InvalidResponse(format!("Failed to read response: {}", e)))?;
-        
+
         let result = text.trim().to_string();
         debug!("Transcription complete: {} chars", result.len());
         Ok(result)
@@ -110,10 +134,7 @@ impl Engine for OpenAIEngine {
     }
 
     fn transcribe(&self, audio_data: &[u8], language: &str) -> EngineResult {
-        // Use tokio's block_in_place to run async code from sync context
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(self.transcribe_async(audio_data, language))
-        })
+        RUNTIME.block_on(self.transcribe_async(audio_data, language))
     }
 
     fn supports_streaming(&self) -> bool {

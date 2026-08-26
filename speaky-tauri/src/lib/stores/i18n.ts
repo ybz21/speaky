@@ -1,139 +1,98 @@
-import { writable, derived } from "svelte/store";
+import { derived, writable } from "svelte/store";
 
-// Translations type
-export type Translations = Record<string, string>;
+/** BCP 47 is the single locale standard used by the UI and persisted config. */
+export const supportedLocales = ["zh-CN", "en-US"] as const;
+export type Locale = (typeof supportedLocales)[number];
 
-// Available locales
-export const locales = ["en", "zh", "zh_TW", "ja", "ko", "de", "fr", "es", "pt", "ru"] as const;
-export type Locale = typeof locales[number];
+const zhCN = {
+  "status.listening": "正在聆听",
+  "status.recognizing": "正在识别",
+  "status.done": "识别完成",
+  "status.error": "识别失败",
+  "status.items": "共 {count} 项内容",
+  "settings.title": "Speaky 设置",
+  "settings.subtitle": "语音输入",
+  "settings.group.trigger": "唤醒",
+  "settings.group.engine": "引擎",
+  "settings.group.language": "界面",
+  "settings.interfaceLanguage": "界面语言",
+  "settings.hotkey": "长按唤醒键",
+  "settings.holdDuration": "长按时长",
+  "settings.seconds": "{value} 秒",
+  "settings.engine": "识别引擎",
+  "engine.volcengine": "火山语音大模型",
+  "engine.openai": "OpenAI 语音识别",
+  "settings.apiKey": "API Key",
+  "settings.apiKeyPlaceholder": "输入 X-Api-Key",
+  "settings.openaiApiKeyPlaceholder": "输入 OpenAI API Key",
+  "settings.apiKeyHint": "凭证仅保存在本机",
+  "settings.cancel": "取消",
+  "settings.save": "保存",
+  "settings.saving": "保存中…",
+  "language.zh-CN": "中文",
+  "language.en-US": "英文",
+} as const;
 
-// Default translations (English)
-const en: Translations = {
-  listening: "Listening...",
-  recognizing: "Recognizing...",
-  done: "Done!",
-  error: "Error",
-  no_engine: "No recognition engine configured",
-  empty_result: "Recognition result is empty",
-  no_audio_detected: "No audio detected, please check your microphone",
-  app_name: "Speaky",
-  settings: "Settings",
-  quit: "Quit",
-  settings_title: "Speaky Settings",
-  tab_core: "Core",
-  tab_engine: "Engine",
-  tab_appearance: "Appearance",
-  save: "Save",
-  cancel: "Cancel",
-  hotkey_label: "Hold key:",
-  hold_time_label: "Hold delay:",
-  seconds: " sec",
-  recognition_lang: "Recognition language:",
-  audio_device: "Microphone:",
-  audio_device_default: "Default device",
-  audio_gain: "Microphone gain:",
-  streaming_mode: "Streaming mode",
-  engine_label: "Engine:",
-  api_key: "API Key:",
-  base_url: "Base URL:",
-  app_key: "App Key:",
-  access_key: "Access Key:",
-  theme: "Theme:",
-  theme_light: "Light",
-  theme_dark: "Dark",
-  theme_auto: "Auto (System)",
-  ui_lang: "Interface language:",
-  auto: "Auto (System)",
-  window_opacity: "Window opacity:",
+export type MessageKey = keyof typeof zhCN;
+
+const enUS: Record<MessageKey, string> = {
+  "status.listening": "Listening",
+  "status.recognizing": "Recognizing",
+  "status.done": "Done",
+  "status.error": "Recognition failed",
+  "status.items": "{count} items",
+  "settings.title": "Speaky Settings",
+  "settings.subtitle": "Voice input",
+  "settings.group.trigger": "Trigger",
+  "settings.group.engine": "Engine",
+  "settings.group.language": "Interface",
+  "settings.interfaceLanguage": "Interface language",
+  "settings.hotkey": "Press-and-hold key",
+  "settings.holdDuration": "Hold duration",
+  "settings.seconds": "{value} sec",
+  "settings.engine": "Recognition engine",
+  "engine.volcengine": "Volcengine Speech Model",
+  "engine.openai": "OpenAI Transcription",
+  "settings.apiKey": "API Key",
+  "settings.apiKeyPlaceholder": "Enter X-Api-Key",
+  "settings.openaiApiKeyPlaceholder": "Enter OpenAI API Key",
+  "settings.apiKeyHint": "Credentials are stored on this device only",
+  "settings.cancel": "Cancel",
+  "settings.save": "Save",
+  "settings.saving": "Saving…",
+  "language.zh-CN": "Chinese",
+  "language.en-US": "English",
 };
 
-// Chinese translations
-const zh: Translations = {
-  listening: "正在录音...",
-  recognizing: "识别中...",
-  done: "识别完成",
-  error: "识别失败",
-  no_engine: "未配置识别引擎",
-  empty_result: "识别结果为空",
-  no_audio_detected: "未检测到声音，请检查麦克风",
-  app_name: "语音输入",
-  settings: "设置",
-  quit: "退出",
-  settings_title: "语音输入设置",
-  tab_core: "核心",
-  tab_engine: "语音识别引擎",
-  tab_appearance: "外观",
-  save: "保存",
-  cancel: "取消",
-  hotkey_label: "长按唤醒键:",
-  hold_time_label: "长按延迟:",
-  seconds: " 秒",
-  recognition_lang: "识别语言:",
-  audio_device: "麦克风设备:",
-  audio_device_default: "默认设备",
-  audio_gain: "麦克风增益:",
-  streaming_mode: "流式识别",
-  engine_label: "引擎:",
-  api_key: "API Key:",
-  base_url: "Base URL:",
-  app_key: "App Key:",
-  access_key: "Access Key:",
-  theme: "主题:",
-  theme_light: "浅色",
-  theme_dark: "深色",
-  theme_auto: "跟随系统",
-  ui_lang: "界面语言:",
-  auto: "自动 (跟随系统)",
-  window_opacity: "窗口透明度:",
+const messages: Record<Locale, Record<MessageKey, string>> = {
+  "zh-CN": zhCN,
+  "en-US": enUS,
 };
 
-const translations: Record<Locale, Translations> = {
-  en,
-  zh,
-  zh_TW: zh, // Using simplified Chinese for now (zh_TW.yaml is available for full implementation)
-  ja: en,
-  ko: en,
-  de: en,
-  fr: en,
-  es: en,
-  pt: en,
-  ru: en,
-};
-
-function getSystemLocale(): Locale {
-  const lang = navigator.language.toLowerCase();
-  if (lang.startsWith("zh")) {
-    return lang.includes("tw") || lang.includes("hk") ? "zh_TW" : "zh";
-  }
-  if (lang.startsWith("ja")) return "ja";
-  if (lang.startsWith("ko")) return "ko";
-  if (lang.startsWith("de")) return "de";
-  if (lang.startsWith("fr")) return "fr";
-  if (lang.startsWith("es")) return "es";
-  if (lang.startsWith("pt")) return "pt";
-  if (lang.startsWith("ru")) return "ru";
-  return "en";
+export function systemLocale(): Locale {
+  return navigator.language.toLowerCase().startsWith("zh") ? "zh-CN" : "en-US";
 }
 
-function createI18nStore() {
-  const { subscribe, set } = writable<Locale>(getSystemLocale());
+export function normalizeLocale(value: string | null | undefined): Locale {
+  if (!value || value === "auto") return systemLocale();
+  return value.toLowerCase().startsWith("zh") ? "zh-CN" : "en-US";
+}
 
+function createLocaleStore() {
+  const { subscribe, set } = writable<Locale>(systemLocale());
   return {
     subscribe,
-    setLocale: (locale: Locale | "auto") => {
-      if (locale === "auto") {
-        set(getSystemLocale());
-      } else {
-        set(locale);
-      }
-    },
+    setLocale: (value: string) => set(normalizeLocale(value)),
   };
 }
 
-export const locale = createI18nStore();
+export const locale = createLocaleStore();
 
-// Derived translation function
 export const t = derived(locale, ($locale) => {
-  const trans = translations[$locale] || translations.en;
-  return (key: string): string => trans[key] || translations.en[key] || key;
+  return (key: MessageKey, values: Record<string, string | number> = {}): string => {
+    return Object.entries(values).reduce(
+      (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+      messages[$locale][key],
+    );
+  };
 });
