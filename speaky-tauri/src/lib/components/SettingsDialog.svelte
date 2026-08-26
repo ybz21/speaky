@@ -14,11 +14,21 @@
 
   let localConfig: Config = JSON.parse(JSON.stringify(defaultConfig));
   let saving = false;
+  let validationError = "";
   let activeTab: "general" | "history" | "diagnostics" = "general";
   let contentElement: HTMLElement;
 
   const hotkeyOptions = ["ctrl", "alt", "shift", "cmd", "f8"];
   const engineOptions = ["volc_bigmodel", "openai"] as const;
+  const polishModelOptions = [
+    "gpt-4o-mini",
+    "gpt-4.1-mini",
+    "gpt-4.1",
+    "gpt-4o",
+    "deepseek-chat",
+    "qwen-plus",
+    "doubao-seed-1-6-flash-250828",
+  ];
 
   onMount(async () => {
     await config.load();
@@ -42,8 +52,22 @@
 
   async function handleSave() {
     saving = true;
+    validationError = "";
     try {
       const normalizedConfig: Config = JSON.parse(JSON.stringify(localConfig));
+      normalizedConfig.llm.openai.base_url = normalizedConfig.llm.openai.base_url.trim();
+      normalizedConfig.llm.openai.api_key = normalizedConfig.llm.openai.api_key.trim();
+      normalizedConfig.llm.openai.model = normalizedConfig.llm.openai.model.trim();
+      if (
+        normalizedConfig.core.asr.llm_polish &&
+        (!normalizedConfig.llm.openai.base_url ||
+          !normalizedConfig.llm.openai.api_key ||
+          !normalizedConfig.llm.openai.model)
+      ) {
+        validationError = $t("settings.polishRequired");
+        await selectTab("general");
+        return;
+      }
       const selectedDevice = Number(normalizedConfig.core.asr.audio_device);
       normalizedConfig.core.asr.audio_device =
         normalizedConfig.core.asr.audio_device === null ||
@@ -192,6 +216,17 @@
           {#if localConfig.core.asr.llm_polish}
             <label>
               <span>
+                {$t("settings.polishBaseUrl")}
+                <small>{$t("settings.polishBaseUrlHint")}</small>
+              </span>
+              <input
+                type="text"
+                bind:value={localConfig.llm.openai.base_url}
+                placeholder={$t("settings.polishBaseUrlPlaceholder")}
+              />
+            </label>
+            <label>
+              <span>
                 {$t("settings.polishApiKey")}
                 <small>{$t("settings.polishApiKeyHint")}</small>
               </span>
@@ -200,6 +235,20 @@
                 bind:value={localConfig.llm.openai.api_key}
                 placeholder={$t("settings.polishApiKeyPlaceholder")}
               />
+            </label>
+            <label>
+              <span>
+                {$t("settings.polishModel")}
+                <small>{$t("settings.polishModelHint")}</small>
+              </span>
+              <select bind:value={localConfig.llm.openai.model}>
+                {#if !polishModelOptions.includes(localConfig.llm.openai.model)}
+                  <option value={localConfig.llm.openai.model}>{localConfig.llm.openai.model}</option>
+                {/if}
+                {#each polishModelOptions as model}
+                  <option value={model}>{model}</option>
+                {/each}
+              </select>
             </label>
           {/if}
           <label>
@@ -226,6 +275,7 @@
   </main>
 
   <footer>
+    {#if validationError}<span class="validation-error">{validationError}</span>{/if}
     <button class="secondary" on:click={handleCancel}>
       {$t("settings.cancel")}
     </button>
@@ -374,6 +424,7 @@
   }
 
   select,
+  input[type="text"],
   input[type="password"] {
     width: 270px;
     min-width: 0;
@@ -388,6 +439,7 @@
   }
 
   select:focus,
+  input[type="text"]:focus,
   input[type="password"]:focus {
     border-color: #2563eb;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
@@ -482,6 +534,13 @@
     padding: 12px 30px;
     background: #ffffff;
     border-top: 1px solid #e5e7eb;
+  }
+
+  .validation-error {
+    margin-right: auto;
+    align-self: center;
+    color: #dc2626;
+    font-size: 12px;
   }
 
   button {

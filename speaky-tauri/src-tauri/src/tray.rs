@@ -179,10 +179,18 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
         }
         "ai_polish" => {
             let mut config = APP_STATE.config.write();
-            config.core.asr.llm_polish = !config.core.asr.llm_polish;
-            if config.core.asr.llm_polish && !crate::polish::is_configured(&config) {
-                info!("AI polish enabled but no LLM credential is configured; recognition will fall back safely");
+            let enabling = !config.core.asr.llm_polish;
+            if enabling && !crate::polish::is_configured(&config) {
+                drop(config);
+                if let Err(error) = crate::show_settings_window(app) {
+                    error!(
+                        "Failed to open settings for AI polish configuration: {}",
+                        error
+                    );
+                }
+                return;
             }
+            config.core.asr.llm_polish = enabling;
             if let Err(error) = config.save() {
                 error!("Failed to save AI polish setting: {}", error);
             }

@@ -39,10 +39,7 @@ fn credentials(config: &Config) -> Option<Credentials> {
     let api_key = std::env::var("SPEAKY_LLM_API_KEY")
         .ok()
         .filter(|value| !value.is_empty())
-        .or_else(|| (!configured.api_key.is_empty()).then(|| configured.api_key.clone()))
-        .or_else(|| {
-            (!config.engine.openai.api_key.is_empty()).then(|| config.engine.openai.api_key.clone())
-        })?;
+        .or_else(|| (!configured.api_key.is_empty()).then(|| configured.api_key.clone()))?;
     let base_url = std::env::var("SPEAKY_LLM_BASE_URL")
         .ok()
         .filter(|value| !value.is_empty())
