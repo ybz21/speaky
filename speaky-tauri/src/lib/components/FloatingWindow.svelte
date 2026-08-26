@@ -1,13 +1,24 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
+  import { get } from "svelte/store";
   import { appState, displayText, setRecordingState } from "../stores/app";
-  import { t } from "../stores/i18n";
-  import { setupEventListeners, cleanupEventListeners, startRecording, stopRecording } from "../utils/tauri";
+  import { config } from "../stores/config";
+  import { t, locale, type MessageKey } from "../stores/i18n";
+  import { setupEventListeners, cleanupEventListeners, getUiState, startRecording, stopRecording } from "../utils/tauri";
   import AppIconOrb from "./AppIconOrb.svelte";
 
   // Development mode detection
   const isDev = import.meta.env.DEV;
   let isTestRecording = false;
+  let statePoller: ReturnType<typeof setInterval> | null = null;
+
+  async function syncBackendState() {
+    try {
+      appState.applySnapshot(await getUiState());
+    } catch (error) {
+      console.error("Failed to sync floating window state:", error);
+    }
+  }
 
   async function handleTestRecord() {
     if (isTestRecording) {
@@ -39,36 +50,36 @@
   }> = {
     recording: {
       text: "#00D9FF",
-      gradientStart: "rgba(0, 180, 220, 0.10)",
+      gradientStart: "rgba(5, 45, 58, 0.88)",
       gradientEnd: "rgba(15, 25, 35, 0.95)",
     },
     recognizing: {
       text: "#FFB84D",
-      gradientStart: "rgba(255, 150, 50, 0.10)",
+      gradientStart: "rgba(62, 42, 18, 0.88)",
       gradientEnd: "rgba(35, 25, 15, 0.95)",
     },
     done: {
       text: "#00E676",
-      gradientStart: "rgba(0, 200, 100, 0.10)",
+      gradientStart: "rgba(10, 55, 34, 0.88)",
       gradientEnd: "rgba(15, 30, 20, 0.95)",
     },
     error: {
       text: "#FF5252",
-      gradientStart: "rgba(255, 80, 80, 0.10)",
+      gradientStart: "rgba(62, 22, 24, 0.88)",
       gradientEnd: "rgba(35, 15, 15, 0.95)",
     },
     idle: {
       text: "#666666",
-      gradientStart: "rgba(50, 50, 50, 0.10)",
+      gradientStart: "rgba(32, 32, 38, 0.90)",
       gradientEnd: "rgba(20, 20, 25, 0.95)",
     },
   };
 
-  const STATE_TRANS_KEYS: Record<string, string> = {
-    recording: "listening",
-    recognizing: "recognizing",
-    done: "done",
-    error: "error",
+  const STATE_TRANS_KEYS: Record<string, MessageKey> = {
+    recording: "status.listening",
+    recognizing: "status.recognizing",
+    done: "status.done",
+    error: "status.error",
   };
 
   $: statusText = $appState.recordingState in STATE_TRANS_KEYS
@@ -100,7 +111,7 @@
     if (lines.length === 2) {
       secondary = lines[1].length > 40 ? lines[1].slice(0, 40) + "..." : lines[1];
     } else {
-      secondary = `共 ${lines.length} 项内容`;
+      secondary = $t("status.items", { count: lines.length });
     }
 
     return { primary, secondary };
@@ -112,13 +123,24 @@
     $appState.recordingState === "recording" ||
     $appState.recordingState === "recognizing";
 
-  onMount(async () => {
+  onMount(() => {
     console.log("FloatingWindow mounted, setting up event listeners...");
-    await setupEventListeners();
-    console.log("Event listeners set up successfully");
+    void config.load().then(() => {
+      locale.setLocale(get(config).appearance.ui_language);
+    });
+    void syncBackendState();
+    statePoller = setInterval(syncBackendState, 50);
+    void setupEventListeners()
+      .then(() => console.log("Event listeners set up successfully"))
+      .catch((error) => {
+        // Polling remains active when a hidden Linux webview rejects its first
+        // event subscription.
+        console.error("Event listeners unavailable; using state sync:", error);
+      });
   });
 
   onDestroy(async () => {
+    if (statePoller) clearInterval(statePoller);
     await cleanupEventListeners();
   });
 </script>

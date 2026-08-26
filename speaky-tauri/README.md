@@ -88,8 +88,10 @@ core:
 engine:
   current: volc_bigmodel
   volc_bigmodel:
+    api_key: ""              # New console auth (X-Api-Key)
     app_key: your_app_key
     access_key: your_access_key
+    resource_id: volc.bigasr.sauc.duration
   openai:
     api_key: sk-xxx
     model: gpt-4o-transcribe
@@ -100,6 +102,10 @@ appearance:
   ui_language: auto
   window_opacity: 0.9
 ```
+
+For one-off local testing, set `SPEAKY_VOLC_API_KEY` instead of writing the
+credential to `config.yaml`. The settings value takes precedence when both are
+present.
 
 ## License
 

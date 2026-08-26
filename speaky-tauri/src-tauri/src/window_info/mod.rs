@@ -1,16 +1,17 @@
 //! Window information utilities for getting focused app name and icon.
 
-use log::{debug, info, warn};
+use log::info;
+use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
-use once_cell::sync::Lazy;
 
 /// Information about the focused window
 #[derive(Debug, Clone, Default)]
 pub struct WindowInfo {
+    pub window_id: String,
     pub wm_class: String,
     pub wm_instance: String,
     pub window_name: String,
@@ -106,12 +107,97 @@ fn get_linux_window_info() -> Option<WindowInfo> {
     let icon_path = find_icon_for_wm_class(&wm_class, &wm_instance);
 
     Some(WindowInfo {
+        window_id,
         wm_class,
         wm_instance,
         window_name,
         app_name: final_app_name,
         icon_path,
     })
+}
+
+/// Restore focus to a previously active window before simulating paste.
+pub fn focus_window(window_id: &str) -> Result<(), String> {
+    #[cfg(target_os = "linux")]
+    {
+        let output = Command::new("xdotool")
+            .args(["windowactivate", "--sync", window_id])
+            .output()
+            .map_err(|error| error.to_string())?;
+        if output.status.success() {
+            Ok(())
+        } else {
+            Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = window_id;
+        Ok(())
+    }
+}
+
+/// Return the center of a window in the desktop's physical coordinate space.
+/// This is used to choose the monitor containing the app that will receive the
+/// recognized text, rather than always placing the overlay on the primary
+/// monitor.
+pub fn window_center(window_id: &str) -> Option<(i32, i32)> {
+    #[cfg(target_os = "linux")]
+    {
+        let output = Command::new("xdotool")
+            .args(["getwindowgeometry", "--shell", window_id])
+            .output()
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+
+        parse_window_geometry_center(&String::from_utf8_lossy(&output.stdout))
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = window_id;
+        None
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn parse_window_geometry_center(text: &str) -> Option<(i32, i32)> {
+    let mut x = None;
+    let mut y = None;
+    let mut width = None;
+    let mut height = None;
+
+    for line in text.lines() {
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        let Ok(parsed) = value.trim().parse::<i64>() else {
+            continue;
+        };
+        match key.trim() {
+            "X" => x = Some(parsed),
+            "Y" => y = Some(parsed),
+            "WIDTH" => width = Some(parsed),
+            "HEIGHT" => height = Some(parsed),
+            _ => {}
+        }
+    }
+
+    let center_x = x?.checked_add(width? / 2)?;
+    let center_y = y?.checked_add(height? / 2)?;
+    Some((i32::try_from(center_x).ok()?, i32::try_from(center_y).ok()?))
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::parse_window_geometry_center;
+
+    #[test]
+    fn parses_xdotool_geometry_with_negative_monitor_coordinates() {
+        let geometry = "WINDOW=42\nX=-1920\nY=40\nWIDTH=1200\nHEIGHT=800\nSCREEN=0\n";
+        assert_eq!(parse_window_geometry_center(geometry), Some((-1320, 440)));
+    }
 }
 
 fn extract_hex_id(text: &str) -> Option<String> {
@@ -124,8 +210,14 @@ fn parse_wm_class(text: &str) -> (String, String) {
     let re = regex::Regex::new(r#""([^"]*)",\s*"([^"]*)""#).ok();
     if let Some(re) = re {
         if let Some(caps) = re.captures(text) {
-            let instance = caps.get(1).map(|m| m.as_str().to_string()).unwrap_or_default();
-            let class = caps.get(2).map(|m| m.as_str().to_string()).unwrap_or_default();
+            let instance = caps
+                .get(1)
+                .map(|m| m.as_str().to_string())
+                .unwrap_or_default();
+            let class = caps
+                .get(2)
+                .map(|m| m.as_str().to_string())
+                .unwrap_or_default();
             return (class, instance);
         }
     }
@@ -254,7 +346,10 @@ fn parse_desktop_file(filepath: &Path) -> Option<DesktopEntry> {
 
 fn find_icon_for_wm_class(wm_class: &str, wm_instance: &str) -> Option<String> {
     let cache_key = format!("{}|{}", wm_class, wm_instance);
-    info!("Finding icon for wm_class: {}, wm_instance: {}", wm_class, wm_instance);
+    info!(
+        "Finding icon for wm_class: {}, wm_instance: {}",
+        wm_class, wm_instance
+    );
 
     // Check cache
     {

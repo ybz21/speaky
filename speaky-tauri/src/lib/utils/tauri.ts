@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { appState } from "../stores/app";
+import { appState, type UiSnapshot } from "../stores/app";
 
 // Event types from Rust backend
 export interface AudioLevelEvent {
@@ -33,7 +33,7 @@ export async function startRecording(): Promise<void> {
   return invoke("start_recording");
 }
 
-export async function stopRecording(): Promise<string> {
+export async function stopRecording(): Promise<void> {
   return invoke("stop_recording");
 }
 
@@ -59,6 +59,10 @@ export async function pasteText(text: string): Promise<void> {
 
 export async function getFocusedAppInfo(): Promise<AppInfoEvent> {
   return invoke("get_focused_app_info");
+}
+
+export async function getUiState(): Promise<UiSnapshot> {
+  return invoke("get_ui_state");
 }
 
 // Event listeners

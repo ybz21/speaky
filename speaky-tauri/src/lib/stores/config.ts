@@ -16,8 +16,10 @@ export interface Config {
   engine: {
     current: string;
     volc_bigmodel: {
+      api_key: string;
       app_key: string;
       access_key: string;
+      resource_id: string;
     };
     openai: {
       api_key: string;
@@ -33,12 +35,12 @@ export interface Config {
   };
 }
 
-const defaultConfig: Config = {
+export const defaultConfig: Config = {
   core: {
     asr: {
       hotkey: "ctrl",
       hotkey_hold_time: 1.0,
-      language: "zh",
+      language: "auto",
       streaming_mode: true,
       audio_device: null,
       audio_gain: 1.0,
@@ -48,8 +50,10 @@ const defaultConfig: Config = {
   engine: {
     current: "volc_bigmodel",
     volc_bigmodel: {
+      api_key: "",
       app_key: "",
       access_key: "",
+      resource_id: "volc.bigasr.sauc.duration",
     },
     openai: {
       api_key: "",
@@ -59,7 +63,7 @@ const defaultConfig: Config = {
   },
   appearance: {
     theme: "auto",
-    ui_language: "auto",
+    ui_language: "zh-CN",
     show_waveform: true,
     window_opacity: 0.9,
   },

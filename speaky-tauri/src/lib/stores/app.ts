@@ -18,6 +18,16 @@ export interface AppState {
   appIcon: string | null;
 }
 
+export interface UiSnapshot {
+  phase: RecordingState;
+  audio_level: number;
+  partial_result: string;
+  final_result: string;
+  error_message: string;
+  app_name: string;
+  app_icon: string | null;
+}
+
 const initialState: AppState = {
   recordingState: "idle",
   audioLevel: 0,
@@ -68,6 +78,18 @@ function createAppStore() {
 
     setAppInfo: (name: string, icon: string | null) =>
       update((state) => ({ ...state, appName: name, appIcon: icon })),
+
+    applySnapshot: (snapshot: UiSnapshot) =>
+      update((state) => ({
+        ...state,
+        recordingState: snapshot.phase,
+        audioLevel: Math.min(1, Math.max(0, snapshot.audio_level)),
+        partialResult: snapshot.partial_result,
+        finalResult: snapshot.final_result,
+        errorMessage: snapshot.error_message,
+        appName: snapshot.app_name,
+        appIcon: snapshot.app_icon,
+      })),
 
     reset: () => set(initialState),
 

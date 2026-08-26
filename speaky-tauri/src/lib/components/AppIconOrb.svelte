@@ -28,6 +28,10 @@
   let glowAlpha = 0.3;
 
   $: targetColor = hexToRgbObj(MODE_COLORS[mode] || MODE_COLORS.idle);
+  $: innerScale = 1.08 + currentLevel * 0.28 + breath * 0.05;
+  $: outerScale = 1.18 + currentLevel * 0.55 + breath * 0.09;
+  $: innerOpacity = animating ? 0.22 + currentLevel * 0.35 : 0;
+  $: outerOpacity = animating ? 0.10 + currentLevel * 0.28 : 0;
 
   function hexToRgbObj(hex: string): { r: number; g: number; b: number } {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -89,6 +93,14 @@
 </script>
 
 <div class="orb-container">
+  <div
+    class="pulse-ring outer"
+    style="transform: scale({outerScale}); opacity: {outerOpacity}; color: rgb({currentColor.r}, {currentColor.g}, {currentColor.b}); border-color: currentColor;"
+  ></div>
+  <div
+    class="pulse-ring inner"
+    style="transform: scale({innerScale}); opacity: {innerOpacity}; color: rgb({currentColor.r}, {currentColor.g}, {currentColor.b}); border-color: currentColor;"
+  ></div>
   <!-- App icon (outside SVG for better compatibility) -->
   {#if appIcon}
     <div class="icon-wrapper">
@@ -134,6 +146,28 @@
     justify-content: center;
     border: 1px solid rgba(255, 255, 255, 0.1);
     overflow: hidden;
+    z-index: 2;
+    transition: box-shadow 120ms ease-out;
+  }
+
+  .pulse-ring {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid;
+    pointer-events: none;
+    transform-origin: center;
+    transition: opacity 80ms linear;
+    z-index: 1;
+  }
+
+  .pulse-ring.inner {
+    box-shadow: 0 0 8px currentColor;
+  }
+
+  .pulse-ring.outer {
+    box-shadow: 0 0 14px currentColor;
   }
 
   .app-icon {
@@ -155,5 +189,6 @@
     height: 12px;
     border-radius: 50%;
     border: 2px solid rgb(40, 40, 45);
+    z-index: 3;
   }
 </style>
