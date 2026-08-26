@@ -185,6 +185,14 @@
     setLocalHotkey(hotkey);
   }
 
+  async function refreshAudioDevices() {
+    try {
+      audioDevices = await getAudioDevices();
+    } catch (error) {
+      console.error("Failed to refresh audio devices:", error);
+    }
+  }
+
   function selectUiLanguage(value: string) {
     localConfig.appearance.ui_language = normalizeLocale(value);
     locale.setLocale(localConfig.appearance.ui_language);
@@ -340,12 +348,17 @@
               {$t("settings.microphone")}
               <small>{$t("settings.microphoneHint")}</small>
             </span>
-            <select bind:value={localConfig.core.asr.audio_device}>
-              <option value="">{$t("settings.microphoneDefault")}</option>
-              {#each audioDevices as device}
-                <option value={device.index}>{device.name}</option>
-              {/each}
-            </select>
+            <div class="device-control">
+              <select bind:value={localConfig.core.asr.audio_device}>
+                <option value="">{$t("settings.microphoneDefault")}</option>
+                {#each audioDevices as device}
+                  <option value={device.index}>{device.name}</option>
+                {/each}
+              </select>
+              <button type="button" class="refresh-button" on:click={refreshAudioDevices}>
+                {$t("settings.refreshDevices")}
+              </button>
+            </div>
           </label>
         </div>
       </section>
@@ -778,6 +791,35 @@
   input[type="password"]:focus {
     border-color: #2563eb;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+
+  .device-control {
+    display: flex;
+    width: 270px;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .device-control select {
+    flex: 1;
+    width: auto;
+  }
+
+  .refresh-button {
+    flex: 0 0 auto;
+    padding: 7px 8px;
+    color: #526071;
+    background: #f3f5f8;
+    border: 1px solid #d7dce2;
+    border-radius: 7px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .refresh-button:hover {
+    color: #1686f7;
+    border-color: #bcdcff;
+    background: #eef6ff;
   }
 
   .secret-control {

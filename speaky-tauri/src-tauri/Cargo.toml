@@ -1,6 +1,6 @@
 [package]
 name = "speaky"
-version = "1.0.3"
+version = "1.0.4"
 description = "Cross-platform voice input tool"
 authors = [""]
 license = "MIT"
