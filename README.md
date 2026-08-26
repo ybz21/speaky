@@ -79,12 +79,12 @@
 </tr>
 <tr>
 <td>🐧 <b>Linux</b></td>
-<td><code>Speaky_1.0.1_amd64.deb</code></td>
+<td><code>Speaky_1.0.2_amd64.deb</code></td>
 <td>
 
 ```bash
 # 一键安装（自动处理依赖）
-sudo apt install ./Speaky_1.0.1_amd64.deb
+sudo apt install ./Speaky_1.0.2_amd64.deb
 ```
 
 </td>
@@ -92,8 +92,8 @@ sudo apt install ./Speaky_1.0.1_amd64.deb
 <tr>
 <td>🍎 <b>macOS</b></td>
 <td>
-<code>Speaky_1.0.1_aarch64.dmg</code> (Apple Silicon)<br>
-<code>Speaky_1.0.1_x64.dmg</code> (Intel)
+<code>Speaky_1.0.2_aarch64.dmg</code> (Apple Silicon)<br>
+<code>Speaky_1.0.2_x64.dmg</code> (Intel)
 </td>
 <td>
 
@@ -107,7 +107,7 @@ brew install portaudio
 </tr>
 <tr>
 <td>🪟 <b>Windows</b></td>
-<td><code>Speaky_1.0.1_x64-setup.exe</code></td>
+<td><code>Speaky_1.0.2_x64-setup.exe</code></td>
 <td>
 
 ```powershell
@@ -288,10 +288,10 @@ python build.py --arch x86_64   # Intel
 
 | 平台 | 输出文件 | 大小（约） |
 |------|----------|-----------|
-| Linux | `target/release/bundle/deb/Speaky_1.0.1_amd64.deb` | 80-120 MB |
-| macOS (Apple Silicon) | `target/release/bundle/dmg/Speaky_1.0.1_aarch64.dmg` | 60-100 MB |
-| macOS (Intel) | `target/release/bundle/dmg/Speaky_1.0.1_x64.dmg` | 60-100 MB |
-| Windows | `target/release/bundle/nsis/Speaky_1.0.1_x64-setup.exe` | 70-110 MB |
+| Linux | `target/release/bundle/deb/Speaky_1.0.2_amd64.deb` | 80-120 MB |
+| macOS (Apple Silicon) | `target/release/bundle/dmg/Speaky_1.0.2_aarch64.dmg` | 60-100 MB |
+| macOS (Intel) | `target/release/bundle/dmg/Speaky_1.0.2_x64.dmg` | 60-100 MB |
+| Windows | `target/release/bundle/nsis/Speaky_1.0.2_x64-setup.exe` | 70-110 MB |
 
 > 💡 **为什么这么小？** 相比 Electron 应用（200-300MB），PyInstaller 打包的应用不包含完整浏览器引擎，体积小 50-60%。
 
