@@ -19,6 +19,7 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 # Note: Using rdev instead of tauri-plugin-global-shortcut for modifier key support
 tauri-plugin-clipboard-manager = "2"
+tauri-plugin-autostart = "2"
 
 # Async runtime
 tokio = { version = "1", features = [
@@ -37,7 +38,7 @@ tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
 futures-util = "0.3"
 
 # HTTP client
-reqwest = { version = "0.12", features = ["json", "multipart", "native-tls"] }
+reqwest = { version = "0.12", features = ["json", "multipart", "native-tls", "stream"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -51,6 +52,7 @@ flate2 = "1"
 uuid = { version = "1", features = ["v4"] }
 log = "0.4"
 env_logger = "0.11"
+fern = "0.7"
 thiserror = "1"
 once_cell = "1"
 parking_lot = "0.12"
@@ -58,6 +60,7 @@ dirs = "5"
 byteorder = "1"
 regex = "1"
 base64 = "0.22"
+rodio = { version = "0.20", default-features = false }
 
 # Keyboard listener (for modifier key detection)
 rdev = "0.5"

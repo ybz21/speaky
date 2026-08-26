@@ -11,6 +11,7 @@ export interface Config {
       audio_device: number | null;
       audio_gain: number;
       sound_notification: boolean;
+      llm_polish: boolean;
     };
   };
   engine: {
@@ -33,6 +34,16 @@ export interface Config {
     show_waveform: boolean;
     window_opacity: number;
   };
+  llm: {
+    openai: {
+      api_key: string;
+      model: string;
+      base_url: string;
+    };
+  };
+  desktop: {
+    auto_start: boolean;
+  };
 }
 
 export const defaultConfig: Config = {
@@ -45,6 +56,7 @@ export const defaultConfig: Config = {
       audio_device: null,
       audio_gain: 1.0,
       sound_notification: true,
+      llm_polish: false,
     },
   },
   engine: {
@@ -66,6 +78,16 @@ export const defaultConfig: Config = {
     ui_language: "zh-CN",
     show_waveform: true,
     window_opacity: 0.9,
+  },
+  llm: {
+    openai: {
+      api_key: "",
+      model: "gpt-4o-mini",
+      base_url: "https://api.openai.com/v1",
+    },
+  },
+  desktop: {
+    auto_start: true,
   },
 };
 

@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { listen, type Event, type UnlistenFn } from "@tauri-apps/api/event";
 import { appState, type UiSnapshot } from "../stores/app";
 
 // Event types from Rust backend
@@ -20,7 +20,7 @@ export interface ErrorEvent {
 }
 
 export interface RecordingStateEvent {
-  state: "started" | "stopped" | "recognizing";
+  state: "started" | "stopped" | "recognizing" | "polishing";
 }
 
 export interface AppInfoEvent {
@@ -73,7 +73,7 @@ export async function setupEventListeners(): Promise<void> {
   await cleanupEventListeners();
 
   // Helper to push and track listeners
-  const addListener = async <T>(event: string, handler: (event: T) => void) => {
+  const addListener = async <T>(event: string, handler: (event: Event<T>) => void) => {
     unlistenFns.push(await listen<T>(event, handler));
   };
 
@@ -112,6 +112,9 @@ export async function setupEventListeners(): Promise<void> {
         break;
       case "recognizing":
         appState.setRecognizing();
+        break;
+      case "polishing":
+        appState.setRecordingState("polishing");
         break;
       case "stopped":
         break;

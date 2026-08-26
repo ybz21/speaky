@@ -1,6 +1,8 @@
 use log::{info, warn};
 use serde::Serialize;
 use tauri::{command, AppHandle, Manager};
+use tauri_plugin_autostart::ManagerExt as AutostartExt;
+use tauri_plugin_clipboard_manager::ClipboardExt;
 
 use crate::audio::AudioRecorder;
 use crate::config::Config;
@@ -25,7 +27,7 @@ pub fn get_ui_state() -> UiSnapshot {
 
 /// Save configuration
 #[command]
-pub fn save_config(config: Config) -> Result<(), String> {
+pub fn save_config(app: AppHandle, config: Config) -> Result<(), String> {
     info!("Saving configuration");
 
     // Normalize stale device indices before persisting. A native <select>
@@ -70,8 +72,61 @@ pub fn save_config(config: Config) -> Result<(), String> {
     // Update recorder settings
     *APP_STATE.recorder.write() = Some(new_recorder);
 
+    let autostart_result = if config.desktop.auto_start {
+        app.autolaunch().enable()
+    } else {
+        app.autolaunch().disable()
+    };
+    if let Err(error) = autostart_result {
+        warn!("Failed to synchronize autostart: {}", error);
+    }
+    crate::tray::refresh(&app);
+
     info!("Configuration saved successfully");
     Ok(())
+}
+
+#[command]
+pub fn get_history() -> Vec<crate::history::HistoryItem> {
+    crate::history::recent(50)
+}
+
+#[command]
+pub fn clear_history(app: AppHandle) {
+    crate::history::clear();
+    crate::tray::refresh(&app);
+}
+
+#[command]
+pub fn get_diagnostics() -> crate::diagnostics::DiagnosticSnapshot {
+    crate::diagnostics::snapshot()
+}
+
+#[command]
+pub fn read_diagnostic_log() -> Result<String, String> {
+    crate::diagnostics::read_log()
+}
+
+#[command]
+pub fn clear_diagnostic_log() -> Result<(), String> {
+    crate::diagnostics::clear_log()
+}
+
+#[command]
+pub fn export_diagnostic_log() -> Result<String, String> {
+    crate::diagnostics::export_log()
+}
+
+#[command]
+pub fn copy_text(app: AppHandle, text: String) -> Result<(), String> {
+    app.clipboard()
+        .write_text(text)
+        .map_err(|error| error.to_string())
+}
+
+#[command]
+pub fn open_permission_settings() -> Result<(), String> {
+    crate::permissions::open_settings()
 }
 
 /// Start audio recording
