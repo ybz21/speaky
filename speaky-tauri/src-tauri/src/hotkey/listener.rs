@@ -2,12 +2,14 @@ use base64::Engine;
 use log::{debug, error, info};
 use parking_lot::Mutex;
 use rdev::{listen, Event, EventType, Key};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition};
 
 use crate::APP_STATE;
+
+static RECOGNITION_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 /// Hotkey manager for handling press-and-hold detection
 ///
@@ -162,15 +164,18 @@ impl HotkeyManager {
                 // Check if still pressed and not already triggered
                 if press_time_arc.lock().is_some() && !hold_triggered.load(Ordering::SeqCst) {
                     hold_triggered.store(true, Ordering::SeqCst);
-                    Self::start_recording(&app_handle);
+                    if !Self::start_recording(&app_handle) {
+                        hold_triggered.store(false, Ordering::SeqCst);
+                    }
                 }
             });
         }
     }
 
     /// Start recording after hold threshold reached
-    fn start_recording(app_handle: &AppHandle) {
+    fn start_recording(app_handle: &AppHandle) -> bool {
         info!("Hold time reached, starting recording");
+        RECOGNITION_GENERATION.fetch_add(1, Ordering::SeqCst);
         // Get focused window info BEFORE showing our window
         let window_info = crate::window_info::get_focused_window_info();
 
@@ -247,6 +252,11 @@ impl HotkeyManager {
             }),
         );
 
+        if APP_STATE.engine.read().is_none() {
+            fail_and_hide(app_handle, "识别引擎尚未配置，请先在设置中填写 API Key");
+            return false;
+        }
+
         // Start audio recording
         if let Some(ref mut recorder) = *APP_STATE.recorder.write() {
             // Set up audio level callback
@@ -293,20 +303,16 @@ impl HotkeyManager {
 
             if let Err(e) = recorder.start() {
                 error!("Failed to start recording: {}", e);
-                crate::sound::play(crate::sound::Cue::Error);
-                let mut ui = APP_STATE.ui.write();
-                ui.phase = "error".to_string();
-                ui.error_message = e.clone();
-                let _ = app_handle.emit(
-                    "recognition-error",
-                    serde_json::json!({
-                        "message": e
-                    }),
-                );
+                APP_STATE.realtime_session.write().take();
+                fail_and_hide(app_handle, &e);
+                return false;
             } else {
                 crate::sound::play(crate::sound::Cue::Start);
+                return true;
             }
         }
+        fail_and_hide(app_handle, "麦克风尚未就绪，请在诊断页检查设备");
+        false
     }
 
     /// Handle hotkey release event
@@ -339,18 +345,13 @@ impl HotkeyManager {
             crate::sound::play(crate::sound::Cue::End);
 
             if audio_data.is_empty() {
-                crate::sound::play(crate::sound::Cue::Error);
-                let mut ui = APP_STATE.ui.write();
-                ui.phase = "error".to_string();
-                ui.error_message = "No audio captured".to_string();
-                let _ = app.emit(
-                    "recognition-error",
-                    serde_json::json!({
-                        "message": "No audio captured"
-                    }),
-                );
+                APP_STATE.realtime_session.write().take();
+                fail_and_hide(&app, "没有采集到音频，请检查麦克风设备");
                 return;
             }
+
+            let generation = RECOGNITION_GENERATION.load(Ordering::SeqCst);
+            arm_recognition_watchdog(&app, generation);
 
             if let Some(session) = APP_STATE.realtime_session.write().take() {
                 std::thread::spawn(move || {
@@ -391,7 +392,7 @@ impl HotkeyManager {
                             realtime_result
                         }
                     };
-                    deliver_recognition_result(app, result);
+                    deliver_recognition_result(app, result, generation);
                 });
             } else {
                 recognize_and_deliver(app, audio_data);
@@ -462,14 +463,13 @@ fn position_floating_window(window: &tauri::WebviewWindow, target_window_id: Opt
 /// listener thread so a slow network request never blocks hotkey handling.
 pub fn recognize_and_deliver(app_handle: AppHandle, audio_data: Vec<u8>) {
     if audio_data.is_empty() {
-        let _ = app_handle.emit(
-            "recognition-error",
-            serde_json::json!({"message": "No audio captured"}),
-        );
+        fail_and_hide(&app_handle, "没有采集到音频，请检查麦克风设备");
         return;
     }
 
     let config = APP_STATE.config.read().clone();
+    let generation = RECOGNITION_GENERATION.load(Ordering::SeqCst);
+    arm_recognition_watchdog(&app_handle, generation);
 
     std::thread::spawn(move || {
         let result = if let Some(ref engine) = *APP_STATE.engine.read() {
@@ -492,28 +492,24 @@ pub fn recognize_and_deliver(app_handle: AppHandle, audio_data: Vec<u8>) {
             Err(crate::engines::EngineError::NotConfigured)
         };
 
-        deliver_recognition_result(app_handle, result);
+        deliver_recognition_result(app_handle, result, generation);
     });
 }
 
-fn deliver_recognition_result(app_handle: AppHandle, result: crate::engines::EngineResult) {
+fn deliver_recognition_result(
+    app_handle: AppHandle,
+    result: crate::engines::EngineResult,
+    generation: u64,
+) {
+    if generation != RECOGNITION_GENERATION.load(Ordering::SeqCst) {
+        info!("Discarding stale recognition result");
+        return;
+    }
     match result {
         Ok(original_text) => {
             info!("Recognition result: {} chars", original_text.len());
             if original_text.trim().is_empty() {
-                crate::sound::play(crate::sound::Cue::Error);
-                let mut ui = APP_STATE.ui.write();
-                ui.phase = "error".to_string();
-                ui.error_message = "识别结果为空，请确认麦克风有声音".to_string();
-                drop(ui);
-                let _ = app_handle.emit(
-                    "recognition-error",
-                    serde_json::json!({"message": "识别结果为空，请确认麦克风有声音"}),
-                );
-                std::thread::sleep(Duration::from_secs(2));
-                if let Some(window) = app_handle.get_webview_window("main") {
-                    let _ = window.hide();
-                }
+                fail_and_hide(&app_handle, "识别结果为空，请确认麦克风有声音");
                 return;
             }
 
@@ -546,6 +542,11 @@ fn deliver_recognition_result(app_handle: AppHandle, result: crate::engines::Eng
             } else {
                 original_text
             };
+
+            if generation != RECOGNITION_GENERATION.load(Ordering::SeqCst) {
+                info!("Discarding recognition result after timeout or a newer recording");
+                return;
+            }
 
             let engine_name = APP_STATE
                 .engine
@@ -602,17 +603,70 @@ fn deliver_recognition_result(app_handle: AppHandle, result: crate::engines::Eng
         }
         Err(e) => {
             error!("Recognition error: {}", e);
-            crate::sound::play(crate::sound::Cue::Error);
-            let mut ui = APP_STATE.ui.write();
-            ui.phase = "error".to_string();
-            ui.error_message = e.to_string();
-            drop(ui);
-            let _ = app_handle.emit(
-                "recognition-error",
-                serde_json::json!({"message": e.to_string()}),
-            );
+            fail_and_hide(&app_handle, &e.to_string());
         }
     }
+}
+
+fn fail_and_hide(app_handle: &AppHandle, message: &str) {
+    crate::sound::play(crate::sound::Cue::Error);
+    {
+        let mut ui = APP_STATE.ui.write();
+        ui.phase = "error".to_string();
+        ui.error_message = message.to_string();
+    }
+    let _ = app_handle.emit("recognition-error", serde_json::json!({"message": message}));
+
+    let app = app_handle.clone();
+    let expected_message = message.to_string();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(2));
+        let should_hide = {
+            let mut ui = APP_STATE.ui.write();
+            if ui.phase == "error" && ui.error_message == expected_message {
+                ui.phase = "idle".to_string();
+                ui.audio_level = 0.0;
+                ui.partial_result.clear();
+                ui.final_result.clear();
+                ui.error_message.clear();
+                true
+            } else {
+                false
+            }
+        };
+        if should_hide {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.hide();
+            }
+        }
+    });
+}
+
+fn arm_recognition_watchdog(app_handle: &AppHandle, generation: u64) {
+    let app = app_handle.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(30));
+        if generation != RECOGNITION_GENERATION.load(Ordering::SeqCst) {
+            return;
+        }
+        let stalled = matches!(
+            APP_STATE.ui.read().phase.as_str(),
+            "recognizing" | "polishing"
+        );
+        if stalled
+            && RECOGNITION_GENERATION
+                .compare_exchange(
+                    generation,
+                    generation.wrapping_add(1),
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                )
+                .is_ok()
+        {
+            error!("Recognition watchdog timed out");
+            fail_and_hide(&app, "识别超时，请检查网络或识别引擎配置");
+        }
+    });
 }
 
 /// Convert hotkey string to rdev Key
