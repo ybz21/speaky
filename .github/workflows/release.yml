@@ -80,6 +80,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Remove stale release and assets
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              const release = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: context.ref.replace('refs/tags/', ''),
+              });
+              await github.rest.repos.deleteRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.data.id,
+              });
+              core.info(`Removed stale release ${release.data.id}`);
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              core.info('No existing release to remove');
+            }
+
       - name: Download bundles
         uses: actions/download-artifact@v4
         with:
