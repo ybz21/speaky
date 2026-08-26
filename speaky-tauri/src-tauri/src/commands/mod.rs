@@ -33,6 +33,9 @@ pub fn save_config(app: AppHandle, config: Config) -> Result<(), String> {
     // Normalize stale device indices before persisting. A native <select>
     // can briefly produce an out-of-range value while its options reload.
     let mut config = config;
+    if !hotkey::is_supported_hotkey(&config.core.asr.hotkey) {
+        return Err(format!("Unsupported hotkey: {}", config.core.asr.hotkey));
+    }
     config.core.asr.language = "auto".to_string();
     config.appearance.ui_language = if config
         .appearance
@@ -54,6 +57,7 @@ pub fn save_config(app: AppHandle, config: Config) -> Result<(), String> {
             config.core.asr.audio_device = APP_STATE.config.read().core.asr.audio_device;
         }
     }
+    config.validate().map_err(|error| error.to_string())?;
 
     // Build the recorder first. Never replace a working recorder with an
     // unusable one if settings contain a stale device selection.
@@ -64,6 +68,12 @@ pub fn save_config(app: AppHandle, config: Config) -> Result<(), String> {
 
     // Update in-memory config
     *APP_STATE.config.write() = config.clone();
+
+    // Apply trigger changes immediately; settings no longer require a restart.
+    if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+        manager.update_hotkey(&config.core.asr.hotkey);
+        manager.update_hold_time(config.core.asr.hotkey_hold_time);
+    }
 
     // Recreate engine with new config
     let engine = engines::create_engine(&config);
@@ -175,6 +185,13 @@ pub fn get_audio_devices() -> Vec<AudioDeviceInfo> {
 pub fn set_hotkey(_app: AppHandle, hotkey: String, hold_time: f64) -> Result<(), String> {
     info!("Setting hotkey: {} with hold time: {}", hotkey, hold_time);
 
+    if !hotkey::is_supported_hotkey(&hotkey) {
+        return Err(format!("Unsupported hotkey: {}", hotkey));
+    }
+    if hold_time <= 0.0 {
+        return Err("Hold time must be positive".to_string());
+    }
+
     // Update config and hotkey manager atomically
     {
         let mut config = APP_STATE.config.write();
@@ -195,6 +212,23 @@ pub fn set_hotkey(_app: AppHandle, hotkey: String, hold_time: f64) -> Result<(),
     // This simplified implementation updates the manager settings
 
     Ok(())
+}
+
+#[command]
+pub fn start_hotkey_capture() -> Result<(), String> {
+    let managers = APP_STATE.hotkey_manager.read();
+    let manager = managers
+        .as_ref()
+        .ok_or_else(|| "Keyboard listener is not ready".to_string())?;
+    manager.begin_capture();
+    Ok(())
+}
+
+#[command]
+pub fn cancel_hotkey_capture() {
+    if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+        manager.cancel_capture();
+    }
 }
 
 /// Show main window

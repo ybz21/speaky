@@ -17,6 +17,7 @@ use crate::APP_STATE;
 pub struct HotkeyManager {
     hotkey: Arc<Mutex<String>>,
     target_key: Arc<Mutex<Key>>,
+    capture_requested: Arc<AtomicBool>,
     hold_time: Arc<Mutex<Duration>>,
     press_time: Arc<Mutex<Option<Instant>>>,
     hold_triggered: Arc<AtomicBool>,
@@ -40,6 +41,7 @@ impl HotkeyManager {
         Self {
             hotkey: Arc::new(Mutex::new(hotkey_lower)),
             target_key: Arc::new(Mutex::new(target_key)),
+            capture_requested: Arc::new(AtomicBool::new(false)),
             hold_time: Arc::new(Mutex::new(Duration::from_secs_f64(hold_time))),
             press_time: Arc::new(Mutex::new(None)),
             hold_triggered: Arc::new(AtomicBool::new(false)),
@@ -74,6 +76,46 @@ impl HotkeyManager {
     pub fn update_hold_time(&self, hold_time: f64) {
         *self.hold_time.lock() = Duration::from_secs_f64(hold_time);
         debug!("Hold time updated to: {}s", hold_time);
+    }
+
+    /// Capture the next globally reported keyboard press for the settings UI.
+    pub fn begin_capture(&self) {
+        self.capture_requested.store(true, Ordering::SeqCst);
+        info!("Waiting for the user to choose a hotkey");
+    }
+
+    pub fn cancel_capture(&self) {
+        self.capture_requested.store(false, Ordering::SeqCst);
+    }
+
+    fn try_capture(&self, key: Key) -> bool {
+        if !self.capture_requested.load(Ordering::SeqCst) {
+            return false;
+        }
+
+        let key = normalize_event_key(key);
+        let Some(value) = hotkey_name(key) else {
+            if let Some(app) = self.app_handle.lock().clone() {
+                let _ = app.emit(
+                    "hotkey-capture-error",
+                    serde_json::json!({"message": "unsupported-key"}),
+                );
+            }
+            return true;
+        };
+
+        self.capture_requested.store(false, Ordering::SeqCst);
+        if let Some(app) = self.app_handle.lock().clone() {
+            let _ = app.emit("hotkey-captured", serde_json::json!({"hotkey": value}));
+        }
+        info!("Captured hotkey: {} ({:?})", value, key);
+        true
+    }
+
+    fn matches(&self, event_key: Key) -> bool {
+        let target_key = self.get_target_key();
+        let hotkey = self.get_hotkey();
+        key_matches(&normalize_event_key(event_key), &target_key, &hotkey)
     }
 
     /// Get the current hotkey string
@@ -574,7 +616,7 @@ fn deliver_recognition_result(app_handle: AppHandle, result: crate::engines::Eng
 }
 
 /// Convert hotkey string to rdev Key
-fn parse_hotkey(hotkey: &str) -> Option<Key> {
+pub(crate) fn parse_hotkey(hotkey: &str) -> Option<Key> {
     let key = hotkey.to_lowercase();
 
     match key.as_str() {
@@ -591,6 +633,7 @@ fn parse_hotkey(hotkey: &str) -> Option<Key> {
         "cmd" | "super" | "meta" => Some(Key::MetaLeft),
         "cmd_l" | "super_l" | "meta_l" => Some(Key::MetaLeft),
         "cmd_r" | "super_r" | "meta_r" => Some(Key::MetaRight),
+        "fn" | "function" => Some(Key::Function),
         // Function keys
         "f1" => Some(Key::F1),
         "f2" => Some(Key::F2),
@@ -612,31 +655,233 @@ fn parse_hotkey(hotkey: &str) -> Option<Key> {
         "pause" => Some(Key::Pause),
         "insert" => Some(Key::Insert),
         "backquote" | "`" => Some(Key::BackQuote),
+        "escape" | "esc" => Some(Key::Escape),
+        "enter" | "return" => Some(Key::Return),
+        "backspace" => Some(Key::Backspace),
+        "delete" => Some(Key::Delete),
+        "home" => Some(Key::Home),
+        "end" => Some(Key::End),
+        "page_up" | "pageup" => Some(Key::PageUp),
+        "page_down" | "pagedown" => Some(Key::PageDown),
+        "arrow_up" | "up" => Some(Key::UpArrow),
+        "arrow_down" | "down" => Some(Key::DownArrow),
+        "arrow_left" | "left" => Some(Key::LeftArrow),
+        "arrow_right" | "right" => Some(Key::RightArrow),
+        "print_screen" | "printscreen" => Some(Key::PrintScreen),
+        "num_lock" | "numlock" => Some(Key::NumLock),
+        "0" => Some(Key::Num0),
+        "1" => Some(Key::Num1),
+        "2" => Some(Key::Num2),
+        "3" => Some(Key::Num3),
+        "4" => Some(Key::Num4),
+        "5" => Some(Key::Num5),
+        "6" => Some(Key::Num6),
+        "7" => Some(Key::Num7),
+        "8" => Some(Key::Num8),
+        "9" => Some(Key::Num9),
+        "a" => Some(Key::KeyA),
+        "b" => Some(Key::KeyB),
+        "c" => Some(Key::KeyC),
+        "d" => Some(Key::KeyD),
+        "e" => Some(Key::KeyE),
+        "f" => Some(Key::KeyF),
+        "g" => Some(Key::KeyG),
+        "h" => Some(Key::KeyH),
+        "i" => Some(Key::KeyI),
+        "j" => Some(Key::KeyJ),
+        "k" => Some(Key::KeyK),
+        "l" => Some(Key::KeyL),
+        "m" => Some(Key::KeyM),
+        "n" => Some(Key::KeyN),
+        "o" => Some(Key::KeyO),
+        "p" => Some(Key::KeyP),
+        "q" => Some(Key::KeyQ),
+        "r" => Some(Key::KeyR),
+        "s" => Some(Key::KeyS),
+        "t" => Some(Key::KeyT),
+        "u" => Some(Key::KeyU),
+        "v" => Some(Key::KeyV),
+        "w" => Some(Key::KeyW),
+        "x" => Some(Key::KeyX),
+        "y" => Some(Key::KeyY),
+        "z" => Some(Key::KeyZ),
+        "minus" => Some(Key::Minus),
+        "equal" => Some(Key::Equal),
+        "left_bracket" => Some(Key::LeftBracket),
+        "right_bracket" => Some(Key::RightBracket),
+        "semicolon" => Some(Key::SemiColon),
+        "quote" => Some(Key::Quote),
+        "backslash" => Some(Key::BackSlash),
+        "intl_backslash" => Some(Key::IntlBackslash),
+        "comma" => Some(Key::Comma),
+        "dot" | "period" => Some(Key::Dot),
+        "slash" => Some(Key::Slash),
+        "numpad_0" => Some(Key::Kp0),
+        "numpad_1" => Some(Key::Kp1),
+        "numpad_2" => Some(Key::Kp2),
+        "numpad_3" => Some(Key::Kp3),
+        "numpad_4" => Some(Key::Kp4),
+        "numpad_5" => Some(Key::Kp5),
+        "numpad_6" => Some(Key::Kp6),
+        "numpad_7" => Some(Key::Kp7),
+        "numpad_8" => Some(Key::Kp8),
+        "numpad_9" => Some(Key::Kp9),
+        "numpad_enter" => Some(Key::KpReturn),
+        "numpad_minus" => Some(Key::KpMinus),
+        "numpad_plus" => Some(Key::KpPlus),
+        "numpad_multiply" => Some(Key::KpMultiply),
+        "numpad_divide" => Some(Key::KpDivide),
+        "numpad_delete" => Some(Key::KpDelete),
         _ => None,
     }
 }
 
+pub(crate) fn is_supported_hotkey(hotkey: &str) -> bool {
+    parse_hotkey(hotkey).is_some()
+}
+
+fn hotkey_name(key: Key) -> Option<&'static str> {
+    Some(match key {
+        Key::Alt => "alt_l",
+        Key::AltGr => "alt_r",
+        Key::Backspace => "backspace",
+        Key::CapsLock => "caps_lock",
+        Key::ControlLeft => "ctrl_l",
+        Key::ControlRight => "ctrl_r",
+        Key::Delete => "delete",
+        Key::DownArrow => "arrow_down",
+        Key::End => "end",
+        Key::Escape => "escape",
+        Key::F1 => "f1",
+        Key::F2 => "f2",
+        Key::F3 => "f3",
+        Key::F4 => "f4",
+        Key::F5 => "f5",
+        Key::F6 => "f6",
+        Key::F7 => "f7",
+        Key::F8 => "f8",
+        Key::F9 => "f9",
+        Key::F10 => "f10",
+        Key::F11 => "f11",
+        Key::F12 => "f12",
+        Key::Home => "home",
+        Key::LeftArrow => "arrow_left",
+        Key::MetaLeft => "cmd_l",
+        Key::MetaRight => "cmd_r",
+        Key::PageDown => "page_down",
+        Key::PageUp => "page_up",
+        Key::Return => "enter",
+        Key::RightArrow => "arrow_right",
+        Key::ShiftLeft => "shift_l",
+        Key::ShiftRight => "shift_r",
+        Key::Space => "space",
+        Key::Tab => "tab",
+        Key::UpArrow => "arrow_up",
+        Key::PrintScreen => "print_screen",
+        Key::ScrollLock => "scroll_lock",
+        Key::Pause => "pause",
+        Key::NumLock => "num_lock",
+        Key::BackQuote => "backquote",
+        Key::Num0 => "0",
+        Key::Num1 => "1",
+        Key::Num2 => "2",
+        Key::Num3 => "3",
+        Key::Num4 => "4",
+        Key::Num5 => "5",
+        Key::Num6 => "6",
+        Key::Num7 => "7",
+        Key::Num8 => "8",
+        Key::Num9 => "9",
+        Key::Minus => "minus",
+        Key::Equal => "equal",
+        Key::KeyQ => "q",
+        Key::KeyW => "w",
+        Key::KeyE => "e",
+        Key::KeyR => "r",
+        Key::KeyT => "t",
+        Key::KeyY => "y",
+        Key::KeyU => "u",
+        Key::KeyI => "i",
+        Key::KeyO => "o",
+        Key::KeyP => "p",
+        Key::LeftBracket => "left_bracket",
+        Key::RightBracket => "right_bracket",
+        Key::KeyA => "a",
+        Key::KeyS => "s",
+        Key::KeyD => "d",
+        Key::KeyF => "f",
+        Key::KeyG => "g",
+        Key::KeyH => "h",
+        Key::KeyJ => "j",
+        Key::KeyK => "k",
+        Key::KeyL => "l",
+        Key::SemiColon => "semicolon",
+        Key::Quote => "quote",
+        Key::BackSlash => "backslash",
+        Key::IntlBackslash => "intl_backslash",
+        Key::KeyZ => "z",
+        Key::KeyX => "x",
+        Key::KeyC => "c",
+        Key::KeyV => "v",
+        Key::KeyB => "b",
+        Key::KeyN => "n",
+        Key::KeyM => "m",
+        Key::Comma => "comma",
+        Key::Dot => "dot",
+        Key::Slash => "slash",
+        Key::Insert => "insert",
+        Key::KpReturn => "numpad_enter",
+        Key::KpMinus => "numpad_minus",
+        Key::KpPlus => "numpad_plus",
+        Key::KpMultiply => "numpad_multiply",
+        Key::KpDivide => "numpad_divide",
+        Key::Kp0 => "numpad_0",
+        Key::Kp1 => "numpad_1",
+        Key::Kp2 => "numpad_2",
+        Key::Kp3 => "numpad_3",
+        Key::Kp4 => "numpad_4",
+        Key::Kp5 => "numpad_5",
+        Key::Kp6 => "numpad_6",
+        Key::Kp7 => "numpad_7",
+        Key::Kp8 => "numpad_8",
+        Key::Kp9 => "numpad_9",
+        Key::KpDelete => "numpad_delete",
+        Key::Function => "fn",
+        Key::Unknown(_) => return None,
+    })
+}
+
+fn normalize_event_key(key: Key) -> Key {
+    match key {
+        #[cfg(target_os = "windows")]
+        Key::Unknown(92) => Key::MetaRight,
+        #[cfg(target_os = "linux")]
+        Key::Unknown(134) => Key::MetaRight,
+        _ => key,
+    }
+}
+
 /// Check if the event key matches the target key
-fn key_matches(event_key: &Key, target_key: &Key) -> bool {
-    // Handle left/right variants matching generic key
+fn key_matches(event_key: &Key, target_key: &Key, configured_hotkey: &str) -> bool {
+    // Preserve the historical generic aliases while allowing native capture
+    // to distinguish the physical left and right modifier keys.
+    match configured_hotkey {
+        "ctrl" | "control" => return matches!(event_key, Key::ControlLeft | Key::ControlRight),
+        "shift" => return matches!(event_key, Key::ShiftLeft | Key::ShiftRight),
+        "alt" => return matches!(event_key, Key::Alt | Key::AltGr),
+        "cmd" | "super" | "meta" => return matches!(event_key, Key::MetaLeft | Key::MetaRight),
+        _ => {}
+    }
+
     match (event_key, target_key) {
         // Control key variants
-        (Key::ControlLeft, Key::ControlLeft)
-        | (Key::ControlRight, Key::ControlLeft)
-        | (Key::ControlLeft, Key::ControlRight)
-        | (Key::ControlRight, Key::ControlRight) => true,
+        (Key::ControlLeft, Key::ControlLeft) | (Key::ControlRight, Key::ControlRight) => true,
         // Shift key variants
-        (Key::ShiftLeft, Key::ShiftLeft)
-        | (Key::ShiftRight, Key::ShiftLeft)
-        | (Key::ShiftLeft, Key::ShiftRight)
-        | (Key::ShiftRight, Key::ShiftRight) => true,
+        (Key::ShiftLeft, Key::ShiftLeft) | (Key::ShiftRight, Key::ShiftRight) => true,
         // Alt key variants
-        (Key::Alt, Key::Alt) | (Key::AltGr, Key::Alt) | (Key::Alt, Key::AltGr) => true,
+        (Key::Alt, Key::Alt) | (Key::AltGr, Key::AltGr) => true,
         // Meta/Super key variants
-        (Key::MetaLeft, Key::MetaLeft)
-        | (Key::MetaRight, Key::MetaLeft)
-        | (Key::MetaLeft, Key::MetaRight)
-        | (Key::MetaRight, Key::MetaRight) => true,
+        (Key::MetaLeft, Key::MetaLeft) | (Key::MetaRight, Key::MetaRight) => true,
         // Exact match for all other keys
         _ => event_key == target_key,
     }
@@ -662,31 +907,25 @@ pub fn start_keyboard_listener(app: AppHandle) {
 
     // Start listener in a separate thread
     std::thread::spawn(move || {
-        let callback = move |event: Event| {
-            // Get current target key from manager (allows dynamic updates)
-            let target_key = if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
-                manager.get_target_key()
-            } else {
-                return;
-            };
-
-            match event.event_type {
-                EventType::KeyPress(key) => {
-                    if key_matches(&key, &target_key) {
-                        if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
-                            manager.on_press();
-                        }
+        let callback = move |event: Event| match event.event_type {
+            EventType::KeyPress(key) => {
+                if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+                    if manager.try_capture(key) {
+                        return;
+                    }
+                    if manager.matches(key) {
+                        manager.on_press();
                     }
                 }
-                EventType::KeyRelease(key) => {
-                    if key_matches(&key, &target_key) {
-                        if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
-                            manager.on_release();
-                        }
-                    }
-                }
-                _ => {}
             }
+            EventType::KeyRelease(key) => {
+                if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+                    if manager.matches(key) {
+                        manager.on_release();
+                    }
+                }
+            }
+            _ => {}
         };
 
         if let Err(error) = listen(callback) {
@@ -701,4 +940,32 @@ pub fn start_keyboard_listener(app: AppHandle) {
 pub fn register_hotkeys(app: AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     start_keyboard_listener(app);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_native_system_and_function_keys() {
+        assert_eq!(parse_hotkey("cmd_l"), Some(Key::MetaLeft));
+        assert_eq!(parse_hotkey("cmd_r"), Some(Key::MetaRight));
+        assert_eq!(parse_hotkey("fn"), Some(Key::Function));
+        assert_eq!(parse_hotkey("f12"), Some(Key::F12));
+        assert_eq!(parse_hotkey("numpad_5"), Some(Key::Kp5));
+        assert!(parse_hotkey("not-a-key").is_none());
+    }
+
+    #[test]
+    fn captured_modifiers_keep_their_physical_side() {
+        assert!(key_matches(&Key::ControlLeft, &Key::ControlLeft, "ctrl_l"));
+        assert!(!key_matches(
+            &Key::ControlRight,
+            &Key::ControlLeft,
+            "ctrl_l"
+        ));
+        assert!(key_matches(&Key::ControlRight, &Key::ControlLeft, "ctrl"));
+        assert!(key_matches(&Key::MetaRight, &Key::MetaRight, "cmd_r"));
+        assert!(!key_matches(&Key::MetaLeft, &Key::MetaRight, "cmd_r"));
+    }
 }

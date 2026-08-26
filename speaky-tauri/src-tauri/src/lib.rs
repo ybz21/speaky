@@ -204,6 +204,11 @@ pub fn run() {
             if window.label() == "settings" || window.label() == "diagnostics" {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
+                    if window.label() == "settings" {
+                        if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+                            manager.cancel_capture();
+                        }
+                    }
                     let _ = window.hide();
                 }
             }
@@ -215,6 +220,8 @@ pub fn run() {
             commands::stop_recording,
             commands::get_audio_devices,
             commands::set_hotkey,
+            commands::start_hotkey_capture,
+            commands::cancel_hotkey_capture,
             commands::show_window,
             commands::hide_window,
             commands::paste_text,

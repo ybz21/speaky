@@ -97,12 +97,14 @@ function createConfigStore() {
   return {
     subscribe,
 
-    load: async () => {
+    load: async (): Promise<Config | null> => {
       try {
-        const config = await invoke<Config>("get_config");
-        set(config);
+        const loadedConfig = await invoke<Config>("get_config");
+        set(loadedConfig);
+        return loadedConfig;
       } catch (e) {
         console.error("Failed to load config:", e);
+        return null;
       }
     },
 
