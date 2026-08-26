@@ -1,6 +1,6 @@
 {
   "name": "speaky-tauri",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Cross-platform voice input tool built with Tauri",
   "type": "module",
   "scripts": {
