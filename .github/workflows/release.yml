@@ -86,10 +86,14 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      - name: List release files
+        run: find artifacts -type f -maxdepth 4 -print
+        working-directory: .
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**
+          files: artifacts/**/*
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
