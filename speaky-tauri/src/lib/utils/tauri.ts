@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { listen, type Event, type UnlistenFn } from "@tauri-apps/api/event";
 import { appState, type UiSnapshot } from "../stores/app";
 
 // Event types from Rust backend
@@ -73,7 +73,7 @@ export async function setupEventListeners(): Promise<void> {
   await cleanupEventListeners();
 
   // Helper to push and track listeners
-  const addListener = async <T>(event: string, handler: (event: T) => void) => {
+  const addListener = async <T>(event: string, handler: (event: Event<T>) => void) => {
     unlistenFns.push(await listen<T>(event, handler));
   };
 

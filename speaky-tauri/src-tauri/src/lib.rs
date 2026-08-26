@@ -99,8 +99,9 @@ pub(crate) fn show_settings_window(app: &AppHandle) -> tauri::Result<()> {
             WebviewUrl::App("index.html#settings".into()),
         )
         .title("Speaky Settings")
-        .inner_size(420.0, 480.0)
-        .resizable(false)
+        .inner_size(900.0, 700.0)
+        .min_inner_size(760.0, 600.0)
+        .resizable(true)
         .center()
         .build()?
     };

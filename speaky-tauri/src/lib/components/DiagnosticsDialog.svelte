@@ -5,6 +5,8 @@
   import { config } from "../stores/config";
   import { locale, t } from "../stores/i18n";
 
+  export let embedded = false;
+
   interface Device {
     index: number;
     name: string;
@@ -73,16 +75,27 @@
   });
 </script>
 
-<div class="dialog">
-  <header>
-    <div>
-      <h1>{$t("diagnostics.title")}</h1>
-      <p>{$t("diagnostics.subtitle")}</p>
-    </div>
-    {#if snapshot}<span>v{snapshot.app_version} · {snapshot.platform}</span>{/if}
-  </header>
+<div class="dialog" class:embedded>
+  {#if !embedded}
+    <header>
+      <div>
+        <h1>{$t("diagnostics.title")}</h1>
+        <p>{$t("diagnostics.subtitle")}</p>
+      </div>
+      {#if snapshot}<span>v{snapshot.app_version} · {snapshot.platform}</span>{/if}
+    </header>
+  {/if}
 
-  <main>
+  <main class:embedded>
+    {#if embedded}
+      <div class="page-heading">
+        <div>
+          <h1>{$t("diagnostics.title")}</h1>
+          <p>{$t("diagnostics.subtitle")}</p>
+        </div>
+        {#if snapshot}<span>v{snapshot.app_version} · {snapshot.platform}</span>{/if}
+      </div>
+    {/if}
     <div class="grid">
       <section>
         <h2>{$t("diagnostics.microphone")}</h2>
@@ -128,18 +141,26 @@
     </section>
   </main>
 
-  <footer><button on:click={() => getCurrentWindow().hide()}>{$t("diagnostics.close")}</button></footer>
+  {#if !embedded}
+    <footer><button on:click={() => getCurrentWindow().hide()}>{$t("diagnostics.close")}</button></footer>
+  {/if}
 </div>
 
 <style>
   :global(html, body, #app) { margin: 0; width: 100%; height: 100%; }
   :global(*) { box-sizing: border-box; }
   .dialog { width: 100%; height: 100%; display: flex; flex-direction: column; background: #f7f8fa; color: #1f2937; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .dialog.embedded { background: transparent; }
   header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; background: white; border-bottom: 1px solid #e5e7eb; }
   h1 { margin: 0; font-size: 19px; } header p { margin: 4px 0 0; color: #8b95a5; font-size: 12px; } header span { color: #9ca3af; font-size: 12px; }
   main { flex: 1; min-height: 0; padding: 16px 22px; overflow: auto; }
+  main.embedded { padding: 0; overflow: visible; }
+  .page-heading { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; }
+  .page-heading h1 { margin: 0; color: #15171a; font-size: 20px; font-weight: 700; }
+  .page-heading p { margin: 7px 0 0; color: #8b9099; font-size: 13px; }
+  .page-heading span { color: #9ca3af; font-size: 12px; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  section { background: white; border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px; }
+  section { background: white; border: 1px solid #e4e7eb; border-radius: 14px; padding: 16px; }
   h2 { margin: 0; font-size: 14px; } h3 { margin: 13px 0 6px; color: #6b7280; font-size: 11px; font-weight: 600; }
   .status { display: flex; align-items: center; gap: 7px; margin-top: 11px; color: #dc2626; font-size: 13px; } .status.ok { color: #15803d; }
   .status i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
