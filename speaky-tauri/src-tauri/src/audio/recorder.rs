@@ -204,6 +204,17 @@ impl AudioRecorder {
             }
         }
 
+        // On Linux, PipeWire/ALSA may expose a virtual "default" endpoint
+        // before the physical USB microphone. Try named devices first so a
+        // stale default cannot block the streaming session.
+        candidates.sort_by_key(|device| {
+            device
+                .name()
+                .map(|name| name.eq_ignore_ascii_case("default"))
+                .unwrap_or(false)
+        });
+        candidates.truncate(8);
+
         if candidates.is_empty() {
             self.is_recording.store(false, Ordering::SeqCst);
             return Err("No audio input device available".to_string());

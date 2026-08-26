@@ -10,6 +10,7 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition};
 use crate::APP_STATE;
 
 static RECOGNITION_GENERATION: AtomicU64 = AtomicU64::new(0);
+static RECORDING_CANCEL_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 /// Hotkey manager for handling press-and-hold detection
 ///
@@ -175,6 +176,7 @@ impl HotkeyManager {
     /// Start recording after hold threshold reached
     fn start_recording(app_handle: &AppHandle) -> bool {
         info!("Hold time reached, starting recording");
+        RECORDING_CANCEL_REQUESTED.store(false, Ordering::SeqCst);
         RECOGNITION_GENERATION.fetch_add(1, Ordering::SeqCst);
         // Get focused window info BEFORE showing our window
         let window_info = crate::window_info::get_focused_window_info();
@@ -307,6 +309,12 @@ impl HotkeyManager {
                 fail_and_hide(app_handle, &e);
                 return false;
             } else {
+                if RECORDING_CANCEL_REQUESTED.load(Ordering::SeqCst) {
+                    let _ = recorder.stop();
+                    APP_STATE.realtime_session.write().take();
+                    fail_and_hide(app_handle, "录音启动后按键已松开");
+                    return false;
+                }
                 crate::sound::play(crate::sound::Cue::Start);
                 return true;
             }
@@ -327,6 +335,7 @@ impl HotkeyManager {
 
         if self.hold_triggered.swap(false, Ordering::SeqCst) {
             info!("Hotkey released, stopping recording");
+            RECORDING_CANCEL_REQUESTED.store(true, Ordering::SeqCst);
             APP_STATE.ui.write().phase = "recognizing".to_string();
             // Emit recognizing state
             let _ = app.emit(
@@ -337,10 +346,21 @@ impl HotkeyManager {
             );
 
             // Stop recording and get audio data
-            let audio_data = if let Some(ref mut recorder) = *APP_STATE.recorder.write() {
-                recorder.stop()
-            } else {
-                Vec::new()
+            let stop_started = Instant::now();
+            let audio_data = loop {
+                if let Some(mut recorder_guard) = APP_STATE.recorder.try_write() {
+                    break if let Some(ref mut recorder) = *recorder_guard {
+                        recorder.stop()
+                    } else {
+                        Vec::new()
+                    };
+                }
+                if stop_started.elapsed() >= Duration::from_secs(5) {
+                    APP_STATE.realtime_session.write().take();
+                    fail_and_hide(&app, "录音设备启动超时，请在诊断页检查麦克风");
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(25));
             };
             crate::sound::play(crate::sound::Cue::End);
 
@@ -355,44 +375,12 @@ impl HotkeyManager {
 
             if let Some(session) = APP_STATE.realtime_session.write().take() {
                 std::thread::spawn(move || {
-                    // Keep realtime captions while the key is held, then run
-                    // the complete WAV through the more accurate final model.
-                    // Both requests finish concurrently, so correction adds
-                    // little latency and safely falls back to realtime.
-                    let config = APP_STATE.config.read().clone();
-                    let correction_audio = audio_data;
-                    let correction = std::thread::spawn(move || {
-                        let api_key = if config.engine.volc_bigmodel.api_key.is_empty() {
-                            std::env::var("SPEAKY_VOLC_API_KEY").unwrap_or_default()
-                        } else {
-                            config.engine.volc_bigmodel.api_key.clone()
-                        };
-                        let engine = crate::engines::VolcBigModelEngine::new(
-                            &api_key,
-                            &config.engine.volc_bigmodel.app_key,
-                            &config.engine.volc_bigmodel.access_key,
-                            &config.engine.volc_bigmodel.resource_id,
-                        );
-                        engine.transcribe_final(&correction_audio, &config.core.asr.language)
-                    });
-
+                    // The realtime hypothesis is the primary result. Deliver
+                    // it as soon as the stream closes; a second correction
+                    // request must never hold the UI in "recognizing".
                     let realtime_result = session.finish();
-                    let result = match correction.join() {
-                        Ok(Ok(text)) if !text.trim().is_empty() => Ok(text),
-                        Ok(Err(error)) => {
-                            error!(
-                                "Final accuracy pass failed, using realtime result: {}",
-                                error
-                            );
-                            realtime_result
-                        }
-                        Ok(Ok(_)) => realtime_result,
-                        Err(_) => {
-                            error!("Final accuracy pass panicked, using realtime result");
-                            realtime_result
-                        }
-                    };
-                    deliver_recognition_result(app, result, generation);
+                    info!("Delivering realtime recognition result immediately");
+                    deliver_recognition_result(app, realtime_result, generation);
                 });
             } else {
                 recognize_and_deliver(app, audio_data);
@@ -609,6 +597,9 @@ fn deliver_recognition_result(
 }
 
 fn fail_and_hide(app_handle: &AppHandle, message: &str) {
+    // Invalidate any realtime worker that may still be finishing in the
+    // background; a late response must not resurrect the overlay.
+    RECOGNITION_GENERATION.fetch_add(1, Ordering::SeqCst);
     crate::sound::play(crate::sound::Cue::Error);
     {
         let mut ui = APP_STATE.ui.write();
