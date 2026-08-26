@@ -1,6 +1,7 @@
 pub mod audio;
 pub mod commands;
 pub mod config;
+pub mod desktop_integration;
 pub mod diagnostics;
 pub mod engines;
 pub mod history;
@@ -180,6 +181,9 @@ pub fn run() {
             }
 
             tray::install(app.handle())?;
+            if let Err(error) = desktop_integration::install() {
+                error!("Failed to install desktop integration: {}", error);
+            }
 
             // Register hotkeys
             let app_handle = app.handle().clone();

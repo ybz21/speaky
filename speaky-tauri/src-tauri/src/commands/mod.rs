@@ -90,6 +90,9 @@ pub fn save_config(app: AppHandle, config: Config) -> Result<(), String> {
     if let Err(error) = autostart_result {
         warn!("Failed to synchronize autostart: {}", error);
     }
+    if let Err(error) = crate::desktop_integration::install() {
+        warn!("Failed to refresh desktop integration: {}", error);
+    }
     crate::tray::refresh(&app);
 
     info!("Configuration saved successfully");
