@@ -82,6 +82,17 @@ impl AudioRecorder {
     /// # Returns
     /// A new AudioRecorder instance
     pub fn new(device_index: Option<u32>, gain: f64) -> Result<Self, String> {
+        Self::new_with_name(device_index, None, gain)
+    }
+
+    /// Create a recorder, preferring a stable device name over its volatile
+    /// enumeration index. USB and PipeWire device indices can change between
+    /// application launches or while an audio service is restarting.
+    pub fn new_with_name(
+        device_index: Option<u32>,
+        device_name: Option<&str>,
+        gain: f64,
+    ) -> Result<Self, String> {
         let host = cpal::default_host();
 
         // Device enumeration can change while a USB microphone is being
@@ -91,7 +102,15 @@ impl AudioRecorder {
             .input_devices()
             .map(|devices| devices.collect::<Vec<_>>())
             .unwrap_or_default();
-        let device = if let Some(index) = device_index {
+        let named = device_name.and_then(|name| {
+            enumerated
+                .iter()
+                .find(|device| device.name().ok().as_deref() == Some(name))
+                .cloned()
+        });
+        let device = if named.is_some() {
+            named
+        } else if let Some(index) = device_index {
             let selected = enumerated.get(index as usize).cloned();
             if selected.is_none() {
                 warn!(

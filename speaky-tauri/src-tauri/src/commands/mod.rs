@@ -47,8 +47,21 @@ pub fn save_config(app: AppHandle, config: Config) -> Result<(), String> {
     } else {
         "zh-CN".to_string()
     };
-    if let Some(index) = config.core.asr.audio_device {
-        let devices = AudioRecorder::get_devices();
+    // Resolve the stable device name against the current enumeration. The
+    // numeric index is only a transport detail and can change after USB or
+    // PipeWire reconnects.
+    let devices = AudioRecorder::get_devices();
+    if let Some(name) = config.core.asr.audio_device_name.as_deref() {
+        if let Some((index, _)) = devices.iter().find(|(_, candidate)| candidate == name) {
+            config.core.asr.audio_device = Some(*index);
+        } else {
+            warn!(
+                "Configured audio device '{}' is unavailable; falling back to automatic device selection",
+                name
+            );
+            config.core.asr.audio_device = None;
+        }
+    } else if let Some(index) = config.core.asr.audio_device {
         if !devices.iter().any(|(candidate, _)| *candidate == index) {
             warn!(
                 "Ignoring unavailable audio device index {}; falling back to automatic device selection",
@@ -61,8 +74,12 @@ pub fn save_config(app: AppHandle, config: Config) -> Result<(), String> {
 
     // Build the recorder first. Never replace a working recorder with an
     // unusable one if settings contain a stale device selection.
-    let new_recorder = AudioRecorder::new(config.core.asr.audio_device, config.core.asr.audio_gain)
-        .map_err(|e| format!("Failed to recreate recorder: {}", e))?;
+    let new_recorder = AudioRecorder::new_with_name(
+        config.core.asr.audio_device,
+        config.core.asr.audio_device_name.as_deref(),
+        config.core.asr.audio_gain,
+    )
+    .map_err(|e| format!("Failed to recreate recorder: {}", e))?;
 
     config.save().map_err(|e| e.to_string())?;
 

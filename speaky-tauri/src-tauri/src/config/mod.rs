@@ -61,6 +61,10 @@ pub struct AsrConfig {
     pub streaming_mode: bool,
     #[serde(default)]
     pub audio_device: Option<u32>,
+    /// Stable device label used to recover the selection when ALSA/PipeWire
+    /// renumbers devices after a reconnect or audio-service restart.
+    #[serde(default)]
+    pub audio_device_name: Option<String>,
     #[serde(default = "default_audio_gain")]
     pub audio_gain: f64,
     #[serde(default = "default_sound_notification")]
@@ -96,6 +100,7 @@ impl Default for AsrConfig {
             language: default_language(),
             streaming_mode: default_streaming_mode(),
             audio_device: None,
+            audio_device_name: None,
             audio_gain: default_audio_gain(),
             sound_notification: default_sound_notification(),
             llm_polish: false,

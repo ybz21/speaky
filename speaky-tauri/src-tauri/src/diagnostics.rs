@@ -63,12 +63,18 @@ pub fn init_logging() -> Result<(), fern::InitError> {
 pub fn snapshot() -> DiagnosticSnapshot {
     let config = APP_STATE.config.read().clone();
     let selected = config.core.asr.audio_device;
+    let selected_name = config.core.asr.audio_device_name.as_deref();
     let devices = AudioRecorder::get_devices()
         .into_iter()
-        .map(|(index, name)| DiagnosticDevice {
-            index,
-            name,
-            selected: selected == Some(index) || (selected.is_none() && index == 0),
+        .map(|(index, name)| {
+            let is_selected = selected == Some(index)
+                || selected_name == Some(name.as_str())
+                || (selected.is_none() && selected_name.is_none() && index == 0);
+            DiagnosticDevice {
+                index,
+                name,
+                selected: is_selected,
+            }
         })
         .collect();
     DiagnosticSnapshot {

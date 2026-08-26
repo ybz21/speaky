@@ -68,6 +68,7 @@
       return;
     }
     localConfig = JSON.parse(JSON.stringify(loadedConfig));
+    localConfig.core.asr.audio_device_name ??= null;
     localConfig.appearance.ui_language = normalizeLocale(
       localConfig.appearance.ui_language,
     );
@@ -227,13 +228,26 @@
         await selectTab("general");
         return;
       }
-      const selectedDevice = Number(normalizedConfig.core.asr.audio_device);
+      const rawSelectedDevice = normalizedConfig.core.asr.audio_device as
+        | number
+        | string
+        | null
+        | undefined;
+      const hasSelectedDevice =
+        rawSelectedDevice !== "" &&
+        rawSelectedDevice !== null &&
+        rawSelectedDevice !== undefined;
+      const selectedDevice = Number(rawSelectedDevice);
+      const selectedDeviceName = hasSelectedDevice
+        ? audioDevices.find((device) => device.index === selectedDevice)?.name
+        : undefined;
+      if (selectedDeviceName) {
+        normalizedConfig.core.asr.audio_device_name = selectedDeviceName;
+      } else if (!hasSelectedDevice || Number.isNaN(selectedDevice)) {
+        normalizedConfig.core.asr.audio_device_name = null;
+      }
       normalizedConfig.core.asr.audio_device =
-        normalizedConfig.core.asr.audio_device === null ||
-        normalizedConfig.core.asr.audio_device === undefined ||
-        Number.isNaN(selectedDevice)
-          ? null
-          : selectedDevice;
+        !hasSelectedDevice || Number.isNaN(selectedDevice) ? null : selectedDevice;
 
       // Recognition language is intentionally automatic and no longer exposed.
       normalizedConfig.core.asr.language = "auto";

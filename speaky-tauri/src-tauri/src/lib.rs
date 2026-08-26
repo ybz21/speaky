@@ -160,8 +160,9 @@ pub fn run() {
             {
                 let config = APP_STATE.config.read();
                 let device_index = config.core.asr.audio_device;
+                let device_name = config.core.asr.audio_device_name.as_deref();
                 let gain = config.core.asr.audio_gain;
-                match AudioRecorder::new(device_index, gain) {
+                match AudioRecorder::new_with_name(device_index, device_name, gain) {
                     Ok(recorder) => {
                         *APP_STATE.recorder.write() = Some(recorder);
                         info!("Audio recorder initialized successfully");

@@ -9,6 +9,7 @@ export interface Config {
       language: string;
       streaming_mode: boolean;
       audio_device: number | null;
+      audio_device_name: string | null;
       audio_gain: number;
       sound_notification: boolean;
       llm_polish: boolean;
@@ -54,6 +55,7 @@ export const defaultConfig: Config = {
       language: "auto",
       streaming_mode: true,
       audio_device: null,
+      audio_device_name: null,
       audio_gain: 1.0,
       sound_notification: true,
       llm_polish: false,
