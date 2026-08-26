@@ -147,6 +147,13 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             None,
         ))
+        // Prevent auto-start and a manual launch from creating duplicate
+        // tray icons and competing settings windows.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+            }
+        }))
         .setup(|app| {
             info!("Setting up application...");
 

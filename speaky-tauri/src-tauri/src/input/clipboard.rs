@@ -51,6 +51,23 @@ pub fn paste_text(app: &AppHandle, text: &str) -> Result<(), PasteError> {
     };
     info!("Pasting text: {}", preview);
 
+    // Native Wayland applications (including Chrome launched with
+    // --ozone-platform=wayland) are not reachable through XTest/xdotool.
+    // wtype injects the UTF-8 text through the compositor's virtual-keyboard
+    // protocol and avoids stealing focus or relying on X11 clipboard bridges.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        if let Ok(output) = std::process::Command::new("wtype").arg(text).output() {
+            if output.status.success() {
+                info!("Text typed successfully through Wayland");
+                return Ok(());
+            }
+            debug!("wtype failed with exit code: {:?}", output.status.code());
+        } else {
+            debug!("wtype not available; falling back to clipboard paste");
+        }
+    }
+
     // Write to clipboard using Tauri plugin
     app.clipboard()
         .write_text(text)
@@ -175,19 +192,25 @@ fn simulate_paste() -> Result<(), PasteError> {
 fn simulate_paste() -> Result<(), PasteError> {
     use std::process::Command;
 
-    // Try xdotool first (works on X11)
-    let result = Command::new("xdotool").arg("key").arg("ctrl+v").output();
+    // Try xdotool on X11. On a native Wayland session xdotool can report
+    // success while sending the event only to an unrelated Xwayland window,
+    // which makes paste appear successful in logs but not in the browser.
+    if std::env::var_os("WAYLAND_DISPLAY").is_none() {
+        let result = Command::new("xdotool")
+            .args(["key", "--clearmodifiers", "ctrl+v"])
+            .output();
 
-    match result {
-        Ok(output) if output.status.success() => {
-            debug!("Linux paste simulated with xdotool");
-            return Ok(());
-        }
-        Ok(output) => {
-            error!("xdotool failed with exit code: {:?}", output.status);
-        }
-        Err(e) => {
-            debug!("xdotool not available: {}", e);
+        match result {
+            Ok(output) if output.status.success() => {
+                debug!("Linux paste simulated with xdotool");
+                return Ok(());
+            }
+            Ok(output) => {
+                error!("xdotool failed with exit code: {:?}", output.status);
+            }
+            Err(e) => {
+                debug!("xdotool not available: {}", e);
+            }
         }
     }
 
@@ -208,13 +231,13 @@ fn simulate_paste() -> Result<(), PasteError> {
         Ok(output) => {
             error!("ydotool failed with exit code: {:?}", output.status);
             Err(PasteError::ToolNotAvailable(
-                "Neither xdotool nor ydotool is available".to_string(),
+                "Wayland paste requires wtype or ydotool".to_string(),
             ))
         }
         Err(e) => {
             debug!("ydotool not available: {}", e);
             Err(PasteError::ToolNotAvailable(
-                "Neither xdotool nor ydotool is installed".to_string(),
+                "Wayland paste requires wtype or ydotool".to_string(),
             ))
         }
     }

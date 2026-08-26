@@ -64,6 +64,7 @@ rodio = { version = "0.20", default-features = false }
 
 # Keyboard listener (for modifier key detection)
 rdev = "0.5"
+tauri-plugin-single-instance = "2"
 
 # Platform-specific
 [target.'cfg(target_os = "linux")'.dependencies]
