@@ -20,7 +20,7 @@ export interface ErrorEvent {
 }
 
 export interface RecordingStateEvent {
-  state: "started" | "stopped" | "recognizing";
+  state: "started" | "stopped" | "recognizing" | "polishing";
 }
 
 export interface AppInfoEvent {
@@ -112,6 +112,9 @@ export async function setupEventListeners(): Promise<void> {
         break;
       case "recognizing":
         appState.setRecognizing();
+        break;
+      case "polishing":
+        appState.setRecordingState("polishing");
         break;
       case "stopped":
         break;

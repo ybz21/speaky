@@ -5,6 +5,7 @@ export type RecordingState =
   | "idle"
   | "recording"
   | "recognizing"
+  | "polishing"
   | "done"
   | "error";
 

@@ -65,6 +65,8 @@ pub struct AsrConfig {
     pub audio_gain: f64,
     #[serde(default = "default_sound_notification")]
     pub sound_notification: bool,
+    #[serde(default)]
+    pub llm_polish: bool,
 }
 
 fn default_hotkey() -> String {
@@ -96,6 +98,56 @@ impl Default for AsrConfig {
             audio_device: None,
             audio_gain: default_audio_gain(),
             sound_notification: default_sound_notification(),
+            llm_polish: false,
+        }
+    }
+}
+
+/// OpenAI-compatible text model used only for optional recognition polishing.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LlmOpenAIConfig {
+    #[serde(default)]
+    pub api_key: String,
+    #[serde(default = "default_llm_model")]
+    pub model: String,
+    #[serde(default = "default_openai_base_url")]
+    pub base_url: String,
+}
+
+fn default_llm_model() -> String {
+    "gpt-4o-mini".to_string()
+}
+
+impl Default for LlmOpenAIConfig {
+    fn default() -> Self {
+        Self {
+            api_key: String::new(),
+            model: default_llm_model(),
+            base_url: default_openai_base_url(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LlmConfig {
+    #[serde(default)]
+    pub openai: LlmOpenAIConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DesktopConfig {
+    #[serde(default = "default_auto_start")]
+    pub auto_start: bool,
+}
+
+fn default_auto_start() -> bool {
+    true
+}
+
+impl Default for DesktopConfig {
+    fn default() -> Self {
+        Self {
+            auto_start: default_auto_start(),
         }
     }
 }
@@ -265,6 +317,10 @@ pub struct Config {
     pub engine: EngineConfig,
     #[serde(default)]
     pub appearance: AppearanceConfig,
+    #[serde(default)]
+    pub llm: LlmConfig,
+    #[serde(default)]
+    pub desktop: DesktopConfig,
 }
 
 impl Config {

@@ -58,6 +58,11 @@
       gradientStart: "rgba(62, 42, 18, 0.88)",
       gradientEnd: "rgba(35, 25, 15, 0.95)",
     },
+    polishing: {
+      text: "#C084FC",
+      gradientStart: "rgba(52, 31, 72, 0.9)",
+      gradientEnd: "rgba(29, 20, 39, 0.95)",
+    },
     done: {
       text: "#00E676",
       gradientStart: "rgba(10, 55, 34, 0.88)",
@@ -78,6 +83,7 @@
   const STATE_TRANS_KEYS: Record<string, MessageKey> = {
     recording: "status.listening",
     recognizing: "status.recognizing",
+    polishing: "status.polishing",
     done: "status.done",
     error: "status.error",
   };
@@ -121,7 +127,8 @@
   $: formattedText = formatResultText($displayText);
   $: isAnimating =
     $appState.recordingState === "recording" ||
-    $appState.recordingState === "recognizing";
+    $appState.recordingState === "recognizing" ||
+    $appState.recordingState === "polishing";
 
   onMount(() => {
     console.log("FloatingWindow mounted, setting up event listeners...");
@@ -176,7 +183,7 @@
       </div>
       <div
         class="primary-text"
-        class:partial={$appState.recordingState === "recognizing"}
+        class:partial={$appState.recordingState === "recognizing" || $appState.recordingState === "polishing"}
       >
         {formattedText.primary}
       </div>

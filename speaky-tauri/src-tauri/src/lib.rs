@@ -1,9 +1,15 @@
 pub mod audio;
 pub mod commands;
 pub mod config;
+pub mod diagnostics;
 pub mod engines;
+pub mod history;
 pub mod hotkey;
 pub mod input;
+pub mod permissions;
+pub mod polish;
+pub mod sound;
+pub mod tray;
 pub mod window_info;
 
 use log::{error, info};
@@ -11,11 +17,8 @@ use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use serde::Serialize;
 use std::sync::Arc;
-use tauri::{
-    menu::{Menu, MenuItem},
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent,
-};
+use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri_plugin_autostart::MacosLauncher;
 
 use audio::AudioRecorder;
 use config::Config;
@@ -83,7 +86,7 @@ impl AppState {
 
 pub static APP_STATE: Lazy<Arc<AppState>> = Lazy::new(|| Arc::new(AppState::new()));
 
-fn show_settings_window(app: &AppHandle) -> tauri::Result<()> {
+pub(crate) fn show_settings_window(app: &AppHandle) -> tauri::Result<()> {
     let window = if let Some(window) = app.get_webview_window("settings") {
         window
     } else {
@@ -106,9 +109,31 @@ fn show_settings_window(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+pub(crate) fn show_diagnostics_window(app: &AppHandle) -> tauri::Result<()> {
+    let window = if let Some(window) = app.get_webview_window("diagnostics") {
+        window
+    } else {
+        WebviewWindowBuilder::new(
+            app,
+            "diagnostics",
+            WebviewUrl::App("index.html#diagnostics".into()),
+        )
+        .title("Speaky Diagnostics")
+        .inner_size(680.0, 620.0)
+        .min_inner_size(560.0, 480.0)
+        .center()
+        .build()?
+    };
+    window.show()?;
+    window.set_focus()?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    if let Err(error) = diagnostics::init_logging() {
+        eprintln!("Failed to initialize logging: {}", error);
+    }
 
     info!("Starting Speaky...");
 
@@ -116,6 +141,10 @@ pub fn run() {
         // Note: Using rdev for keyboard listening instead of global-shortcut plugin
         // to support modifier keys (ctrl, alt, shift) as hotkeys
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            None,
+        ))
         .setup(|app| {
             info!("Setting up application...");
 
@@ -149,43 +178,7 @@ pub fn run() {
                 *APP_STATE.engine.write() = engine;
             }
 
-            // Create tray menu
-            let settings_item = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
-            let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&settings_item, &quit_item])?;
-
-            // Create tray icon with icon
-            let _tray = TrayIconBuilder::new()
-                .icon(tauri::image::Image::from_bytes(include_bytes!(
-                    "../icons/32x32.png"
-                ))?)
-                .menu(&menu)
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "settings" => {
-                        if let Err(error) = show_settings_window(app) {
-                            error!("Failed to show settings window: {}", error);
-                        }
-                    }
-                    "quit" => {
-                        app.exit(0);
-                    }
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
-                })
-                .build(app)?;
+            tray::install(app.handle())?;
 
             // Register hotkeys
             let app_handle = app.handle().clone();
@@ -196,6 +189,9 @@ pub fn run() {
             if std::env::var_os("SPEAKY_OPEN_SETTINGS").is_some() {
                 show_settings_window(app.handle())?;
             }
+            if std::env::var_os("SPEAKY_OPEN_DIAGNOSTICS").is_some() {
+                show_diagnostics_window(app.handle())?;
+            }
 
             info!("Application setup complete");
             Ok(())
@@ -204,7 +200,7 @@ pub fn run() {
             // Closing the settings window used to destroy its webview, so the
             // tray menu could no longer open it a second time. Treat the title
             // bar close button like Cancel and keep the window reusable.
-            if window.label() == "settings" {
+            if window.label() == "settings" || window.label() == "diagnostics" {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
                     let _ = window.hide();
@@ -223,6 +219,14 @@ pub fn run() {
             commands::paste_text,
             commands::get_focused_app_info,
             commands::get_ui_state,
+            commands::get_history,
+            commands::clear_history,
+            commands::get_diagnostics,
+            commands::read_diagnostic_log,
+            commands::clear_diagnostic_log,
+            commands::export_diagnostic_log,
+            commands::copy_text,
+            commands::open_permission_settings,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -251,6 +251,7 @@ impl HotkeyManager {
 
             if let Err(e) = recorder.start() {
                 error!("Failed to start recording: {}", e);
+                crate::sound::play(crate::sound::Cue::Error);
                 let mut ui = APP_STATE.ui.write();
                 ui.phase = "error".to_string();
                 ui.error_message = e.clone();
@@ -260,6 +261,8 @@ impl HotkeyManager {
                         "message": e
                     }),
                 );
+            } else {
+                crate::sound::play(crate::sound::Cue::Start);
             }
         }
     }
@@ -291,8 +294,10 @@ impl HotkeyManager {
             } else {
                 Vec::new()
             };
+            crate::sound::play(crate::sound::Cue::End);
 
             if audio_data.is_empty() {
+                crate::sound::play(crate::sound::Cue::Error);
                 let mut ui = APP_STATE.ui.write();
                 ui.phase = "error".to_string();
                 ui.error_message = "No audio captured".to_string();
@@ -451,9 +456,10 @@ pub fn recognize_and_deliver(app_handle: AppHandle, audio_data: Vec<u8>) {
 
 fn deliver_recognition_result(app_handle: AppHandle, result: crate::engines::EngineResult) {
     match result {
-        Ok(text) => {
-            info!("Recognition result: {} chars", text.len());
-            if text.trim().is_empty() {
+        Ok(original_text) => {
+            info!("Recognition result: {} chars", original_text.len());
+            if original_text.trim().is_empty() {
+                crate::sound::play(crate::sound::Cue::Error);
                 let mut ui = APP_STATE.ui.write();
                 ui.phase = "error".to_string();
                 ui.error_message = "识别结果为空，请确认麦克风有声音".to_string();
@@ -468,6 +474,45 @@ fn deliver_recognition_result(app_handle: AppHandle, result: crate::engines::Eng
                 }
                 return;
             }
+
+            let config = APP_STATE.config.read().clone();
+            let mut polished = false;
+            let text = if config.core.asr.llm_polish {
+                {
+                    let mut ui = APP_STATE.ui.write();
+                    ui.phase = "polishing".to_string();
+                    ui.partial_result.clear();
+                }
+                let _ =
+                    app_handle.emit("recording-state", serde_json::json!({"state": "polishing"}));
+                let app_for_partial = app_handle.clone();
+                match crate::polish::polish(&config, &original_text, move |partial| {
+                    APP_STATE.ui.write().partial_result = partial.to_string();
+                    let _ = app_for_partial
+                        .emit("partial-result", serde_json::json!({"text": partial}));
+                }) {
+                    Ok(result) => {
+                        polished = true;
+                        info!("AI polish completed: {} chars", result.len());
+                        result
+                    }
+                    Err(error) => {
+                        error!("AI polish failed; using original recognition: {}", error);
+                        original_text
+                    }
+                }
+            } else {
+                original_text
+            };
+
+            let engine_name = APP_STATE
+                .engine
+                .read()
+                .as_ref()
+                .map(|engine| engine.name().to_string())
+                .unwrap_or_default();
+            crate::history::add(&text, &engine_name, polished);
+            crate::tray::refresh(&app_handle);
 
             {
                 let mut ui = APP_STATE.ui.write();
@@ -515,6 +560,7 @@ fn deliver_recognition_result(app_handle: AppHandle, result: crate::engines::Eng
         }
         Err(e) => {
             error!("Recognition error: {}", e);
+            crate::sound::play(crate::sound::Cue::Error);
             let mut ui = APP_STATE.ui.write();
             ui.phase = "error".to_string();
             ui.error_message = e.to_string();
