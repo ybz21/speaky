@@ -11,7 +11,11 @@
   } from "../stores/i18n";
   import DiagnosticsDialog from "./DiagnosticsDialog.svelte";
   import HistoryPanel from "./HistoryPanel.svelte";
-  import { cancelHotkeyCapture, startHotkeyCapture } from "../utils/tauri";
+  import {
+    cancelHotkeyCapture,
+    getAudioDevices,
+    startHotkeyCapture,
+  } from "../utils/tauri";
   import logoUrl from "../../../../resources/icon.svg?url";
 
   let localConfig: Config = JSON.parse(JSON.stringify(defaultConfig));
@@ -24,6 +28,9 @@
   let hotkeyCaptureMessage = "";
   let captureTimer: ReturnType<typeof setTimeout> | undefined;
   let captureListeners: UnlistenFn[] = [];
+  let audioDevices: Array<{ index: number; name: string }> = [];
+  let showRecognitionApiKey = false;
+  let showPolishApiKey = false;
 
   const quickHotkeys = ["ctrl", "alt", "shift", "cmd", "fn", "f8"];
   const engineOptions = ["volc_bigmodel", "openai"] as const;
@@ -41,7 +48,7 @@
     try {
       captureListeners = await Promise.all([
         listen<{ hotkey: string }>("hotkey-captured", ({ payload }) => {
-          localConfig.core.asr.hotkey = payload.hotkey;
+          setLocalHotkey(payload.hotkey);
           capturingHotkey = false;
           hotkeyCaptureMessage = "";
           clearCaptureTimer();
@@ -65,6 +72,12 @@
       localConfig.appearance.ui_language,
     );
     locale.setLocale(localConfig.appearance.ui_language);
+    try {
+      audioDevices = await getAudioDevices();
+    } catch (error) {
+      console.error("Failed to load audio devices:", error);
+      audioDevices = [];
+    }
     settingsLoaded = true;
   });
 
@@ -124,6 +137,21 @@
     return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 
+  // Replace the nested config object so Svelte reliably propagates captured
+  // hotkeys into the save snapshot and updates the button state immediately.
+  function setLocalHotkey(hotkey: string) {
+    localConfig = {
+      ...localConfig,
+      core: {
+        ...localConfig.core,
+        asr: {
+          ...localConfig.core.asr,
+          hotkey,
+        },
+      },
+    };
+  }
+
   async function toggleHotkeyCapture() {
     if (!settingsLoaded) return;
     hotkeyCaptureMessage = "";
@@ -154,7 +182,7 @@
     hotkeyCaptureMessage = "";
     clearCaptureTimer();
     await cancelHotkeyCapture();
-    localConfig.core.asr.hotkey = hotkey;
+    setLocalHotkey(hotkey);
   }
 
   function selectUiLanguage(value: string) {
@@ -177,6 +205,7 @@
       capturingHotkey = false;
       clearCaptureTimer();
       const normalizedConfig: Config = JSON.parse(JSON.stringify(localConfig));
+      console.info("Saving hotkey:", normalizedConfig.core.asr.hotkey);
       normalizedConfig.llm.openai.base_url = normalizedConfig.llm.openai.base_url.trim();
       normalizedConfig.llm.openai.api_key = normalizedConfig.llm.openai.api_key.trim();
       normalizedConfig.llm.openai.model = normalizedConfig.llm.openai.model.trim();
@@ -305,6 +334,19 @@
               </output>
             </div>
           </label>
+
+          <label>
+            <span>
+              {$t("settings.microphone")}
+              <small>{$t("settings.microphoneHint")}</small>
+            </span>
+            <select bind:value={localConfig.core.asr.audio_device}>
+              <option value="">{$t("settings.microphoneDefault")}</option>
+              {#each audioDevices as device}
+                <option value={device.index}>{device.name}</option>
+              {/each}
+            </select>
+          </label>
         </div>
       </section>
 
@@ -325,17 +367,43 @@
           <label>
             <span>{$t("settings.apiKey")}</span>
             {#if localConfig.engine.current === "volc_bigmodel"}
-              <input
-                type="password"
-                bind:value={localConfig.engine.volc_bigmodel.api_key}
-                placeholder={$t("settings.apiKeyPlaceholder")}
-              />
+              <div class="secret-control">
+                <input
+                  type={showRecognitionApiKey ? "text" : "password"}
+                  bind:value={localConfig.engine.volc_bigmodel.api_key}
+                  placeholder={$t("settings.apiKeyPlaceholder")}
+                />
+                <button
+                  type="button"
+                  class="eye-button"
+                  aria-label={showRecognitionApiKey ? $t("settings.hideApiKey") : $t("settings.showApiKey")}
+                  on:click={() => (showRecognitionApiKey = !showRecognitionApiKey)}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" />
+                    <circle cx="12" cy="12" r="2.5" />
+                  </svg>
+                </button>
+              </div>
             {:else}
-              <input
-                type="password"
-                bind:value={localConfig.engine.openai.api_key}
-                placeholder={$t("settings.openaiApiKeyPlaceholder")}
-              />
+              <div class="secret-control">
+                <input
+                  type={showRecognitionApiKey ? "text" : "password"}
+                  bind:value={localConfig.engine.openai.api_key}
+                  placeholder={$t("settings.openaiApiKeyPlaceholder")}
+                />
+                <button
+                  type="button"
+                  class="eye-button"
+                  aria-label={showRecognitionApiKey ? $t("settings.hideApiKey") : $t("settings.showApiKey")}
+                  on:click={() => (showRecognitionApiKey = !showRecognitionApiKey)}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" />
+                    <circle cx="12" cy="12" r="2.5" />
+                  </svg>
+                </button>
+              </div>
             {/if}
           </label>
           <p class="hint">{$t("settings.apiKeyHint")}</p>
@@ -387,11 +455,24 @@
                 {$t("settings.polishApiKey")}
                 <small>{$t("settings.polishApiKeyHint")}</small>
               </span>
-              <input
-                type="password"
-                bind:value={localConfig.llm.openai.api_key}
-                placeholder={$t("settings.polishApiKeyPlaceholder")}
-              />
+              <div class="secret-control">
+                <input
+                  type={showPolishApiKey ? "text" : "password"}
+                  bind:value={localConfig.llm.openai.api_key}
+                  placeholder={$t("settings.polishApiKeyPlaceholder")}
+                />
+                <button
+                  type="button"
+                  class="eye-button"
+                  aria-label={showPolishApiKey ? $t("settings.hideApiKey") : $t("settings.showApiKey")}
+                  on:click={() => (showPolishApiKey = !showPolishApiKey)}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" />
+                    <circle cx="12" cy="12" r="2.5" />
+                  </svg>
+                </button>
+              </div>
             </label>
             <label>
               <span>
@@ -697,6 +778,50 @@
   input[type="password"]:focus {
     border-color: #2563eb;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+
+  .secret-control {
+    position: relative;
+    display: flex;
+    width: 270px;
+    min-width: 0;
+    align-items: center;
+  }
+
+  .secret-control input {
+    width: 100%;
+    padding-right: 38px;
+  }
+
+  .eye-button {
+    position: absolute;
+    right: 3px;
+    display: inline-flex;
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+    color: #7b8490;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+  }
+
+  .eye-button:hover {
+    color: #1686f7;
+    background: #eef6ff;
+  }
+
+  .eye-button svg {
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
   }
 
   .service-panel label {

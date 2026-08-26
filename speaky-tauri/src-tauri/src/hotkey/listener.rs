@@ -377,10 +377,37 @@ impl HotkeyManager {
                 std::thread::spawn(move || {
                     // The realtime hypothesis is the primary result. Deliver
                     // it as soon as the stream closes; a second correction
-                    // request must never hold the UI in "recognizing".
+                    // request must never hold the UI in "recognizing". If the
+                    // realtime endpoint returns no text, use the final
+                    // endpoint as a bounded fallback for short utterances.
                     let realtime_result = session.finish();
-                    info!("Delivering realtime recognition result immediately");
-                    deliver_recognition_result(app, realtime_result, generation);
+                    let has_realtime_text =
+                        matches!(&realtime_result, Ok(text) if !text.trim().is_empty());
+                    if has_realtime_text {
+                        info!("Delivering realtime recognition result immediately");
+                        deliver_recognition_result(app, realtime_result, generation);
+                        return;
+                    }
+
+                    let config = APP_STATE.config.read().clone();
+                    let api_key = if config.engine.volc_bigmodel.api_key.is_empty() {
+                        std::env::var("SPEAKY_VOLC_API_KEY").unwrap_or_default()
+                    } else {
+                        config.engine.volc_bigmodel.api_key.clone()
+                    };
+                    let engine = crate::engines::VolcBigModelEngine::new(
+                        &api_key,
+                        &config.engine.volc_bigmodel.app_key,
+                        &config.engine.volc_bigmodel.access_key,
+                        &config.engine.volc_bigmodel.resource_id,
+                    );
+                    let fallback = engine.transcribe_final(&audio_data, &config.core.asr.language);
+                    if fallback.is_ok() {
+                        info!("Realtime result was empty; delivered final recognition fallback");
+                        deliver_recognition_result(app, fallback, generation);
+                    } else {
+                        deliver_recognition_result(app, realtime_result, generation);
+                    }
                 });
             } else {
                 recognize_and_deliver(app, audio_data);
