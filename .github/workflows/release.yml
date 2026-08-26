@@ -70,7 +70,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: speaky-${{ matrix.rust_target }}
-          path: speaky-tauri/src-tauri/target/**/release/bundle/
+          path: speaky-tauri/src-tauri/target/${{ matrix.rust_target }}/release/bundle/
           if-no-files-found: error
 
   release:
@@ -94,6 +94,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/**/*
+          preserve_order: true
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
