@@ -93,7 +93,17 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*
+          files: |
+            artifacts/**/*.AppImage
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+            artifacts/**/*.dmg
+            artifacts/**/*.app.tar.gz
+            artifacts/**/*.app.tar.gz.sig
+            artifacts/**/*.exe
+            artifacts/**/*.msi
+            artifacts/**/*.zip
+            artifacts/**/*.sig
           preserve_order: true
           generate_release_notes: true
           draft: false
