@@ -24,6 +24,7 @@ pub struct HotkeyManager {
     hold_time: Arc<Mutex<Duration>>,
     press_time: Arc<Mutex<Option<Instant>>>,
     hold_triggered: Arc<AtomicBool>,
+    combo_suppressed: Arc<AtomicBool>,
     app_handle: Arc<Mutex<Option<AppHandle>>>,
 }
 
@@ -48,6 +49,7 @@ impl HotkeyManager {
             hold_time: Arc::new(Mutex::new(Duration::from_secs_f64(hold_time))),
             press_time: Arc::new(Mutex::new(None)),
             hold_triggered: Arc::new(AtomicBool::new(false)),
+            combo_suppressed: Arc::new(AtomicBool::new(false)),
             app_handle: Arc::new(Mutex::new(None)),
         }
     }
@@ -121,6 +123,22 @@ impl HotkeyManager {
         key_matches(&normalize_event_key(event_key), &target_key, &hotkey)
     }
 
+    /// A configured modifier must not fire when it is being used as part of a
+    /// normal shortcut (for example Ctrl+V in a browser terminal). Cancel the
+    /// pending hold as soon as another key arrives while the trigger is down.
+    fn cancel_for_combination(&self) {
+        // Once recording has started, the trigger release must still stop it;
+        // only suppress the pending hold window.
+        if self.hold_triggered.load(Ordering::SeqCst) {
+            return;
+        }
+        let mut press_time = self.press_time.lock();
+        if press_time.take().is_some() {
+            self.combo_suppressed.store(true, Ordering::SeqCst);
+            info!("Hotkey hold cancelled because it is part of a key combination");
+        }
+    }
+
     /// Get the current hotkey string
     pub fn get_hotkey(&self) -> String {
         self.hotkey.lock().clone()
@@ -145,6 +163,7 @@ impl HotkeyManager {
 
         let mut press_time = self.press_time.lock();
         if press_time.is_none() {
+            self.combo_suppressed.store(false, Ordering::SeqCst);
             *press_time = Some(Instant::now());
             let hotkey = self.get_hotkey();
             info!(
@@ -332,6 +351,11 @@ impl HotkeyManager {
 
         let mut press_time = self.press_time.lock();
         *press_time = None;
+
+        if self.combo_suppressed.swap(false, Ordering::SeqCst) {
+            info!("Hotkey release ignored after a key combination");
+            return;
+        }
 
         if self.hold_triggered.swap(false, Ordering::SeqCst) {
             info!("Hotkey released, stopping recording");
@@ -987,6 +1011,8 @@ pub fn start_keyboard_listener(app: AppHandle) {
                     }
                     if manager.matches(key) {
                         manager.on_press();
+                    } else {
+                        manager.cancel_for_combination();
                     }
                 }
             }
@@ -1039,5 +1065,16 @@ mod tests {
         assert!(key_matches(&Key::ControlRight, &Key::ControlLeft, "ctrl"));
         assert!(key_matches(&Key::MetaRight, &Key::MetaRight, "cmd_r"));
         assert!(!key_matches(&Key::MetaLeft, &Key::MetaRight, "cmd_r"));
+    }
+
+    #[test]
+    fn modifier_hold_is_cancelled_by_a_following_key() {
+        let manager = HotkeyManager::new("ctrl", 1.0);
+        *manager.press_time.lock() = Some(Instant::now());
+
+        manager.cancel_for_combination();
+
+        assert!(manager.press_time.lock().is_none());
+        assert!(manager.combo_suppressed.load(Ordering::SeqCst));
     }
 }
