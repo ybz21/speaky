@@ -1017,13 +1017,18 @@ pub fn start_keyboard_listener(app: AppHandle) {
                 Some(event)
             };
             if let Err(error) = grab(callback) {
-                error!(
-                    "Keyboard evdev listener error: {:?}; trying X11 fallback",
-                    error
-                );
-                let fallback = move |event: Event| process_key_event(&event);
-                if let Err(fallback_error) = listen(fallback) {
-                    error!("Keyboard X11 fallback listener error: {:?}", fallback_error);
+                error!("Keyboard evdev listener error: {:?}", error);
+                if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+                    // Reading /dev/input requires membership in the input
+                    // group.  A normal desktop launch may not have that
+                    // group yet; GNOME's portal provides the same press and
+                    // release events without elevated device permissions.
+                    start_portal_keyboard_listener(app.clone(), hotkey_str.clone());
+                } else {
+                    let fallback = move |event: Event| process_key_event(&event);
+                    if let Err(fallback_error) = listen(fallback) {
+                        error!("Keyboard X11 fallback listener error: {:?}", fallback_error);
+                    }
                 }
             }
         }
@@ -1038,6 +1043,145 @@ pub fn start_keyboard_listener(app: AppHandle) {
     });
 
     info!("Keyboard listener started successfully");
+}
+
+#[cfg(target_os = "linux")]
+fn start_portal_keyboard_listener(app: AppHandle, hotkey: String) {
+    std::thread::Builder::new()
+        .name("speaky-wayland-shortcut".to_string())
+        .spawn(move || {
+            let runtime = match tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+            {
+                Ok(runtime) => runtime,
+                Err(error) => {
+                    error!("Failed to create Wayland shortcut runtime: {}", error);
+                    return;
+                }
+            };
+            if let Err(error) = runtime.block_on(portal_keyboard_loop(hotkey)) {
+                error!("Wayland GlobalShortcuts unavailable: {}", error);
+                // Keep the application alive even when the compositor does
+                // not implement the portal.  X11 fallback is intentionally
+                // not used on native Wayland because it cannot see Chrome.
+                let _ = app;
+            }
+        })
+        .ok();
+}
+
+#[cfg(target_os = "linux")]
+async fn portal_keyboard_loop(hotkey: String) -> Result<(), String> {
+    use ashpd::desktop::global_shortcuts::{GlobalShortcuts, NewShortcut};
+    use futures_util::StreamExt;
+    use std::collections::HashMap;
+
+    let trigger = portal_trigger(&hotkey).ok_or_else(|| {
+        format!(
+            "hotkey '{}' cannot be registered through the Wayland portal",
+            hotkey
+        )
+    })?;
+    // GNOME 50 requires unsandboxed applications to register an application
+    // id with the host portal before GlobalShortcuts can create a session.
+    // This is normally done by the desktop launcher, but registering here
+    // also covers terminal launches and development builds.
+    let connection = zbus::Connection::session()
+        .await
+        .map_err(|e| e.to_string())?;
+    let registry = zbus::Proxy::new(
+        &connection,
+        "org.freedesktop.portal.Desktop",
+        "/org/freedesktop/portal/desktop",
+        "org.freedesktop.host.portal.Registry",
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    let options: HashMap<&str, zbus::zvariant::Value<'_>> = HashMap::new();
+    let _: () = registry
+        .call("Register", &("com.ybz21.speaky", options))
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let portal = GlobalShortcuts::with_connection(connection)
+        .await
+        .map_err(|e| e.to_string())?;
+    let session = portal
+        .create_session(Default::default())
+        .await
+        .map_err(|e| e.to_string())?;
+    let shortcut = NewShortcut::new("speaky-trigger", "Hold to dictate")
+        .preferred_trigger(Some(trigger.as_str()));
+    portal
+        .bind_shortcuts(&session, &[shortcut], None, Default::default())
+        .await
+        .map_err(|e| e.to_string())?
+        .response()
+        .map_err(|e| e.to_string())?;
+
+    info!(
+        "Wayland GlobalShortcuts registered '{}' as {}",
+        hotkey, trigger
+    );
+    let mut activated = portal
+        .receive_activated()
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut deactivated = portal
+        .receive_deactivated()
+        .await
+        .map_err(|e| e.to_string())?;
+    loop {
+        tokio::select! {
+            Some(event) = activated.next() => {
+                if event.shortcut_id() == "speaky-trigger" {
+                    if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+                        manager.on_press();
+                    }
+                }
+            }
+            Some(event) = deactivated.next() => {
+                if event.shortcut_id() == "speaky-trigger" {
+                    if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+                        manager.on_release();
+                    }
+                }
+            }
+            else => return Err("Wayland shortcut signal stream closed".to_string()),
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn portal_trigger(hotkey: &str) -> Option<String> {
+    let normalized = hotkey.trim().to_lowercase();
+    let value = match normalized.as_str() {
+        "shift" | "shift_l" | "shift_r" => "SHIFT".to_string(),
+        "ctrl" | "control" | "ctrl_l" | "control_l" => "CTRL".to_string(),
+        "ctrl_r" | "control_r" => "CTRL".to_string(),
+        "alt" | "alt_l" | "alt_r" => "ALT".to_string(),
+        "cmd" | "super" | "meta" | "cmd_l" | "cmd_r" | "super_l" | "super_r" => "SUPER".to_string(),
+        "fn" | "function" => return None,
+        key if key.starts_with('f')
+            && key[1..]
+                .parse::<u8>()
+                .map(|n| (1..=24).contains(&n))
+                .unwrap_or(false) =>
+        {
+            key.to_uppercase()
+        }
+        key if key.len() == 1
+            && key
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_alphanumeric()) =>
+        {
+            key.to_uppercase()
+        }
+        _ => return None,
+    };
+    Some(value)
 }
 
 fn process_key_event(event: &Event) {
