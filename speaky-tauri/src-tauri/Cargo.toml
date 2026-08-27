@@ -2,7 +2,7 @@
 name = "speaky"
 version = "1.0.5"
 description = "Cross-platform voice input tool"
-authors = [""]
+authors = ["Speaky Contributors"]
 license = "MIT"
 repository = ""
 edition = "2021"

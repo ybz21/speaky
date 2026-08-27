@@ -54,9 +54,6 @@
       "icons/icon.ico"
     ],
     "linux": {
-      "appimage": {
-        "bundleMediaFramework": true
-      },
       "deb": {
         "desktopTemplate": "../../resources/speaky.desktop.hbs",
         "depends": ["wl-clipboard"],

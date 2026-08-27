@@ -1182,9 +1182,7 @@ fn portal_trigger(hotkey: &str) -> Option<String> {
         "ctrl" | "control" | "ctrl_l" | "control_l" => "CTRL".to_string(),
         "ctrl_r" | "control_r" => "CTRL".to_string(),
         "alt" | "alt_l" | "alt_r" => "ALT".to_string(),
-        "cmd" | "super" | "meta" | "cmd_l" | "cmd_r" | "super_l" | "super_r" => {
-            "SUPER".to_string()
-        }
+        "cmd" | "super" | "meta" | "cmd_l" | "cmd_r" | "super_l" | "super_r" => "SUPER".to_string(),
         "fn" | "function" => return None,
         key if key.starts_with('f')
             && key[1..]

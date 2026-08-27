@@ -132,10 +132,9 @@ sudo apt install ./Speaky_1.0.5_amd64.deb
 对所有输入设备生效。卸载 `.deb` 时规则会一并清理。首次启动后即可在设置里
 选择热键。
 
-AppImage 适合不希望安装系统包的用户，但它不会替用户安装发行版依赖；在
-Wayland 下请确认系统已安装 `xdg-desktop-portal` 及对应桌面后端。若当前
-Wayland compositor 不提供 GlobalShortcuts Portal，打开“设置 → 诊断”查看
-权限和日志，切换到 X11 会自动使用 X11 热键监听。
+Linux 正式版本只提供 `.deb`，不发布 AppImage。若当前 Wayland compositor
+不提供 GlobalShortcuts Portal，打开“设置 → 诊断”查看权限和日志，切换到
+X11 会自动使用 X11 热键监听。
 
 ### 方式二：从源码运行
 

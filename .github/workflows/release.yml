@@ -44,6 +44,7 @@ jobs:
             librsvg2-dev \
             patchelf \
             libasound2-dev \
+            libevdev-dev \
             libssl-dev
 
       - name: Install Rust
@@ -63,7 +64,13 @@ jobs:
         working-directory: speaky-tauri
 
       - name: Build Tauri bundles
+        if: runner.os != 'Linux'
         run: npm run tauri build -- --target ${{ matrix.rust_target }}
+        working-directory: speaky-tauri
+
+      - name: Build Linux deb
+        if: runner.os == 'Linux'
+        run: npm run tauri build -- --target ${{ matrix.rust_target }} --bundles deb
         working-directory: speaky-tauri
 
       - name: Upload bundles
@@ -115,7 +122,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/**/*.AppImage
             artifacts/**/*.deb
             artifacts/**/*.dmg
             artifacts/**/*.exe

@@ -21,6 +21,18 @@ const ICON_SVG: &[u8] = include_bytes!("../../../resources/icon.svg");
 #[cfg(target_os = "linux")]
 pub fn install() -> Result<(), String> {
     let data_dir = dirs::data_local_dir().ok_or("Local data directory is unavailable")?;
+    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+
+    // The Debian package already owns the system desktop entry and icons.
+    // Keeping a second user entry makes GNOME show two indistinguishable
+    // Speaky applications. Clean up development-era entries when running the
+    // installed binary and let dpkg remain the single source of truth.
+    if is_deb_install(&executable) {
+        remove_user_artifacts(&data_dir);
+        refresh_desktop_database(&data_dir.join("applications"));
+        return Ok(());
+    }
+
     let applications_dir = data_dir.join("applications");
     let icon_dir = data_dir.join("icons");
     let hicolor_dir = icon_dir.join("hicolor/256x256/apps");
@@ -37,7 +49,6 @@ pub fn install() -> Result<(), String> {
     fs::write(scalable_dir.join(format!("{APP_ID}.svg")), ICON_SVG)
         .map_err(|error| error.to_string())?;
 
-    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
     let desktop_file = applications_dir.join(format!("{APP_ID}.desktop"));
     fs::write(&desktop_file, desktop_entry(&executable, &direct_icon))
         .map_err(|error| error.to_string())?;
@@ -45,19 +56,33 @@ pub fn install() -> Result<(), String> {
 
     // GNOME normally notices this directory itself. Refreshing the database
     // makes the association deterministic on desktops that cache it longer.
-    let _ = Command::new("update-desktop-database")
-        .arg(&applications_dir)
-        .output();
+    refresh_desktop_database(&applications_dir);
     Ok(())
 }
 
 #[cfg(target_os = "linux")]
+fn is_deb_install(executable: &Path) -> bool {
+    executable == Path::new("/usr/bin/speaky")
+}
+
+#[cfg(target_os = "linux")]
+fn remove_user_artifacts(data_dir: &Path) {
+    remove_artifacts(data_dir, APP_ID);
+    remove_artifacts(data_dir, LEGACY_APP_ID);
+}
+
+#[cfg(target_os = "linux")]
 fn remove_legacy_artifacts(data_dir: &Path) {
+    remove_artifacts(data_dir, LEGACY_APP_ID);
+}
+
+#[cfg(target_os = "linux")]
+fn remove_artifacts(data_dir: &Path, app_id: &str) {
     let files = [
-        data_dir.join(format!("applications/{LEGACY_APP_ID}.desktop")),
-        data_dir.join(format!("icons/{LEGACY_APP_ID}.png")),
-        data_dir.join(format!("icons/hicolor/256x256/apps/{LEGACY_APP_ID}.png")),
-        data_dir.join(format!("icons/hicolor/scalable/apps/{LEGACY_APP_ID}.svg")),
+        data_dir.join(format!("applications/{app_id}.desktop")),
+        data_dir.join(format!("icons/{app_id}.png")),
+        data_dir.join(format!("icons/hicolor/256x256/apps/{app_id}.png")),
+        data_dir.join(format!("icons/hicolor/scalable/apps/{app_id}.svg")),
     ];
     for file in files {
         if let Err(error) = fs::remove_file(&file) {
@@ -69,6 +94,15 @@ fn remove_legacy_artifacts(data_dir: &Path) {
                 );
             }
         }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn refresh_desktop_database(applications_dir: &Path) {
+    if applications_dir.is_dir() {
+        let _ = Command::new("update-desktop-database")
+            .arg(applications_dir)
+            .output();
     }
 }
 
@@ -147,6 +181,15 @@ mod tests {
         assert!(entry.contains("StartupWMClass=Speaky"));
         assert!(entry.contains("Icon=/tmp/icon.png"));
         assert!(entry.contains("Exec=\"/tmp/Speaky App/speaky\""));
+    }
+
+    #[test]
+    fn detects_only_the_debian_binary_as_packaged() {
+        assert!(is_deb_install(Path::new("/usr/bin/speaky")));
+        assert!(!is_deb_install(Path::new("/tmp/speaky")));
+        assert!(!is_deb_install(Path::new(
+            "/workspace/speaky-tauri/src-tauri/target/release/speaky"
+        )));
     }
 
     #[test]
