@@ -185,7 +185,12 @@ fn write_wayland_clipboard(text: &str) -> Result<bool, String> {
         .args(["--type", "text/plain;charset=utf-8"])
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
-        .stderr(Stdio::piped())
+        // wl-copy forks a background process that owns the clipboard. If its
+        // stderr is piped, the background process keeps that pipe open and
+        // wait_with_output never returns until another clipboard owner
+        // replaces it. Inherit no pipes so we only wait for the short-lived
+        // launcher process.
+        .stderr(Stdio::null())
         .spawn()
     {
         Ok(child) => child,
@@ -200,15 +205,14 @@ fn write_wayland_clipboard(text: &str) -> Result<bool, String> {
             .write_all(text.as_bytes())
             .map_err(|error| format!("failed to write wl-copy input: {}", error))?;
     }
-    let output = child
-        .wait_with_output()
+    let status = child
+        .wait()
         .map_err(|error| format!("failed to wait for wl-copy: {}", error))?;
-    if output.status.success() {
+    if status.success() {
         info!("Text written through the native Wayland clipboard");
         Ok(true)
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        debug!("wl-copy failed: {}", stderr.trim());
+        debug!("wl-copy failed with status: {status}");
         Ok(false)
     }
 }
@@ -231,8 +235,14 @@ static PORTAL_COMMANDS: OnceCell<std::sync::mpsc::Sender<PortalCommand>> = OnceC
 static UINPUT_KEYBOARD: OnceCell<std::sync::Mutex<evdev::uinput::VirtualDevice>> = OnceCell::new();
 
 #[cfg(target_os = "linux")]
-fn uinput_paste() -> Result<(), PasteError> {
-    use evdev::{uinput::VirtualDevice, AttributeSet, EventType, InputEvent, KeyCode};
+fn get_uinput_keyboard() -> Result<
+    (
+        &'static std::sync::Mutex<evdev::uinput::VirtualDevice>,
+        bool,
+    ),
+    PasteError,
+> {
+    use evdev::{uinput::VirtualDevice, AttributeSet, KeyCode};
 
     let mut created = false;
     let keyboard = UINPUT_KEYBOARD.get_or_try_init(|| {
@@ -247,10 +257,39 @@ fn uinput_paste() -> Result<(), PasteError> {
         Ok::<_, PasteError>(std::sync::Mutex::new(device))
     })?;
 
-    // The compositor needs a short moment to discover a newly-created input
-    // device. Subsequent pastes reuse the same device for the process lifetime.
+    Ok((keyboard, created))
+}
+
+/// Create the Wayland virtual keyboard before the evdev hotkey listener starts.
+///
+/// rdev watches `/dev/input` for hot-plugged devices and opens a new event node
+/// immediately. udev applies the active-user ACL slightly later, so creating
+/// this device during the first paste races with rdev and terminates the hotkey
+/// listener with `PermissionDenied`. Preparing it during app startup removes
+/// that race and lets rdev include it in its initial device set.
+#[cfg(target_os = "linux")]
+pub fn prepare_paste_input() -> Result<(), PasteError> {
+    if std::env::var_os("WAYLAND_DISPLAY").is_none() {
+        return Ok(());
+    }
+
+    let (_, created) = get_uinput_keyboard()?;
     if created {
-        std::thread::sleep(std::time::Duration::from_millis(250));
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        info!("Wayland virtual keyboard prepared before hotkey listener");
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn uinput_paste() -> Result<(), PasteError> {
+    use evdev::{EventType, InputEvent, KeyCode};
+
+    let (keyboard, created) = get_uinput_keyboard()?;
+    // This is normally initialized during app setup. Keep the delay here for
+    // direct command/test callers that invoke paste without normal startup.
+    if created {
+        std::thread::sleep(std::time::Duration::from_millis(300));
     }
 
     let mut keyboard = keyboard
