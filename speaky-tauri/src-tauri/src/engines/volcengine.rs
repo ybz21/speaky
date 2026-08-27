@@ -33,6 +33,8 @@ static RUNTIME: Lazy<Runtime> = Lazy::new(|| {
 const PROTOCOL_VERSION: u8 = 0b0001;
 const MESSAGE_TYPE_FULL_REQUEST: u8 = 0b0001;
 const MESSAGE_TYPE_AUDIO_ONLY: u8 = 0b0010;
+const WS_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const WS_RESPONSE_TIMEOUT: Duration = Duration::from_secs(15);
 const MESSAGE_TYPE_FULL_RESPONSE: u8 = 0b1001;
 const MESSAGE_TYPE_ERROR_RESPONSE: u8 = 0b1111;
 const FLAGS_POS_SEQUENCE: u8 = 0b0001;
@@ -246,8 +248,9 @@ impl VolcBigModelEngine {
             .body(())
             .map_err(|e: tokio_tungstenite::tungstenite::http::Error| e.to_string())?;
 
-        let (mut ws, _) = connect_async(request)
+        let (mut ws, _) = tokio::time::timeout(WS_CONNECT_TIMEOUT, connect_async(request))
             .await
+            .map_err(|_| "WebSocket connection timed out".to_string())?
             .map_err(|e| format!("Failed to connect: {}", e))?;
 
         info!("Connected to WebSocket");
@@ -259,7 +262,10 @@ impl VolcBigModelEngine {
             .map_err(|e| format!("Failed to send full request: {}", e))?;
 
         // Wait for initial response
-        if let Some(msg) = ws.next().await {
+        let initial_message = tokio::time::timeout(WS_RESPONSE_TIMEOUT, ws.next())
+            .await
+            .map_err(|_| "Initial recognition response timed out".to_string())?;
+        if let Some(msg) = initial_message {
             let msg = msg.map_err(|e| format!("Failed to receive: {}", e))?;
             if let Message::Binary(data) = msg {
                 let resp = Self::parse_response(&data);
@@ -304,7 +310,13 @@ impl VolcBigModelEngine {
         // Receive responses
         let mut result_text = String::new();
 
-        while let Some(msg) = ws.next().await {
+        loop {
+            let next_message = tokio::time::timeout(WS_RESPONSE_TIMEOUT, ws.next())
+                .await
+                .map_err(|_| "Recognition response timed out".to_string())?;
+            let Some(msg) = next_message else {
+                break;
+            };
             let msg = msg.map_err(|e| format!("Failed to receive: {}", e))?;
 
             if let Message::Binary(data) = msg {
@@ -423,8 +435,9 @@ impl VolcBigModelEngine {
         let request = request_builder
             .body(())
             .map_err(|error: tokio_tungstenite::tungstenite::http::Error| error.to_string())?;
-        let (mut ws, _) = connect_async(request)
+        let (mut ws, _) = tokio::time::timeout(WS_CONNECT_TIMEOUT, connect_async(request))
             .await
+            .map_err(|_| "Realtime WebSocket connection timed out".to_string())?
             .map_err(|error| format!("Failed to connect: {}", error))?;
 
         ws.send(Message::Binary(
@@ -433,7 +446,10 @@ impl VolcBigModelEngine {
         .await
         .map_err(|error| format!("Failed to send initial request: {}", error))?;
 
-        match ws.next().await {
+        let initial_message = tokio::time::timeout(WS_RESPONSE_TIMEOUT, ws.next())
+            .await
+            .map_err(|_| "Realtime initial response timed out".to_string())?;
+        match initial_message {
             Some(Ok(Message::Binary(data))) => {
                 let response = Self::parse_response(&data);
                 if response.code != 0 {
@@ -507,6 +523,9 @@ impl VolcBigModelEngine {
                         Some(Ok(_)) => {}
                         Some(Err(error)) => return Err(format!("Realtime receive failed: {}", error)),
                     }
+                }
+                _ = tokio::time::sleep(WS_RESPONSE_TIMEOUT), if input_finished => {
+                    return Err("Realtime recognition response timed out".to_string());
                 }
             }
         }

@@ -4,13 +4,15 @@
   import { appState, displayText, setRecordingState } from "../stores/app";
   import { config } from "../stores/config";
   import { t, locale, type MessageKey } from "../stores/i18n";
-  import { setupEventListeners, cleanupEventListeners, getUiState, startRecording, stopRecording } from "../utils/tauri";
+  import { setupEventListeners, cleanupEventListeners, getUiState, hideWindow, startRecording, stopRecording } from "../utils/tauri";
   import AppIconOrb from "./AppIconOrb.svelte";
 
   // Development mode detection
   const isDev = import.meta.env.DEV;
   let isTestRecording = false;
   let statePoller: ReturnType<typeof setInterval> | null = null;
+  let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
+  let watchdogPhase = "";
 
   async function syncBackendState() {
     try {
@@ -130,6 +132,26 @@
     $appState.recordingState === "recognizing" ||
     $appState.recordingState === "polishing";
 
+  // Backend cleanup is authoritative. This independent UI watchdog prevents
+  // a dropped event or stalled request from leaving the overlay on screen.
+  $: if ($appState.recordingState !== watchdogPhase) {
+    watchdogPhase = $appState.recordingState;
+    if (watchdogTimer) clearTimeout(watchdogTimer);
+    watchdogTimer = null;
+    const timeout =
+      watchdogPhase === "recognizing" || watchdogPhase === "polishing"
+        ? 35000
+        : watchdogPhase === "done" || watchdogPhase === "error"
+          ? 3000
+          : 0;
+    if (timeout) {
+      watchdogTimer = setTimeout(() => {
+        appState.reset();
+        void hideWindow();
+      }, timeout);
+    }
+  }
+
   onMount(() => {
     console.log("FloatingWindow mounted, setting up event listeners...");
     void config.load().then(() => {
@@ -148,6 +170,7 @@
 
   onDestroy(async () => {
     if (statePoller) clearInterval(statePoller);
+    if (watchdogTimer) clearTimeout(watchdogTimer);
     await cleanupEventListeners();
   });
 </script>

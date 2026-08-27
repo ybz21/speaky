@@ -1,13 +1,19 @@
 use base64::Engine;
 use log::{debug, error, info};
 use parking_lot::Mutex;
-use rdev::{listen, Event, EventType, Key};
-use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(target_os = "linux")]
+use rdev::grab;
+use rdev::listen;
+use rdev::{Event, EventType, Key};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition};
 
 use crate::APP_STATE;
+
+static RECOGNITION_GENERATION: AtomicU64 = AtomicU64::new(0);
+static RECORDING_CANCEL_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 /// Hotkey manager for handling press-and-hold detection
 ///
@@ -17,9 +23,11 @@ use crate::APP_STATE;
 pub struct HotkeyManager {
     hotkey: Arc<Mutex<String>>,
     target_key: Arc<Mutex<Key>>,
+    capture_requested: Arc<AtomicBool>,
     hold_time: Arc<Mutex<Duration>>,
     press_time: Arc<Mutex<Option<Instant>>>,
     hold_triggered: Arc<AtomicBool>,
+    combo_suppressed: Arc<AtomicBool>,
     app_handle: Arc<Mutex<Option<AppHandle>>>,
 }
 
@@ -40,9 +48,11 @@ impl HotkeyManager {
         Self {
             hotkey: Arc::new(Mutex::new(hotkey_lower)),
             target_key: Arc::new(Mutex::new(target_key)),
+            capture_requested: Arc::new(AtomicBool::new(false)),
             hold_time: Arc::new(Mutex::new(Duration::from_secs_f64(hold_time))),
             press_time: Arc::new(Mutex::new(None)),
             hold_triggered: Arc::new(AtomicBool::new(false)),
+            combo_suppressed: Arc::new(AtomicBool::new(false)),
             app_handle: Arc::new(Mutex::new(None)),
         }
     }
@@ -76,6 +86,62 @@ impl HotkeyManager {
         debug!("Hold time updated to: {}s", hold_time);
     }
 
+    /// Capture the next globally reported keyboard press for the settings UI.
+    pub fn begin_capture(&self) {
+        self.capture_requested.store(true, Ordering::SeqCst);
+        info!("Waiting for the user to choose a hotkey");
+    }
+
+    pub fn cancel_capture(&self) {
+        self.capture_requested.store(false, Ordering::SeqCst);
+    }
+
+    fn try_capture(&self, key: Key) -> bool {
+        if !self.capture_requested.load(Ordering::SeqCst) {
+            return false;
+        }
+
+        let key = normalize_event_key(key);
+        let Some(value) = hotkey_name(key) else {
+            if let Some(app) = self.app_handle.lock().clone() {
+                let _ = app.emit(
+                    "hotkey-capture-error",
+                    serde_json::json!({"message": "unsupported-key"}),
+                );
+            }
+            return true;
+        };
+
+        self.capture_requested.store(false, Ordering::SeqCst);
+        if let Some(app) = self.app_handle.lock().clone() {
+            let _ = app.emit("hotkey-captured", serde_json::json!({"hotkey": value}));
+        }
+        info!("Captured hotkey: {} ({:?})", value, key);
+        true
+    }
+
+    fn matches(&self, event_key: Key) -> bool {
+        let target_key = self.get_target_key();
+        let hotkey = self.get_hotkey();
+        key_matches(&normalize_event_key(event_key), &target_key, &hotkey)
+    }
+
+    /// A configured modifier must not fire when it is being used as part of a
+    /// normal shortcut (for example Ctrl+V in a browser terminal). Cancel the
+    /// pending hold as soon as another key arrives while the trigger is down.
+    fn cancel_for_combination(&self) {
+        // Once recording has started, the trigger release must still stop it;
+        // only suppress the pending hold window.
+        if self.hold_triggered.load(Ordering::SeqCst) {
+            return;
+        }
+        let mut press_time = self.press_time.lock();
+        if press_time.take().is_some() {
+            self.combo_suppressed.store(true, Ordering::SeqCst);
+            info!("Hotkey hold cancelled because it is part of a key combination");
+        }
+    }
+
     /// Get the current hotkey string
     pub fn get_hotkey(&self) -> String {
         self.hotkey.lock().clone()
@@ -100,6 +166,7 @@ impl HotkeyManager {
 
         let mut press_time = self.press_time.lock();
         if press_time.is_none() {
+            self.combo_suppressed.store(false, Ordering::SeqCst);
             *press_time = Some(Instant::now());
             let hotkey = self.get_hotkey();
             info!(
@@ -120,15 +187,19 @@ impl HotkeyManager {
                 // Check if still pressed and not already triggered
                 if press_time_arc.lock().is_some() && !hold_triggered.load(Ordering::SeqCst) {
                     hold_triggered.store(true, Ordering::SeqCst);
-                    Self::start_recording(&app_handle);
+                    if !Self::start_recording(&app_handle) {
+                        hold_triggered.store(false, Ordering::SeqCst);
+                    }
                 }
             });
         }
     }
 
     /// Start recording after hold threshold reached
-    fn start_recording(app_handle: &AppHandle) {
+    fn start_recording(app_handle: &AppHandle) -> bool {
         info!("Hold time reached, starting recording");
+        RECORDING_CANCEL_REQUESTED.store(false, Ordering::SeqCst);
+        RECOGNITION_GENERATION.fetch_add(1, Ordering::SeqCst);
         // Get focused window info BEFORE showing our window
         let window_info = crate::window_info::get_focused_window_info();
 
@@ -205,6 +276,11 @@ impl HotkeyManager {
             }),
         );
 
+        if APP_STATE.engine.read().is_none() {
+            fail_and_hide(app_handle, "识别引擎尚未配置，请先在设置中填写 API Key");
+            return false;
+        }
+
         // Start audio recording
         if let Some(ref mut recorder) = *APP_STATE.recorder.write() {
             // Set up audio level callback
@@ -251,20 +327,22 @@ impl HotkeyManager {
 
             if let Err(e) = recorder.start() {
                 error!("Failed to start recording: {}", e);
-                crate::sound::play(crate::sound::Cue::Error);
-                let mut ui = APP_STATE.ui.write();
-                ui.phase = "error".to_string();
-                ui.error_message = e.clone();
-                let _ = app_handle.emit(
-                    "recognition-error",
-                    serde_json::json!({
-                        "message": e
-                    }),
-                );
+                APP_STATE.realtime_session.write().take();
+                fail_and_hide(app_handle, &e);
+                return false;
             } else {
+                if RECORDING_CANCEL_REQUESTED.load(Ordering::SeqCst) {
+                    let _ = recorder.stop();
+                    APP_STATE.realtime_session.write().take();
+                    fail_and_hide(app_handle, "录音启动后按键已松开");
+                    return false;
+                }
                 crate::sound::play(crate::sound::Cue::Start);
+                return true;
             }
         }
+        fail_and_hide(app_handle, "麦克风尚未就绪，请在诊断页检查设备");
+        false
     }
 
     /// Handle hotkey release event
@@ -277,8 +355,14 @@ impl HotkeyManager {
         let mut press_time = self.press_time.lock();
         *press_time = None;
 
+        if self.combo_suppressed.swap(false, Ordering::SeqCst) {
+            info!("Hotkey release ignored after a key combination");
+            return;
+        }
+
         if self.hold_triggered.swap(false, Ordering::SeqCst) {
             info!("Hotkey released, stopping recording");
+            RECORDING_CANCEL_REQUESTED.store(true, Ordering::SeqCst);
             APP_STATE.ui.write().phase = "recognizing".to_string();
             // Emit recognizing state
             let _ = app.emit(
@@ -289,67 +373,68 @@ impl HotkeyManager {
             );
 
             // Stop recording and get audio data
-            let audio_data = if let Some(ref mut recorder) = *APP_STATE.recorder.write() {
-                recorder.stop()
-            } else {
-                Vec::new()
+            let stop_started = Instant::now();
+            let audio_data = loop {
+                if let Some(mut recorder_guard) = APP_STATE.recorder.try_write() {
+                    break if let Some(ref mut recorder) = *recorder_guard {
+                        recorder.stop()
+                    } else {
+                        Vec::new()
+                    };
+                }
+                if stop_started.elapsed() >= Duration::from_secs(5) {
+                    APP_STATE.realtime_session.write().take();
+                    fail_and_hide(&app, "录音设备启动超时，请在诊断页检查麦克风");
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(25));
             };
             crate::sound::play(crate::sound::Cue::End);
 
             if audio_data.is_empty() {
-                crate::sound::play(crate::sound::Cue::Error);
-                let mut ui = APP_STATE.ui.write();
-                ui.phase = "error".to_string();
-                ui.error_message = "No audio captured".to_string();
-                let _ = app.emit(
-                    "recognition-error",
-                    serde_json::json!({
-                        "message": "No audio captured"
-                    }),
-                );
+                APP_STATE.realtime_session.write().take();
+                fail_and_hide(&app, "没有采集到音频，请检查麦克风设备");
                 return;
             }
 
+            let generation = RECOGNITION_GENERATION.load(Ordering::SeqCst);
+            arm_recognition_watchdog(&app, generation);
+
             if let Some(session) = APP_STATE.realtime_session.write().take() {
                 std::thread::spawn(move || {
-                    // Keep realtime captions while the key is held, then run
-                    // the complete WAV through the more accurate final model.
-                    // Both requests finish concurrently, so correction adds
-                    // little latency and safely falls back to realtime.
-                    let config = APP_STATE.config.read().clone();
-                    let correction_audio = audio_data;
-                    let correction = std::thread::spawn(move || {
-                        let api_key = if config.engine.volc_bigmodel.api_key.is_empty() {
-                            std::env::var("SPEAKY_VOLC_API_KEY").unwrap_or_default()
-                        } else {
-                            config.engine.volc_bigmodel.api_key.clone()
-                        };
-                        let engine = crate::engines::VolcBigModelEngine::new(
-                            &api_key,
-                            &config.engine.volc_bigmodel.app_key,
-                            &config.engine.volc_bigmodel.access_key,
-                            &config.engine.volc_bigmodel.resource_id,
-                        );
-                        engine.transcribe_final(&correction_audio, &config.core.asr.language)
-                    });
-
+                    // The realtime hypothesis is the primary result. Deliver
+                    // it as soon as the stream closes; a second correction
+                    // request must never hold the UI in "recognizing". If the
+                    // realtime endpoint returns no text, use the final
+                    // endpoint as a bounded fallback for short utterances.
                     let realtime_result = session.finish();
-                    let result = match correction.join() {
-                        Ok(Ok(text)) if !text.trim().is_empty() => Ok(text),
-                        Ok(Err(error)) => {
-                            error!(
-                                "Final accuracy pass failed, using realtime result: {}",
-                                error
-                            );
-                            realtime_result
-                        }
-                        Ok(Ok(_)) => realtime_result,
-                        Err(_) => {
-                            error!("Final accuracy pass panicked, using realtime result");
-                            realtime_result
-                        }
+                    let has_realtime_text =
+                        matches!(&realtime_result, Ok(text) if !text.trim().is_empty());
+                    if has_realtime_text {
+                        info!("Delivering realtime recognition result immediately");
+                        deliver_recognition_result(app, realtime_result, generation);
+                        return;
+                    }
+
+                    let config = APP_STATE.config.read().clone();
+                    let api_key = if config.engine.volc_bigmodel.api_key.is_empty() {
+                        std::env::var("SPEAKY_VOLC_API_KEY").unwrap_or_default()
+                    } else {
+                        config.engine.volc_bigmodel.api_key.clone()
                     };
-                    deliver_recognition_result(app, result);
+                    let engine = crate::engines::VolcBigModelEngine::new(
+                        &api_key,
+                        &config.engine.volc_bigmodel.app_key,
+                        &config.engine.volc_bigmodel.access_key,
+                        &config.engine.volc_bigmodel.resource_id,
+                    );
+                    let fallback = engine.transcribe_final(&audio_data, &config.core.asr.language);
+                    if fallback.is_ok() {
+                        info!("Realtime result was empty; delivered final recognition fallback");
+                        deliver_recognition_result(app, fallback, generation);
+                    } else {
+                        deliver_recognition_result(app, realtime_result, generation);
+                    }
                 });
             } else {
                 recognize_and_deliver(app, audio_data);
@@ -420,14 +505,13 @@ fn position_floating_window(window: &tauri::WebviewWindow, target_window_id: Opt
 /// listener thread so a slow network request never blocks hotkey handling.
 pub fn recognize_and_deliver(app_handle: AppHandle, audio_data: Vec<u8>) {
     if audio_data.is_empty() {
-        let _ = app_handle.emit(
-            "recognition-error",
-            serde_json::json!({"message": "No audio captured"}),
-        );
+        fail_and_hide(&app_handle, "没有采集到音频，请检查麦克风设备");
         return;
     }
 
     let config = APP_STATE.config.read().clone();
+    let generation = RECOGNITION_GENERATION.load(Ordering::SeqCst);
+    arm_recognition_watchdog(&app_handle, generation);
 
     std::thread::spawn(move || {
         let result = if let Some(ref engine) = *APP_STATE.engine.read() {
@@ -450,28 +534,24 @@ pub fn recognize_and_deliver(app_handle: AppHandle, audio_data: Vec<u8>) {
             Err(crate::engines::EngineError::NotConfigured)
         };
 
-        deliver_recognition_result(app_handle, result);
+        deliver_recognition_result(app_handle, result, generation);
     });
 }
 
-fn deliver_recognition_result(app_handle: AppHandle, result: crate::engines::EngineResult) {
+fn deliver_recognition_result(
+    app_handle: AppHandle,
+    result: crate::engines::EngineResult,
+    generation: u64,
+) {
+    if generation != RECOGNITION_GENERATION.load(Ordering::SeqCst) {
+        info!("Discarding stale recognition result");
+        return;
+    }
     match result {
         Ok(original_text) => {
             info!("Recognition result: {} chars", original_text.len());
             if original_text.trim().is_empty() {
-                crate::sound::play(crate::sound::Cue::Error);
-                let mut ui = APP_STATE.ui.write();
-                ui.phase = "error".to_string();
-                ui.error_message = "识别结果为空，请确认麦克风有声音".to_string();
-                drop(ui);
-                let _ = app_handle.emit(
-                    "recognition-error",
-                    serde_json::json!({"message": "识别结果为空，请确认麦克风有声音"}),
-                );
-                std::thread::sleep(Duration::from_secs(2));
-                if let Some(window) = app_handle.get_webview_window("main") {
-                    let _ = window.hide();
-                }
+                fail_and_hide(&app_handle, "识别结果为空，请确认麦克风有声音");
                 return;
             }
 
@@ -505,6 +585,11 @@ fn deliver_recognition_result(app_handle: AppHandle, result: crate::engines::Eng
                 original_text
             };
 
+            if generation != RECOGNITION_GENERATION.load(Ordering::SeqCst) {
+                info!("Discarding recognition result after timeout or a newer recording");
+                return;
+            }
+
             let engine_name = APP_STATE
                 .engine
                 .read()
@@ -526,8 +611,9 @@ fn deliver_recognition_result(app_handle: AppHandle, result: crate::engines::Eng
             // Mapping the floating window can change focus on some Linux
             // window managers even when it is marked non-focusable.
             // Restore the exact window that was active at key-down.
-            if let Some(window_id) = APP_STATE.last_focused_app.read().window_id.clone() {
-                match crate::window_info::focus_window(&window_id) {
+            let target_window_id = APP_STATE.last_focused_app.read().window_id.clone();
+            if let Some(window_id) = target_window_id.as_deref() {
+                match crate::window_info::focus_window(window_id) {
                     Ok(()) => {
                         info!("Restored target window focus before paste");
                         std::thread::sleep(Duration::from_millis(100));
@@ -538,7 +624,9 @@ fn deliver_recognition_result(app_handle: AppHandle, result: crate::engines::Eng
                 }
             }
 
-            if let Err(e) = crate::input::paste_text(&app_handle, &text) {
+            if let Err(e) =
+                crate::input::paste_text_to_window(&app_handle, &text, target_window_id.as_deref())
+            {
                 error!("Failed to paste text: {}", e);
                 let mut ui = APP_STATE.ui.write();
                 ui.phase = "error".to_string();
@@ -560,21 +648,77 @@ fn deliver_recognition_result(app_handle: AppHandle, result: crate::engines::Eng
         }
         Err(e) => {
             error!("Recognition error: {}", e);
-            crate::sound::play(crate::sound::Cue::Error);
-            let mut ui = APP_STATE.ui.write();
-            ui.phase = "error".to_string();
-            ui.error_message = e.to_string();
-            drop(ui);
-            let _ = app_handle.emit(
-                "recognition-error",
-                serde_json::json!({"message": e.to_string()}),
-            );
+            fail_and_hide(&app_handle, &e.to_string());
         }
     }
 }
 
+fn fail_and_hide(app_handle: &AppHandle, message: &str) {
+    // Invalidate any realtime worker that may still be finishing in the
+    // background; a late response must not resurrect the overlay.
+    RECOGNITION_GENERATION.fetch_add(1, Ordering::SeqCst);
+    crate::sound::play(crate::sound::Cue::Error);
+    {
+        let mut ui = APP_STATE.ui.write();
+        ui.phase = "error".to_string();
+        ui.error_message = message.to_string();
+    }
+    let _ = app_handle.emit("recognition-error", serde_json::json!({"message": message}));
+
+    let app = app_handle.clone();
+    let expected_message = message.to_string();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(2));
+        let should_hide = {
+            let mut ui = APP_STATE.ui.write();
+            if ui.phase == "error" && ui.error_message == expected_message {
+                ui.phase = "idle".to_string();
+                ui.audio_level = 0.0;
+                ui.partial_result.clear();
+                ui.final_result.clear();
+                ui.error_message.clear();
+                true
+            } else {
+                false
+            }
+        };
+        if should_hide {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.hide();
+            }
+        }
+    });
+}
+
+fn arm_recognition_watchdog(app_handle: &AppHandle, generation: u64) {
+    let app = app_handle.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(30));
+        if generation != RECOGNITION_GENERATION.load(Ordering::SeqCst) {
+            return;
+        }
+        let stalled = matches!(
+            APP_STATE.ui.read().phase.as_str(),
+            "recognizing" | "polishing"
+        );
+        if stalled
+            && RECOGNITION_GENERATION
+                .compare_exchange(
+                    generation,
+                    generation.wrapping_add(1),
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                )
+                .is_ok()
+        {
+            error!("Recognition watchdog timed out");
+            fail_and_hide(&app, "识别超时，请检查网络或识别引擎配置");
+        }
+    });
+}
+
 /// Convert hotkey string to rdev Key
-fn parse_hotkey(hotkey: &str) -> Option<Key> {
+pub(crate) fn parse_hotkey(hotkey: &str) -> Option<Key> {
     let key = hotkey.to_lowercase();
 
     match key.as_str() {
@@ -591,6 +735,7 @@ fn parse_hotkey(hotkey: &str) -> Option<Key> {
         "cmd" | "super" | "meta" => Some(Key::MetaLeft),
         "cmd_l" | "super_l" | "meta_l" => Some(Key::MetaLeft),
         "cmd_r" | "super_r" | "meta_r" => Some(Key::MetaRight),
+        "fn" | "function" => Some(Key::Function),
         // Function keys
         "f1" => Some(Key::F1),
         "f2" => Some(Key::F2),
@@ -612,31 +757,233 @@ fn parse_hotkey(hotkey: &str) -> Option<Key> {
         "pause" => Some(Key::Pause),
         "insert" => Some(Key::Insert),
         "backquote" | "`" => Some(Key::BackQuote),
+        "escape" | "esc" => Some(Key::Escape),
+        "enter" | "return" => Some(Key::Return),
+        "backspace" => Some(Key::Backspace),
+        "delete" => Some(Key::Delete),
+        "home" => Some(Key::Home),
+        "end" => Some(Key::End),
+        "page_up" | "pageup" => Some(Key::PageUp),
+        "page_down" | "pagedown" => Some(Key::PageDown),
+        "arrow_up" | "up" => Some(Key::UpArrow),
+        "arrow_down" | "down" => Some(Key::DownArrow),
+        "arrow_left" | "left" => Some(Key::LeftArrow),
+        "arrow_right" | "right" => Some(Key::RightArrow),
+        "print_screen" | "printscreen" => Some(Key::PrintScreen),
+        "num_lock" | "numlock" => Some(Key::NumLock),
+        "0" => Some(Key::Num0),
+        "1" => Some(Key::Num1),
+        "2" => Some(Key::Num2),
+        "3" => Some(Key::Num3),
+        "4" => Some(Key::Num4),
+        "5" => Some(Key::Num5),
+        "6" => Some(Key::Num6),
+        "7" => Some(Key::Num7),
+        "8" => Some(Key::Num8),
+        "9" => Some(Key::Num9),
+        "a" => Some(Key::KeyA),
+        "b" => Some(Key::KeyB),
+        "c" => Some(Key::KeyC),
+        "d" => Some(Key::KeyD),
+        "e" => Some(Key::KeyE),
+        "f" => Some(Key::KeyF),
+        "g" => Some(Key::KeyG),
+        "h" => Some(Key::KeyH),
+        "i" => Some(Key::KeyI),
+        "j" => Some(Key::KeyJ),
+        "k" => Some(Key::KeyK),
+        "l" => Some(Key::KeyL),
+        "m" => Some(Key::KeyM),
+        "n" => Some(Key::KeyN),
+        "o" => Some(Key::KeyO),
+        "p" => Some(Key::KeyP),
+        "q" => Some(Key::KeyQ),
+        "r" => Some(Key::KeyR),
+        "s" => Some(Key::KeyS),
+        "t" => Some(Key::KeyT),
+        "u" => Some(Key::KeyU),
+        "v" => Some(Key::KeyV),
+        "w" => Some(Key::KeyW),
+        "x" => Some(Key::KeyX),
+        "y" => Some(Key::KeyY),
+        "z" => Some(Key::KeyZ),
+        "minus" => Some(Key::Minus),
+        "equal" => Some(Key::Equal),
+        "left_bracket" => Some(Key::LeftBracket),
+        "right_bracket" => Some(Key::RightBracket),
+        "semicolon" => Some(Key::SemiColon),
+        "quote" => Some(Key::Quote),
+        "backslash" => Some(Key::BackSlash),
+        "intl_backslash" => Some(Key::IntlBackslash),
+        "comma" => Some(Key::Comma),
+        "dot" | "period" => Some(Key::Dot),
+        "slash" => Some(Key::Slash),
+        "numpad_0" => Some(Key::Kp0),
+        "numpad_1" => Some(Key::Kp1),
+        "numpad_2" => Some(Key::Kp2),
+        "numpad_3" => Some(Key::Kp3),
+        "numpad_4" => Some(Key::Kp4),
+        "numpad_5" => Some(Key::Kp5),
+        "numpad_6" => Some(Key::Kp6),
+        "numpad_7" => Some(Key::Kp7),
+        "numpad_8" => Some(Key::Kp8),
+        "numpad_9" => Some(Key::Kp9),
+        "numpad_enter" => Some(Key::KpReturn),
+        "numpad_minus" => Some(Key::KpMinus),
+        "numpad_plus" => Some(Key::KpPlus),
+        "numpad_multiply" => Some(Key::KpMultiply),
+        "numpad_divide" => Some(Key::KpDivide),
+        "numpad_delete" => Some(Key::KpDelete),
         _ => None,
     }
 }
 
+pub(crate) fn is_supported_hotkey(hotkey: &str) -> bool {
+    parse_hotkey(hotkey).is_some()
+}
+
+fn hotkey_name(key: Key) -> Option<&'static str> {
+    Some(match key {
+        Key::Alt => "alt_l",
+        Key::AltGr => "alt_r",
+        Key::Backspace => "backspace",
+        Key::CapsLock => "caps_lock",
+        Key::ControlLeft => "ctrl_l",
+        Key::ControlRight => "ctrl_r",
+        Key::Delete => "delete",
+        Key::DownArrow => "arrow_down",
+        Key::End => "end",
+        Key::Escape => "escape",
+        Key::F1 => "f1",
+        Key::F2 => "f2",
+        Key::F3 => "f3",
+        Key::F4 => "f4",
+        Key::F5 => "f5",
+        Key::F6 => "f6",
+        Key::F7 => "f7",
+        Key::F8 => "f8",
+        Key::F9 => "f9",
+        Key::F10 => "f10",
+        Key::F11 => "f11",
+        Key::F12 => "f12",
+        Key::Home => "home",
+        Key::LeftArrow => "arrow_left",
+        Key::MetaLeft => "cmd_l",
+        Key::MetaRight => "cmd_r",
+        Key::PageDown => "page_down",
+        Key::PageUp => "page_up",
+        Key::Return => "enter",
+        Key::RightArrow => "arrow_right",
+        Key::ShiftLeft => "shift_l",
+        Key::ShiftRight => "shift_r",
+        Key::Space => "space",
+        Key::Tab => "tab",
+        Key::UpArrow => "arrow_up",
+        Key::PrintScreen => "print_screen",
+        Key::ScrollLock => "scroll_lock",
+        Key::Pause => "pause",
+        Key::NumLock => "num_lock",
+        Key::BackQuote => "backquote",
+        Key::Num0 => "0",
+        Key::Num1 => "1",
+        Key::Num2 => "2",
+        Key::Num3 => "3",
+        Key::Num4 => "4",
+        Key::Num5 => "5",
+        Key::Num6 => "6",
+        Key::Num7 => "7",
+        Key::Num8 => "8",
+        Key::Num9 => "9",
+        Key::Minus => "minus",
+        Key::Equal => "equal",
+        Key::KeyQ => "q",
+        Key::KeyW => "w",
+        Key::KeyE => "e",
+        Key::KeyR => "r",
+        Key::KeyT => "t",
+        Key::KeyY => "y",
+        Key::KeyU => "u",
+        Key::KeyI => "i",
+        Key::KeyO => "o",
+        Key::KeyP => "p",
+        Key::LeftBracket => "left_bracket",
+        Key::RightBracket => "right_bracket",
+        Key::KeyA => "a",
+        Key::KeyS => "s",
+        Key::KeyD => "d",
+        Key::KeyF => "f",
+        Key::KeyG => "g",
+        Key::KeyH => "h",
+        Key::KeyJ => "j",
+        Key::KeyK => "k",
+        Key::KeyL => "l",
+        Key::SemiColon => "semicolon",
+        Key::Quote => "quote",
+        Key::BackSlash => "backslash",
+        Key::IntlBackslash => "intl_backslash",
+        Key::KeyZ => "z",
+        Key::KeyX => "x",
+        Key::KeyC => "c",
+        Key::KeyV => "v",
+        Key::KeyB => "b",
+        Key::KeyN => "n",
+        Key::KeyM => "m",
+        Key::Comma => "comma",
+        Key::Dot => "dot",
+        Key::Slash => "slash",
+        Key::Insert => "insert",
+        Key::KpReturn => "numpad_enter",
+        Key::KpMinus => "numpad_minus",
+        Key::KpPlus => "numpad_plus",
+        Key::KpMultiply => "numpad_multiply",
+        Key::KpDivide => "numpad_divide",
+        Key::Kp0 => "numpad_0",
+        Key::Kp1 => "numpad_1",
+        Key::Kp2 => "numpad_2",
+        Key::Kp3 => "numpad_3",
+        Key::Kp4 => "numpad_4",
+        Key::Kp5 => "numpad_5",
+        Key::Kp6 => "numpad_6",
+        Key::Kp7 => "numpad_7",
+        Key::Kp8 => "numpad_8",
+        Key::Kp9 => "numpad_9",
+        Key::KpDelete => "numpad_delete",
+        Key::Function => "fn",
+        Key::Unknown(_) => return None,
+    })
+}
+
+fn normalize_event_key(key: Key) -> Key {
+    match key {
+        #[cfg(target_os = "windows")]
+        Key::Unknown(92) => Key::MetaRight,
+        #[cfg(target_os = "linux")]
+        Key::Unknown(134) => Key::MetaRight,
+        _ => key,
+    }
+}
+
 /// Check if the event key matches the target key
-fn key_matches(event_key: &Key, target_key: &Key) -> bool {
-    // Handle left/right variants matching generic key
+fn key_matches(event_key: &Key, target_key: &Key, configured_hotkey: &str) -> bool {
+    // Preserve the historical generic aliases while allowing native capture
+    // to distinguish the physical left and right modifier keys.
+    match configured_hotkey {
+        "ctrl" | "control" => return matches!(event_key, Key::ControlLeft | Key::ControlRight),
+        "shift" => return matches!(event_key, Key::ShiftLeft | Key::ShiftRight),
+        "alt" => return matches!(event_key, Key::Alt | Key::AltGr),
+        "cmd" | "super" | "meta" => return matches!(event_key, Key::MetaLeft | Key::MetaRight),
+        _ => {}
+    }
+
     match (event_key, target_key) {
         // Control key variants
-        (Key::ControlLeft, Key::ControlLeft)
-        | (Key::ControlRight, Key::ControlLeft)
-        | (Key::ControlLeft, Key::ControlRight)
-        | (Key::ControlRight, Key::ControlRight) => true,
+        (Key::ControlLeft, Key::ControlLeft) | (Key::ControlRight, Key::ControlRight) => true,
         // Shift key variants
-        (Key::ShiftLeft, Key::ShiftLeft)
-        | (Key::ShiftRight, Key::ShiftLeft)
-        | (Key::ShiftLeft, Key::ShiftRight)
-        | (Key::ShiftRight, Key::ShiftRight) => true,
+        (Key::ShiftLeft, Key::ShiftLeft) | (Key::ShiftRight, Key::ShiftRight) => true,
         // Alt key variants
-        (Key::Alt, Key::Alt) | (Key::AltGr, Key::Alt) | (Key::Alt, Key::AltGr) => true,
+        (Key::Alt, Key::Alt) | (Key::AltGr, Key::AltGr) => true,
         // Meta/Super key variants
-        (Key::MetaLeft, Key::MetaLeft)
-        | (Key::MetaRight, Key::MetaLeft)
-        | (Key::MetaLeft, Key::MetaRight)
-        | (Key::MetaRight, Key::MetaRight) => true,
+        (Key::MetaLeft, Key::MetaLeft) | (Key::MetaRight, Key::MetaRight) => true,
         // Exact match for all other keys
         _ => event_key == target_key,
     }
@@ -662,43 +1009,271 @@ pub fn start_keyboard_listener(app: AppHandle) {
 
     // Start listener in a separate thread
     std::thread::spawn(move || {
-        let callback = move |event: Event| {
-            // Get current target key from manager (allows dynamic updates)
-            let target_key = if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
-                manager.get_target_key()
-            } else {
-                return;
+        #[cfg(target_os = "linux")]
+        {
+            // rdev::grab uses the evdev backend on Linux. Unlike the normal
+            // XRecord listener, it receives keys from native Wayland clients
+            // (including the Ubuntu Chrome package) while returning every
+            // event unchanged so the focused app still receives it.
+            let callback = move |event: Event| {
+                process_key_event(&event);
+                Some(event)
             };
-
-            match event.event_type {
-                EventType::KeyPress(key) => {
-                    if key_matches(&key, &target_key) {
-                        if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
-                            manager.on_press();
-                        }
+            if let Err(error) = grab(callback) {
+                error!("Keyboard evdev listener error: {:?}", error);
+                if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+                    // Reading /dev/input requires membership in the input
+                    // group.  A normal desktop launch may not have that
+                    // group yet; GNOME's portal provides the same press and
+                    // release events without elevated device permissions.
+                    start_portal_keyboard_listener(app.clone(), hotkey_str.clone());
+                } else {
+                    let fallback = move |event: Event| process_key_event(&event);
+                    if let Err(fallback_error) = listen(fallback) {
+                        error!("Keyboard X11 fallback listener error: {:?}", fallback_error);
                     }
                 }
-                EventType::KeyRelease(key) => {
-                    if key_matches(&key, &target_key) {
-                        if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
-                            manager.on_release();
-                        }
-                    }
-                }
-                _ => {}
             }
-        };
+        }
 
-        if let Err(error) = listen(callback) {
-            error!("Keyboard listener error: {:?}", error);
+        #[cfg(not(target_os = "linux"))]
+        {
+            let callback = move |event: Event| process_key_event(&event);
+            if let Err(error) = listen(callback) {
+                error!("Keyboard listener error: {:?}", error);
+            }
         }
     });
 
     info!("Keyboard listener started successfully");
 }
 
+#[cfg(target_os = "linux")]
+fn start_portal_keyboard_listener(app: AppHandle, hotkey: String) {
+    std::thread::Builder::new()
+        .name("speaky-wayland-shortcut".to_string())
+        .spawn(move || {
+            let runtime = match tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+            {
+                Ok(runtime) => runtime,
+                Err(error) => {
+                    error!("Failed to create Wayland shortcut runtime: {}", error);
+                    return;
+                }
+            };
+            if let Err(error) = runtime.block_on(portal_keyboard_loop(hotkey)) {
+                error!("Wayland GlobalShortcuts unavailable: {}", error);
+                // Keep the application alive even when the compositor does
+                // not implement the portal.  X11 fallback is intentionally
+                // not used on native Wayland because it cannot see Chrome.
+                let _ = app;
+            }
+        })
+        .ok();
+}
+
+#[cfg(target_os = "linux")]
+async fn portal_keyboard_loop(hotkey: String) -> Result<(), String> {
+    use ashpd::desktop::global_shortcuts::{GlobalShortcuts, NewShortcut};
+    use futures_util::StreamExt;
+    use std::collections::HashMap;
+
+    let trigger = portal_trigger(&hotkey).ok_or_else(|| {
+        format!(
+            "hotkey '{}' cannot be registered through the Wayland portal",
+            hotkey
+        )
+    })?;
+    // GNOME 50 requires unsandboxed applications to register an application
+    // id with the host portal before GlobalShortcuts can create a session.
+    // This is normally done by the desktop launcher, but registering here
+    // also covers terminal launches and development builds.
+    let connection = zbus::Connection::session()
+        .await
+        .map_err(|e| e.to_string())?;
+    let registry = zbus::Proxy::new(
+        &connection,
+        "org.freedesktop.portal.Desktop",
+        "/org/freedesktop/portal/desktop",
+        "org.freedesktop.host.portal.Registry",
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    let options: HashMap<&str, zbus::zvariant::Value<'_>> = HashMap::new();
+    let _: () = registry
+        .call("Register", &("com.ybz21.speaky", options))
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let portal = GlobalShortcuts::with_connection(connection)
+        .await
+        .map_err(|e| e.to_string())?;
+    let session = portal
+        .create_session(Default::default())
+        .await
+        .map_err(|e| e.to_string())?;
+    let shortcut = NewShortcut::new("speaky-trigger", "Hold to dictate")
+        .preferred_trigger(Some(trigger.as_str()));
+    let parent = x11_parent_window_identifier();
+    portal
+        .bind_shortcuts(&session, &[shortcut], parent.as_ref(), Default::default())
+        .await
+        .map_err(|e| e.to_string())?
+        .response()
+        .map_err(|e| e.to_string())?;
+
+    info!(
+        "Wayland GlobalShortcuts registered '{}' as {}",
+        hotkey, trigger
+    );
+    let mut activated = portal
+        .receive_activated()
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut deactivated = portal
+        .receive_deactivated()
+        .await
+        .map_err(|e| e.to_string())?;
+    loop {
+        tokio::select! {
+            Some(event) = activated.next() => {
+                if event.shortcut_id() == "speaky-trigger" {
+                    if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+                        manager.on_press();
+                    }
+                }
+            }
+            Some(event) = deactivated.next() => {
+                if event.shortcut_id() == "speaky-trigger" {
+                    if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+                        manager.on_release();
+                    }
+                }
+            }
+            else => return Err("Wayland shortcut signal stream closed".to_string()),
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn x11_parent_window_identifier() -> Option<ashpd::WindowIdentifier> {
+    let output = std::process::Command::new("xdotool")
+        .args(["search", "--name", "^speaky$"])
+        .output()
+        .ok()?;
+    let xid = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .next()?
+        .trim()
+        .parse::<u64>()
+        .ok()?;
+    Some(ashpd::WindowIdentifier::from(
+        ashpd::WindowIdentifierType::X11(xid as _),
+    ))
+}
+
+#[cfg(target_os = "linux")]
+fn portal_trigger(hotkey: &str) -> Option<String> {
+    let normalized = hotkey.trim().to_lowercase();
+    let value = match normalized.as_str() {
+        // The portal follows the freedesktop shortcuts grammar. Modifier
+        // names are written in uppercase (GTK's <shift> form is not a
+        // valid portal trigger and can bind without ever emitting events).
+        "shift" | "shift_l" | "shift_r" => "SHIFT".to_string(),
+        "ctrl" | "control" | "ctrl_l" | "control_l" => "CTRL".to_string(),
+        "ctrl_r" | "control_r" => "CTRL".to_string(),
+        "alt" | "alt_l" | "alt_r" => "ALT".to_string(),
+        "cmd" | "super" | "meta" | "cmd_l" | "cmd_r" | "super_l" | "super_r" => "SUPER".to_string(),
+        "fn" | "function" => return None,
+        key if key.starts_with('f')
+            && key[1..]
+                .parse::<u8>()
+                .map(|n| (1..=24).contains(&n))
+                .unwrap_or(false) =>
+        {
+            key.to_uppercase()
+        }
+        key if key.len() == 1
+            && key
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_alphanumeric()) =>
+        {
+            key.to_uppercase()
+        }
+        _ => return None,
+    };
+    Some(value)
+}
+
+fn process_key_event(event: &Event) {
+    match &event.event_type {
+        EventType::KeyPress(key) => {
+            if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+                if manager.try_capture(*key) {
+                    return;
+                }
+                if manager.matches(*key) {
+                    manager.on_press();
+                } else {
+                    manager.cancel_for_combination();
+                }
+            }
+        }
+        EventType::KeyRelease(key) => {
+            if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+                if manager.matches(*key) {
+                    manager.on_release();
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
 /// Register global hotkeys (now using rdev for modifier key support)
 pub fn register_hotkeys(app: AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     start_keyboard_listener(app);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_native_system_and_function_keys() {
+        assert_eq!(parse_hotkey("cmd_l"), Some(Key::MetaLeft));
+        assert_eq!(parse_hotkey("cmd_r"), Some(Key::MetaRight));
+        assert_eq!(parse_hotkey("fn"), Some(Key::Function));
+        assert_eq!(parse_hotkey("f12"), Some(Key::F12));
+        assert_eq!(parse_hotkey("numpad_5"), Some(Key::Kp5));
+        assert!(parse_hotkey("not-a-key").is_none());
+    }
+
+    #[test]
+    fn captured_modifiers_keep_their_physical_side() {
+        assert!(key_matches(&Key::ControlLeft, &Key::ControlLeft, "ctrl_l"));
+        assert!(!key_matches(
+            &Key::ControlRight,
+            &Key::ControlLeft,
+            "ctrl_l"
+        ));
+        assert!(key_matches(&Key::ControlRight, &Key::ControlLeft, "ctrl"));
+        assert!(key_matches(&Key::MetaRight, &Key::MetaRight, "cmd_r"));
+        assert!(!key_matches(&Key::MetaLeft, &Key::MetaRight, "cmd_r"));
+    }
+
+    #[test]
+    fn modifier_hold_is_cancelled_by_a_following_key() {
+        let manager = HotkeyManager::new("ctrl", 1.0);
+        *manager.press_time.lock() = Some(Instant::now());
+
+        manager.cancel_for_combination();
+
+        assert!(manager.press_time.lock().is_none());
+        assert!(manager.combo_suppressed.load(Ordering::SeqCst));
+    }
 }

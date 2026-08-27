@@ -33,6 +33,9 @@ pub fn save_config(app: AppHandle, config: Config) -> Result<(), String> {
     // Normalize stale device indices before persisting. A native <select>
     // can briefly produce an out-of-range value while its options reload.
     let mut config = config;
+    if !hotkey::is_supported_hotkey(&config.core.asr.hotkey) {
+        return Err(format!("Unsupported hotkey: {}", config.core.asr.hotkey));
+    }
     config.core.asr.language = "auto".to_string();
     config.appearance.ui_language = if config
         .appearance
@@ -44,26 +47,50 @@ pub fn save_config(app: AppHandle, config: Config) -> Result<(), String> {
     } else {
         "zh-CN".to_string()
     };
-    if let Some(index) = config.core.asr.audio_device {
-        let devices = AudioRecorder::get_devices();
+    // Resolve the stable device name against the current enumeration. The
+    // numeric index is only a transport detail and can change after USB or
+    // PipeWire reconnects.
+    let devices = AudioRecorder::get_devices();
+    if let Some(name) = config.core.asr.audio_device_name.as_deref() {
+        if let Some((index, _)) = devices.iter().find(|(_, candidate)| candidate == name) {
+            config.core.asr.audio_device = Some(*index);
+        } else {
+            warn!(
+                "Configured audio device '{}' is unavailable; falling back to automatic device selection",
+                name
+            );
+            config.core.asr.audio_device = None;
+        }
+    } else if let Some(index) = config.core.asr.audio_device {
         if !devices.iter().any(|(candidate, _)| *candidate == index) {
             warn!(
-                "Ignoring unavailable audio device index {}; keeping the current selection",
+                "Ignoring unavailable audio device index {}; falling back to automatic device selection",
                 index
             );
-            config.core.asr.audio_device = APP_STATE.config.read().core.asr.audio_device;
+            config.core.asr.audio_device = None;
         }
     }
+    config.validate().map_err(|error| error.to_string())?;
 
     // Build the recorder first. Never replace a working recorder with an
     // unusable one if settings contain a stale device selection.
-    let new_recorder = AudioRecorder::new(config.core.asr.audio_device, config.core.asr.audio_gain)
-        .map_err(|e| format!("Failed to recreate recorder: {}", e))?;
+    let new_recorder = AudioRecorder::new_with_name(
+        config.core.asr.audio_device,
+        config.core.asr.audio_device_name.as_deref(),
+        config.core.asr.audio_gain,
+    )
+    .map_err(|e| format!("Failed to recreate recorder: {}", e))?;
 
     config.save().map_err(|e| e.to_string())?;
 
     // Update in-memory config
     *APP_STATE.config.write() = config.clone();
+
+    // Apply trigger changes immediately; settings no longer require a restart.
+    if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+        manager.update_hotkey(&config.core.asr.hotkey);
+        manager.update_hold_time(config.core.asr.hotkey_hold_time);
+    }
 
     // Recreate engine with new config
     let engine = engines::create_engine(&config);
@@ -79,6 +106,9 @@ pub fn save_config(app: AppHandle, config: Config) -> Result<(), String> {
     };
     if let Err(error) = autostart_result {
         warn!("Failed to synchronize autostart: {}", error);
+    }
+    if let Err(error) = crate::desktop_integration::install() {
+        warn!("Failed to refresh desktop integration: {}", error);
     }
     crate::tray::refresh(&app);
 
@@ -175,6 +205,13 @@ pub fn get_audio_devices() -> Vec<AudioDeviceInfo> {
 pub fn set_hotkey(_app: AppHandle, hotkey: String, hold_time: f64) -> Result<(), String> {
     info!("Setting hotkey: {} with hold time: {}", hotkey, hold_time);
 
+    if !hotkey::is_supported_hotkey(&hotkey) {
+        return Err(format!("Unsupported hotkey: {}", hotkey));
+    }
+    if hold_time <= 0.0 {
+        return Err("Hold time must be positive".to_string());
+    }
+
     // Update config and hotkey manager atomically
     {
         let mut config = APP_STATE.config.write();
@@ -195,6 +232,23 @@ pub fn set_hotkey(_app: AppHandle, hotkey: String, hold_time: f64) -> Result<(),
     // This simplified implementation updates the manager settings
 
     Ok(())
+}
+
+#[command]
+pub fn start_hotkey_capture() -> Result<(), String> {
+    let managers = APP_STATE.hotkey_manager.read();
+    let manager = managers
+        .as_ref()
+        .ok_or_else(|| "Keyboard listener is not ready".to_string())?;
+    manager.begin_capture();
+    Ok(())
+}
+
+#[command]
+pub fn cancel_hotkey_capture() {
+    if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+        manager.cancel_capture();
+    }
 }
 
 /// Show main window

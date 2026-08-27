@@ -45,6 +45,14 @@ export async function setHotkey(hotkey: string, holdTime: number): Promise<void>
   return invoke("set_hotkey", { hotkey, holdTime });
 }
 
+export async function startHotkeyCapture(): Promise<void> {
+  return invoke("start_hotkey_capture");
+}
+
+export async function cancelHotkeyCapture(): Promise<void> {
+  return invoke("cancel_hotkey_capture");
+}
+
 export async function showWindow(): Promise<void> {
   return invoke("show_window");
 }

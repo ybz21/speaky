@@ -1,6 +1,7 @@
 pub mod audio;
 pub mod commands;
 pub mod config;
+pub mod desktop_integration;
 pub mod diagnostics;
 pub mod engines;
 pub mod history;
@@ -146,6 +147,13 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             None,
         ))
+        // Prevent auto-start and a manual launch from creating duplicate
+        // tray icons and competing settings windows.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+            }
+        }))
         .setup(|app| {
             info!("Setting up application...");
 
@@ -159,8 +167,9 @@ pub fn run() {
             {
                 let config = APP_STATE.config.read();
                 let device_index = config.core.asr.audio_device;
+                let device_name = config.core.asr.audio_device_name.as_deref();
                 let gain = config.core.asr.audio_gain;
-                match AudioRecorder::new(device_index, gain) {
+                match AudioRecorder::new_with_name(device_index, device_name, gain) {
                     Ok(recorder) => {
                         *APP_STATE.recorder.write() = Some(recorder);
                         info!("Audio recorder initialized successfully");
@@ -180,6 +189,9 @@ pub fn run() {
             }
 
             tray::install(app.handle())?;
+            if let Err(error) = desktop_integration::install() {
+                error!("Failed to install desktop integration: {}", error);
+            }
 
             // Register hotkeys
             let app_handle = app.handle().clone();
@@ -204,6 +216,11 @@ pub fn run() {
             if window.label() == "settings" || window.label() == "diagnostics" {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
+                    if window.label() == "settings" {
+                        if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+                            manager.cancel_capture();
+                        }
+                    }
                     let _ = window.hide();
                 }
             }
@@ -215,6 +232,8 @@ pub fn run() {
             commands::stop_recording,
             commands::get_audio_devices,
             commands::set_hotkey,
+            commands::start_hotkey_capture,
+            commands::cancel_hotkey_capture,
             commands::show_window,
             commands::hide_window,
             commands::paste_text,

@@ -1,10 +1,9 @@
-name: Build and Release
+name: Build and Release Speaky
 
 on:
   push:
     tags:
-      - 'v*'
-
+      - "v*"
   workflow_dispatch:
 
 permissions:
@@ -12,126 +11,124 @@ permissions:
 
 jobs:
   build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
-            platform: linux
-            artifact: speaky_*_amd64.deb
-          - os: macos-14
-            platform: macos
-            arch: arm64
-            artifact: speaky_*_macos_arm64.dmg
-          - os: windows-latest
-            platform: windows
-            artifact: speaky_*_windows.exe
-
-    runs-on: ${{ matrix.os }}
+          - name: Linux x64
+            os: ubuntu-22.04
+            rust_target: x86_64-unknown-linux-gnu
+          - name: macOS Apple Silicon
+            os: macos-15
+            rust_target: aarch64-apple-darwin
+          - name: macOS Intel
+            os: macos-15-intel
+            rust_target: x86_64-apple-darwin
+          - name: Windows x64
+            os: windows-latest
+            rust_target: x86_64-pc-windows-msvc
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      # Linux 系统依赖
       - name: Install Linux dependencies
-        if: matrix.platform == 'linux'
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libportaudio2 \
-            portaudio19-dev \
-            libxcb-cursor0 \
-            libxcb-keysyms1 \
-            libxcb-icccm4 \
-            xdotool \
-            xclip \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
             libasound2-dev \
-            python3-dev
+            libevdev-dev \
+            libssl-dev
 
-      # macOS 系统依赖
-      - name: Install macOS dependencies
-        if: matrix.platform == 'macos'
-        run: |
-          brew install portaudio
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
 
-      # Windows: 安装编译工具
-      - name: Install Windows build tools
-        if: matrix.platform == 'windows'
-        run: |
-          choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended" -y
-        shell: cmd
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: speaky-tauri/package-lock.json
 
-      # 安装 Python 基础依赖
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip wheel setuptools
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: speaky-tauri
 
-      # Linux/macOS: 正常安装
-      - name: Install project dependencies (Linux/macOS)
-        if: matrix.platform != 'windows'
-        run: |
-          pip install pyinstaller
-          pip install pyaudio
-          pip install -e ".[dev]"
+      - name: Build Tauri bundles
+        if: runner.os != 'Linux'
+        run: npm run tauri build -- --target ${{ matrix.rust_target }}
+        working-directory: speaky-tauri
 
-      # Windows: 使用预编译 wheel 安装 PyAudio
-      - name: Install project dependencies (Windows)
-        if: matrix.platform == 'windows'
-        run: |
-          pip install pyinstaller
-          pip install pipwin
-          pipwin install pyaudio
-          pip install -e ".[dev]"
-        shell: cmd
+      - name: Build Linux deb
+        if: runner.os == 'Linux'
+        run: npm run tauri build -- --target ${{ matrix.rust_target }} --bundles deb
+        working-directory: speaky-tauri
 
-      # 构建
-      - name: Build for Linux
-        if: matrix.platform == 'linux'
-        run: python build.py
-
-      - name: Build for macOS
-        if: matrix.platform == 'macos'
-        run: python build.py --arch ${{ matrix.arch }}
-
-      - name: Build for Windows
-        if: matrix.platform == 'windows'
-        run: python build.py
-
-      # 上传构建产物
-      - name: Upload artifacts
+      - name: Upload bundles
         uses: actions/upload-artifact@v4
         with:
-          name: speaky-${{ matrix.platform }}-${{ matrix.arch || 'x64' }}
-          path: dist/speaky_*
+          name: speaky-${{ matrix.rust_target }}
+          path: speaky-tauri/src-tauri/target/${{ matrix.rust_target }}/release/bundle/
           if-no-files-found: error
 
   release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/')
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
-      - name: Download all artifacts
+      - name: Remove stale release and assets
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              const release = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: context.ref.replace('refs/tags/', ''),
+              });
+              await github.rest.repos.deleteRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.data.id,
+              });
+              core.info(`Removed stale release ${release.data.id}`);
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              core.info('No existing release to remove');
+            }
+
+      - name: Download bundles
         uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
 
-      - name: List artifacts
-        run: ls -la artifacts/
+      - name: List release files
+        run: find artifacts -type f -maxdepth 4 -print
+        working-directory: .
 
-      - name: Create Release
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*
+          files: |
+            artifacts/**/*.deb
+            artifacts/**/*.dmg
+            artifacts/**/*.exe
+            artifacts/**/*.msi
+          preserve_order: true
           generate_release_notes: true
           draft: false
-          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+          prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

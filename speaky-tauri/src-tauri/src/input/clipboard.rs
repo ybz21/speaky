@@ -1,4 +1,8 @@
 use log::{debug, error, info};
+#[cfg(target_os = "linux")]
+use once_cell::sync::OnceCell;
+#[cfg(target_os = "linux")]
+use std::io::Write;
 use tauri::AppHandle;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
@@ -44,6 +48,20 @@ impl std::error::Error for PasteError {}
 /// # Returns
 /// Result indicating success or error
 pub fn paste_text(app: &AppHandle, text: &str) -> Result<(), PasteError> {
+    paste_text_to_window(app, text, None)
+}
+
+/// Write text to the clipboard and paste it into a known target window.
+///
+/// On a Wayland desktop an application can still be an XWayland client.  In
+/// that case the desktop portal may accept the keyboard request without the
+/// XWayland client ever receiving it.  A captured X11 window id lets us send
+/// Ctrl+V directly to that client instead.
+pub fn paste_text_to_window(
+    app: &AppHandle,
+    text: &str,
+    target_window_id: Option<&str>,
+) -> Result<(), PasteError> {
     let preview = if text.len() > 30 {
         format!("{}...", &text.chars().take(30).collect::<String>())
     } else {
@@ -51,12 +69,82 @@ pub fn paste_text(app: &AppHandle, text: &str) -> Result<(), PasteError> {
     };
     info!("Pasting text: {}", preview);
 
-    // Write to clipboard using Tauri plugin
-    app.clipboard()
-        .write_text(text)
-        .map_err(|e| PasteError::ClipboardWriteFailed(e.to_string()))?;
+    // Native Wayland clients cannot reliably read the X11 selection.  The
+    // clipboard manager plugin uses X11 when GNOME's data-control protocol is
+    // unavailable, so prefer wl-copy on Wayland.  It creates a proper
+    // Wayland data offer and keeps serving the selection after this call.
+    #[cfg(target_os = "linux")]
+    let clipboard_written = if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        write_wayland_clipboard(text).unwrap_or(false)
+    } else {
+        false
+    };
+
+    #[cfg(not(target_os = "linux"))]
+    let clipboard_written = false;
+
+    if !clipboard_written {
+        // Write to clipboard using Tauri plugin (X11 and non-Linux fallback).
+        app.clipboard()
+            .write_text(text)
+            .map_err(|e| PasteError::ClipboardWriteFailed(e.to_string()))?;
+    }
 
     debug!("Text written to clipboard");
+
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        // uinput events enter the compositor through the same path as a real
+        // keyboard. This works for both native Wayland and XWayland clients
+        // and avoids false-success responses from desktop portal injection.
+        std::thread::sleep(std::time::Duration::from_millis(80));
+        match uinput_paste() {
+            Ok(()) => {
+                info!("Paste shortcut emitted through the virtual keyboard");
+                return Ok(());
+            }
+            Err(error) => {
+                error!("Virtual keyboard paste failed: {error}; falling back");
+            }
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    if let Some(window_id) = target_window_id.filter(|id| !id.is_empty() && *id != "0x0") {
+        // Give both the Wayland clipboard bridge and the restored target
+        // focus a moment to settle before delivering the shortcut.
+        std::thread::sleep(std::time::Duration::from_millis(80));
+        match simulate_x11_window_paste(window_id) {
+            Ok(()) => {
+                info!("Paste shortcut sent directly to XWayland window {window_id}");
+                return Ok(());
+            }
+            Err(error) => {
+                error!("Direct paste to XWayland window {window_id} failed: {error}; falling back");
+            }
+        }
+    }
+
+    // Native Wayland applications (including Ubuntu Chrome) do not accept
+    // XTest events. GNOME's RemoteDesktop portal is the supported way for a
+    // desktop app to inject Ctrl+V after the user grants access.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        match portal_paste() {
+            Ok(()) => return Ok(()),
+            Err(error) => {
+                error!("GNOME RemoteDesktop paste failed: {}", error);
+            }
+        }
+        // wtype is useful on compositors that expose virtual-keyboard; GNOME
+        // currently does not, so keep it as a best-effort fallback.
+        if let Ok(output) = std::process::Command::new("wtype").arg(text).output() {
+            if output.status.success() {
+                info!("Text typed successfully through Wayland");
+                return Ok(());
+            }
+        }
+    }
 
     // Small delay before paste to ensure clipboard is ready
     std::thread::sleep(std::time::Duration::from_millis(50));
@@ -65,6 +153,247 @@ pub fn paste_text(app: &AppHandle, text: &str) -> Result<(), PasteError> {
     simulate_paste()?;
 
     debug!("Paste simulation completed");
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn simulate_x11_window_paste(window_id: &str) -> Result<(), PasteError> {
+    use std::process::Command;
+
+    let output = Command::new("xdotool")
+        .args(["key", "--window", window_id, "--clearmodifiers", "ctrl+v"])
+        .output()
+        .map_err(|error| PasteError::ToolNotAvailable(error.to_string()))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(PasteError::SimulationFailed(if stderr.is_empty() {
+            format!("xdotool exited with {}", output.status)
+        } else {
+            stderr
+        }))
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn write_wayland_clipboard(text: &str) -> Result<bool, String> {
+    use std::process::{Command, Stdio};
+
+    let mut child = match Command::new("wl-copy")
+        .args(["--type", "text/plain;charset=utf-8"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(error) => {
+            debug!("wl-copy not available: {}", error);
+            return Ok(false);
+        }
+    };
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(text.as_bytes())
+            .map_err(|error| format!("failed to write wl-copy input: {}", error))?;
+    }
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("failed to wait for wl-copy: {}", error))?;
+    if output.status.success() {
+        info!("Text written through the native Wayland clipboard");
+        Ok(true)
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        debug!("wl-copy failed: {}", stderr.trim());
+        Ok(false)
+    }
+}
+
+#[cfg(target_os = "linux")]
+enum PortalCommand {
+    Paste(std::sync::mpsc::Sender<Result<(), String>>),
+}
+
+#[cfg(target_os = "linux")]
+struct PortalState {
+    proxy: ashpd::desktop::remote_desktop::RemoteDesktop,
+    session: ashpd::desktop::Session<ashpd::desktop::remote_desktop::RemoteDesktop>,
+}
+
+#[cfg(target_os = "linux")]
+static PORTAL_COMMANDS: OnceCell<std::sync::mpsc::Sender<PortalCommand>> = OnceCell::new();
+
+#[cfg(target_os = "linux")]
+static UINPUT_KEYBOARD: OnceCell<std::sync::Mutex<evdev::uinput::VirtualDevice>> = OnceCell::new();
+
+#[cfg(target_os = "linux")]
+fn uinput_paste() -> Result<(), PasteError> {
+    use evdev::{uinput::VirtualDevice, AttributeSet, EventType, InputEvent, KeyCode};
+
+    let mut created = false;
+    let keyboard = UINPUT_KEYBOARD.get_or_try_init(|| {
+        let mut keys = AttributeSet::<KeyCode>::new();
+        keys.insert(KeyCode::KEY_LEFTCTRL);
+        keys.insert(KeyCode::KEY_V);
+        let device = VirtualDevice::builder()
+            .and_then(|builder| builder.with_keys(&keys))
+            .and_then(|builder| builder.name("Speaky Virtual Keyboard").build())
+            .map_err(|error| PasteError::ToolNotAvailable(error.to_string()))?;
+        created = true;
+        Ok::<_, PasteError>(std::sync::Mutex::new(device))
+    })?;
+
+    // The compositor needs a short moment to discover a newly-created input
+    // device. Subsequent pastes reuse the same device for the process lifetime.
+    if created {
+        std::thread::sleep(std::time::Duration::from_millis(250));
+    }
+
+    let mut keyboard = keyboard
+        .lock()
+        .map_err(|_| PasteError::SimulationFailed("virtual keyboard lock poisoned".to_string()))?;
+    let key_event = |key: KeyCode, value| InputEvent::new(EventType::KEY.0, key.code(), value);
+
+    keyboard
+        .emit(&[key_event(KeyCode::KEY_LEFTCTRL, 1)])
+        .map_err(|error| PasteError::SimulationFailed(error.to_string()))?;
+    std::thread::sleep(std::time::Duration::from_millis(10));
+    let press_result = keyboard.emit(&[key_event(KeyCode::KEY_V, 1)]);
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    let release_v_result = keyboard.emit(&[key_event(KeyCode::KEY_V, 0)]);
+    let release_ctrl_result = keyboard.emit(&[key_event(KeyCode::KEY_LEFTCTRL, 0)]);
+
+    press_result
+        .and(release_v_result)
+        .and(release_ctrl_result)
+        .map_err(|error| PasteError::SimulationFailed(error.to_string()))?;
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn portal_paste() -> Result<(), PasteError> {
+    let sender = PORTAL_COMMANDS.get_or_init(|| {
+        let (sender, receiver) = std::sync::mpsc::channel::<PortalCommand>();
+        std::thread::Builder::new()
+            .name("speaky-wayland-portal".to_string())
+            .spawn(move || {
+                let runtime = match tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                {
+                    Ok(runtime) => runtime,
+                    Err(error) => {
+                        error!("Failed to create Wayland portal runtime: {}", error);
+                        return;
+                    }
+                };
+                let mut state: Option<PortalState> = None;
+                while let Ok(command) = receiver.recv() {
+                    let PortalCommand::Paste(result_sender) = command;
+                    let result = runtime.block_on(portal_send_paste(&mut state));
+                    let _ = result_sender.send(result);
+                }
+            })
+            .expect("failed to start Wayland portal thread");
+        sender
+    });
+
+    let (result_sender, result_receiver) = std::sync::mpsc::channel();
+    sender
+        .send(PortalCommand::Paste(result_sender))
+        .map_err(|error| PasteError::SimulationFailed(error.to_string()))?;
+    match result_receiver.recv() {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(error)) => Err(PasteError::SimulationFailed(error)),
+        Err(error) => Err(PasteError::SimulationFailed(error.to_string())),
+    }
+}
+
+#[cfg(target_os = "linux")]
+async fn portal_send_paste(state: &mut Option<PortalState>) -> Result<(), String> {
+    use ashpd::desktop::remote_desktop::{
+        DeviceType, KeyState, NotifyKeyboardKeysymOptions, RemoteDesktop, SelectDevicesOptions,
+    };
+    use ashpd::desktop::PersistMode;
+    use enumflags2::BitFlags;
+
+    if state.is_none() {
+        let proxy = RemoteDesktop::new()
+            .await
+            .map_err(|error| error.to_string())?;
+        let session = proxy
+            .create_session(Default::default())
+            .await
+            .map_err(|error| error.to_string())?;
+        proxy
+            .select_devices(
+                &session,
+                SelectDevicesOptions::default()
+                    .set_devices(BitFlags::from_flag(DeviceType::Keyboard))
+                    .set_persist_mode(PersistMode::Application),
+            )
+            .await
+            .map_err(|error| error.to_string())?
+            .response()
+            .map_err(|error| error.to_string())?;
+        proxy
+            .start(&session, None, Default::default())
+            .await
+            .map_err(|error| error.to_string())?
+            .response()
+            .map_err(|error| error.to_string())?;
+        *state = Some(PortalState { proxy, session });
+    }
+
+    let portal = state.as_ref().expect("portal state initialized");
+    // NotifyKeyboardKeysym takes X11 keysym values, not Linux evdev
+    // keycodes.  Using evdev values (29/47) appears to succeed on D-Bus but
+    // produces unrelated keys in GNOME/Chrome.  Ctrl_L and lowercase `v`
+    // are stable across keyboard layouts and Wayland clients.
+    portal
+        .proxy
+        .notify_keyboard_keysym(
+            &portal.session,
+            0xffe3,
+            KeyState::Pressed,
+            NotifyKeyboardKeysymOptions::default(),
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+    portal
+        .proxy
+        .notify_keyboard_keysym(
+            &portal.session,
+            0x76,
+            KeyState::Pressed,
+            NotifyKeyboardKeysymOptions::default(),
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+    portal
+        .proxy
+        .notify_keyboard_keysym(
+            &portal.session,
+            0x76,
+            KeyState::Released,
+            NotifyKeyboardKeysymOptions::default(),
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+    portal
+        .proxy
+        .notify_keyboard_keysym(
+            &portal.session,
+            0xffe3,
+            KeyState::Released,
+            NotifyKeyboardKeysymOptions::default(),
+        )
+        .await
+        .map_err(|error| error.to_string())?;
     Ok(())
 }
 
@@ -175,19 +504,25 @@ fn simulate_paste() -> Result<(), PasteError> {
 fn simulate_paste() -> Result<(), PasteError> {
     use std::process::Command;
 
-    // Try xdotool first (works on X11)
-    let result = Command::new("xdotool").arg("key").arg("ctrl+v").output();
+    // Try xdotool on X11. On a native Wayland session xdotool can report
+    // success while sending the event only to an unrelated Xwayland window,
+    // which makes paste appear successful in logs but not in the browser.
+    if std::env::var_os("WAYLAND_DISPLAY").is_none() {
+        let result = Command::new("xdotool")
+            .args(["key", "--clearmodifiers", "ctrl+v"])
+            .output();
 
-    match result {
-        Ok(output) if output.status.success() => {
-            debug!("Linux paste simulated with xdotool");
-            return Ok(());
-        }
-        Ok(output) => {
-            error!("xdotool failed with exit code: {:?}", output.status);
-        }
-        Err(e) => {
-            debug!("xdotool not available: {}", e);
+        match result {
+            Ok(output) if output.status.success() => {
+                debug!("Linux paste simulated with xdotool");
+                return Ok(());
+            }
+            Ok(output) => {
+                error!("xdotool failed with exit code: {:?}", output.status);
+            }
+            Err(e) => {
+                debug!("xdotool not available: {}", e);
+            }
         }
     }
 
@@ -208,13 +543,13 @@ fn simulate_paste() -> Result<(), PasteError> {
         Ok(output) => {
             error!("ydotool failed with exit code: {:?}", output.status);
             Err(PasteError::ToolNotAvailable(
-                "Neither xdotool nor ydotool is available".to_string(),
+                "Wayland paste requires wtype or ydotool".to_string(),
             ))
         }
         Err(e) => {
             debug!("ydotool not available: {}", e);
             Err(PasteError::ToolNotAvailable(
-                "Neither xdotool nor ydotool is installed".to_string(),
+                "Wayland paste requires wtype or ydotool".to_string(),
             ))
         }
     }
