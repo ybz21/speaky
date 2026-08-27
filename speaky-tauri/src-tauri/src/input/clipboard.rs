@@ -1,4 +1,6 @@
 use log::{debug, error, info};
+#[cfg(target_os = "linux")]
+use once_cell::sync::OnceCell;
 use tauri::AppHandle;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
@@ -51,29 +53,30 @@ pub fn paste_text(app: &AppHandle, text: &str) -> Result<(), PasteError> {
     };
     info!("Pasting text: {}", preview);
 
-    // Native Wayland applications (including Chrome launched with
-    // --ozone-platform=wayland) are not reachable through XTest/xdotool.
-    // wtype injects the UTF-8 text through the compositor's virtual-keyboard
-    // protocol and avoids stealing focus or relying on X11 clipboard bridges.
-    #[cfg(target_os = "linux")]
-    if std::env::var_os("WAYLAND_DISPLAY").is_some() {
-        if let Ok(output) = std::process::Command::new("wtype").arg(text).output() {
-            if output.status.success() {
-                info!("Text typed successfully through Wayland");
-                return Ok(());
-            }
-            debug!("wtype failed with exit code: {:?}", output.status.code());
-        } else {
-            debug!("wtype not available; falling back to clipboard paste");
-        }
-    }
-
     // Write to clipboard using Tauri plugin
     app.clipboard()
         .write_text(text)
         .map_err(|e| PasteError::ClipboardWriteFailed(e.to_string()))?;
 
     debug!("Text written to clipboard");
+
+    // Native Wayland applications (including Ubuntu Chrome) do not accept
+    // XTest events. GNOME's RemoteDesktop portal is the supported way for a
+    // desktop app to inject Ctrl+V after the user grants access.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        if portal_paste().is_ok() {
+            return Ok(());
+        }
+        // wtype is useful on compositors that expose virtual-keyboard; GNOME
+        // currently does not, so keep it as a best-effort fallback.
+        if let Ok(output) = std::process::Command::new("wtype").arg(text).output() {
+            if output.status.success() {
+                info!("Text typed successfully through Wayland");
+                return Ok(());
+            }
+        }
+    }
 
     // Small delay before paste to ensure clipboard is ready
     std::thread::sleep(std::time::Duration::from_millis(50));
@@ -82,6 +85,139 @@ pub fn paste_text(app: &AppHandle, text: &str) -> Result<(), PasteError> {
     simulate_paste()?;
 
     debug!("Paste simulation completed");
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+enum PortalCommand {
+    Paste(std::sync::mpsc::Sender<Result<(), String>>),
+}
+
+#[cfg(target_os = "linux")]
+struct PortalState {
+    proxy: ashpd::desktop::remote_desktop::RemoteDesktop,
+    session: ashpd::desktop::Session<ashpd::desktop::remote_desktop::RemoteDesktop>,
+}
+
+#[cfg(target_os = "linux")]
+static PORTAL_COMMANDS: OnceCell<std::sync::mpsc::Sender<PortalCommand>> = OnceCell::new();
+
+#[cfg(target_os = "linux")]
+fn portal_paste() -> Result<(), PasteError> {
+    let sender = PORTAL_COMMANDS.get_or_init(|| {
+        let (sender, receiver) = std::sync::mpsc::channel::<PortalCommand>();
+        std::thread::Builder::new()
+            .name("speaky-wayland-portal".to_string())
+            .spawn(move || {
+                let runtime = match tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                {
+                    Ok(runtime) => runtime,
+                    Err(error) => {
+                        error!("Failed to create Wayland portal runtime: {}", error);
+                        return;
+                    }
+                };
+                let mut state: Option<PortalState> = None;
+                while let Ok(command) = receiver.recv() {
+                    let PortalCommand::Paste(result_sender) = command;
+                    let result = runtime.block_on(portal_send_paste(&mut state));
+                    let _ = result_sender.send(result);
+                }
+            })
+            .expect("failed to start Wayland portal thread");
+        sender
+    });
+
+    let (result_sender, result_receiver) = std::sync::mpsc::channel();
+    sender
+        .send(PortalCommand::Paste(result_sender))
+        .map_err(|error| PasteError::SimulationFailed(error.to_string()))?;
+    match result_receiver.recv() {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(error)) => Err(PasteError::SimulationFailed(error)),
+        Err(error) => Err(PasteError::SimulationFailed(error.to_string())),
+    }
+}
+
+#[cfg(target_os = "linux")]
+async fn portal_send_paste(state: &mut Option<PortalState>) -> Result<(), String> {
+    use ashpd::desktop::remote_desktop::{
+        DeviceType, KeyState, NotifyKeyboardKeycodeOptions, RemoteDesktop, SelectDevicesOptions,
+    };
+    use ashpd::desktop::PersistMode;
+    use enumflags2::BitFlags;
+
+    if state.is_none() {
+        let proxy = RemoteDesktop::new()
+            .await
+            .map_err(|error| error.to_string())?;
+        let session = proxy
+            .create_session(Default::default())
+            .await
+            .map_err(|error| error.to_string())?;
+        proxy
+            .select_devices(
+                &session,
+                SelectDevicesOptions::default()
+                    .set_devices(BitFlags::from_flag(DeviceType::Keyboard))
+                    .set_persist_mode(PersistMode::Application),
+            )
+            .await
+            .map_err(|error| error.to_string())?
+            .response()
+            .map_err(|error| error.to_string())?;
+        proxy
+            .start(&session, None, Default::default())
+            .await
+            .map_err(|error| error.to_string())?
+            .response()
+            .map_err(|error| error.to_string())?;
+        *state = Some(PortalState { proxy, session });
+    }
+
+    let portal = state.as_ref().expect("portal state initialized");
+    portal
+        .proxy
+        .notify_keyboard_keycode(
+            &portal.session,
+            29,
+            KeyState::Pressed,
+            NotifyKeyboardKeycodeOptions::default(),
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+    portal
+        .proxy
+        .notify_keyboard_keycode(
+            &portal.session,
+            47,
+            KeyState::Pressed,
+            NotifyKeyboardKeycodeOptions::default(),
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+    portal
+        .proxy
+        .notify_keyboard_keycode(
+            &portal.session,
+            47,
+            KeyState::Released,
+            NotifyKeyboardKeycodeOptions::default(),
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+    portal
+        .proxy
+        .notify_keyboard_keycode(
+            &portal.session,
+            29,
+            KeyState::Released,
+            NotifyKeyboardKeycodeOptions::default(),
+        )
+        .await
+        .map_err(|error| error.to_string())?;
     Ok(())
 }
 
