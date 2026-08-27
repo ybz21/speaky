@@ -48,6 +48,20 @@ impl std::error::Error for PasteError {}
 /// # Returns
 /// Result indicating success or error
 pub fn paste_text(app: &AppHandle, text: &str) -> Result<(), PasteError> {
+    paste_text_to_window(app, text, None)
+}
+
+/// Write text to the clipboard and paste it into a known target window.
+///
+/// On a Wayland desktop an application can still be an XWayland client.  In
+/// that case the desktop portal may accept the keyboard request without the
+/// XWayland client ever receiving it.  A captured X11 window id lets us send
+/// Ctrl+V directly to that client instead.
+pub fn paste_text_to_window(
+    app: &AppHandle,
+    text: &str,
+    target_window_id: Option<&str>,
+) -> Result<(), PasteError> {
     let preview = if text.len() > 30 {
         format!("{}...", &text.chars().take(30).collect::<String>())
     } else {
@@ -78,6 +92,39 @@ pub fn paste_text(app: &AppHandle, text: &str) -> Result<(), PasteError> {
 
     debug!("Text written to clipboard");
 
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        // uinput events enter the compositor through the same path as a real
+        // keyboard. This works for both native Wayland and XWayland clients
+        // and avoids false-success responses from desktop portal injection.
+        std::thread::sleep(std::time::Duration::from_millis(80));
+        match uinput_paste() {
+            Ok(()) => {
+                info!("Paste shortcut emitted through the virtual keyboard");
+                return Ok(());
+            }
+            Err(error) => {
+                error!("Virtual keyboard paste failed: {error}; falling back");
+            }
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    if let Some(window_id) = target_window_id.filter(|id| !id.is_empty() && *id != "0x0") {
+        // Give both the Wayland clipboard bridge and the restored target
+        // focus a moment to settle before delivering the shortcut.
+        std::thread::sleep(std::time::Duration::from_millis(80));
+        match simulate_x11_window_paste(window_id) {
+            Ok(()) => {
+                info!("Paste shortcut sent directly to XWayland window {window_id}");
+                return Ok(());
+            }
+            Err(error) => {
+                error!("Direct paste to XWayland window {window_id} failed: {error}; falling back");
+            }
+        }
+    }
+
     // Native Wayland applications (including Ubuntu Chrome) do not accept
     // XTest events. GNOME's RemoteDesktop portal is the supported way for a
     // desktop app to inject Ctrl+V after the user grants access.
@@ -107,6 +154,27 @@ pub fn paste_text(app: &AppHandle, text: &str) -> Result<(), PasteError> {
 
     debug!("Paste simulation completed");
     Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn simulate_x11_window_paste(window_id: &str) -> Result<(), PasteError> {
+    use std::process::Command;
+
+    let output = Command::new("xdotool")
+        .args(["key", "--window", window_id, "--clearmodifiers", "ctrl+v"])
+        .output()
+        .map_err(|error| PasteError::ToolNotAvailable(error.to_string()))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(PasteError::SimulationFailed(if stderr.is_empty() {
+            format!("xdotool exited with {}", output.status)
+        } else {
+            stderr
+        }))
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -158,6 +226,53 @@ struct PortalState {
 
 #[cfg(target_os = "linux")]
 static PORTAL_COMMANDS: OnceCell<std::sync::mpsc::Sender<PortalCommand>> = OnceCell::new();
+
+#[cfg(target_os = "linux")]
+static UINPUT_KEYBOARD: OnceCell<std::sync::Mutex<evdev::uinput::VirtualDevice>> = OnceCell::new();
+
+#[cfg(target_os = "linux")]
+fn uinput_paste() -> Result<(), PasteError> {
+    use evdev::{uinput::VirtualDevice, AttributeSet, EventType, InputEvent, KeyCode};
+
+    let mut created = false;
+    let keyboard = UINPUT_KEYBOARD.get_or_try_init(|| {
+        let mut keys = AttributeSet::<KeyCode>::new();
+        keys.insert(KeyCode::KEY_LEFTCTRL);
+        keys.insert(KeyCode::KEY_V);
+        let device = VirtualDevice::builder()
+            .and_then(|builder| builder.with_keys(&keys))
+            .and_then(|builder| builder.name("Speaky Virtual Keyboard").build())
+            .map_err(|error| PasteError::ToolNotAvailable(error.to_string()))?;
+        created = true;
+        Ok::<_, PasteError>(std::sync::Mutex::new(device))
+    })?;
+
+    // The compositor needs a short moment to discover a newly-created input
+    // device. Subsequent pastes reuse the same device for the process lifetime.
+    if created {
+        std::thread::sleep(std::time::Duration::from_millis(250));
+    }
+
+    let mut keyboard = keyboard
+        .lock()
+        .map_err(|_| PasteError::SimulationFailed("virtual keyboard lock poisoned".to_string()))?;
+    let key_event = |key: KeyCode, value| InputEvent::new(EventType::KEY.0, key.code(), value);
+
+    keyboard
+        .emit(&[key_event(KeyCode::KEY_LEFTCTRL, 1)])
+        .map_err(|error| PasteError::SimulationFailed(error.to_string()))?;
+    std::thread::sleep(std::time::Duration::from_millis(10));
+    let press_result = keyboard.emit(&[key_event(KeyCode::KEY_V, 1)]);
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    let release_v_result = keyboard.emit(&[key_event(KeyCode::KEY_V, 0)]);
+    let release_ctrl_result = keyboard.emit(&[key_event(KeyCode::KEY_LEFTCTRL, 0)]);
+
+    press_result
+        .and(release_v_result)
+        .and(release_ctrl_result)
+        .map_err(|error| PasteError::SimulationFailed(error.to_string()))?;
+    Ok(())
+}
 
 #[cfg(target_os = "linux")]
 fn portal_paste() -> Result<(), PasteError> {

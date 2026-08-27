@@ -611,8 +611,9 @@ fn deliver_recognition_result(
             // Mapping the floating window can change focus on some Linux
             // window managers even when it is marked non-focusable.
             // Restore the exact window that was active at key-down.
-            if let Some(window_id) = APP_STATE.last_focused_app.read().window_id.clone() {
-                match crate::window_info::focus_window(&window_id) {
+            let target_window_id = APP_STATE.last_focused_app.read().window_id.clone();
+            if let Some(window_id) = target_window_id.as_deref() {
+                match crate::window_info::focus_window(window_id) {
                     Ok(()) => {
                         info!("Restored target window focus before paste");
                         std::thread::sleep(Duration::from_millis(100));
@@ -623,7 +624,9 @@ fn deliver_recognition_result(
                 }
             }
 
-            if let Err(e) = crate::input::paste_text(&app_handle, &text) {
+            if let Err(e) =
+                crate::input::paste_text_to_window(&app_handle, &text, target_window_id.as_deref())
+            {
                 error!("Failed to paste text: {}", e);
                 let mut ui = APP_STATE.ui.write();
                 ui.phase = "error".to_string();
