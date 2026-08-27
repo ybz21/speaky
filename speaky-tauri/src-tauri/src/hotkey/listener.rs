@@ -1113,8 +1113,9 @@ async fn portal_keyboard_loop(hotkey: String) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     let shortcut = NewShortcut::new("speaky-trigger", "Hold to dictate")
         .preferred_trigger(Some(trigger.as_str()));
+    let parent = x11_parent_window_identifier();
     portal
-        .bind_shortcuts(&session, &[shortcut], None, Default::default())
+        .bind_shortcuts(&session, &[shortcut], parent.as_ref(), Default::default())
         .await
         .map_err(|e| e.to_string())?
         .response()
@@ -1154,14 +1155,33 @@ async fn portal_keyboard_loop(hotkey: String) -> Result<(), String> {
 }
 
 #[cfg(target_os = "linux")]
+fn x11_parent_window_identifier() -> Option<ashpd::WindowIdentifier> {
+    let output = std::process::Command::new("xdotool")
+        .args(["search", "--name", "^speaky$"])
+        .output()
+        .ok()?;
+    let xid = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .next()?
+        .trim()
+        .parse::<u64>()
+        .ok()?;
+    Some(ashpd::WindowIdentifier::from(
+        ashpd::WindowIdentifierType::X11(xid as _),
+    ))
+}
+
+#[cfg(target_os = "linux")]
 fn portal_trigger(hotkey: &str) -> Option<String> {
     let normalized = hotkey.trim().to_lowercase();
     let value = match normalized.as_str() {
-        "shift" | "shift_l" | "shift_r" => "SHIFT".to_string(),
-        "ctrl" | "control" | "ctrl_l" | "control_l" => "CTRL".to_string(),
-        "ctrl_r" | "control_r" => "CTRL".to_string(),
-        "alt" | "alt_l" | "alt_r" => "ALT".to_string(),
-        "cmd" | "super" | "meta" | "cmd_l" | "cmd_r" | "super_l" | "super_r" => "SUPER".to_string(),
+        "shift" | "shift_l" | "shift_r" => "<shift>".to_string(),
+        "ctrl" | "control" | "ctrl_l" | "control_l" => "<ctrl>".to_string(),
+        "ctrl_r" | "control_r" => "<ctrl>".to_string(),
+        "alt" | "alt_l" | "alt_r" => "<alt>".to_string(),
+        "cmd" | "super" | "meta" | "cmd_l" | "cmd_r" | "super_l" | "super_r" => {
+            "<super>".to_string()
+        }
         "fn" | "function" => return None,
         key if key.starts_with('f')
             && key[1..]
@@ -1169,7 +1189,7 @@ fn portal_trigger(hotkey: &str) -> Option<String> {
                 .map(|n| (1..=24).contains(&n))
                 .unwrap_or(false) =>
         {
-            key.to_uppercase()
+            format!("<{}>", key.to_lowercase())
         }
         key if key.len() == 1
             && key
@@ -1177,7 +1197,7 @@ fn portal_trigger(hotkey: &str) -> Option<String> {
                 .next()
                 .is_some_and(|c| c.is_ascii_alphanumeric()) =>
         {
-            key.to_uppercase()
+            format!("<{}>", key)
         }
         _ => return None,
     };
