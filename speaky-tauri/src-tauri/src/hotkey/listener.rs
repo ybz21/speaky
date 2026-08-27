@@ -1,7 +1,11 @@
 use base64::Engine;
 use log::{debug, error, info};
 use parking_lot::Mutex;
-use rdev::{listen, Event, EventType, Key};
+#[cfg(target_os = "linux")]
+use rdev::grab;
+#[cfg(not(target_os = "linux"))]
+use rdev::listen;
+use rdev::{Event, EventType, Key};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -1003,35 +1007,63 @@ pub fn start_keyboard_listener(app: AppHandle) {
 
     // Start listener in a separate thread
     std::thread::spawn(move || {
-        let callback = move |event: Event| match event.event_type {
-            EventType::KeyPress(key) => {
-                if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
-                    if manager.try_capture(key) {
-                        return;
-                    }
-                    if manager.matches(key) {
-                        manager.on_press();
-                    } else {
-                        manager.cancel_for_combination();
-                    }
+        #[cfg(target_os = "linux")]
+        {
+            // rdev::grab uses the evdev backend on Linux. Unlike the normal
+            // XRecord listener, it receives keys from native Wayland clients
+            // (including the Ubuntu Chrome package) while returning every
+            // event unchanged so the focused app still receives it.
+            let callback = move |event: Event| {
+                process_key_event(&event);
+                Some(event)
+            };
+            if let Err(error) = grab(callback) {
+                error!(
+                    "Keyboard evdev listener error: {:?}; trying X11 fallback",
+                    error
+                );
+                let fallback = move |event: Event| process_key_event(&event);
+                if let Err(fallback_error) = listen(fallback) {
+                    error!("Keyboard X11 fallback listener error: {:?}", fallback_error);
                 }
             }
-            EventType::KeyRelease(key) => {
-                if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
-                    if manager.matches(key) {
-                        manager.on_release();
-                    }
-                }
-            }
-            _ => {}
-        };
+        }
 
-        if let Err(error) = listen(callback) {
-            error!("Keyboard listener error: {:?}", error);
+        #[cfg(not(target_os = "linux"))]
+        {
+            let callback = move |event: Event| process_key_event(&event);
+            if let Err(error) = listen(callback) {
+                error!("Keyboard listener error: {:?}", error);
+            }
         }
     });
 
     info!("Keyboard listener started successfully");
+}
+
+fn process_key_event(event: &Event) {
+    match &event.event_type {
+        EventType::KeyPress(key) => {
+            if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+                if manager.try_capture(*key) {
+                    return;
+                }
+                if manager.matches(*key) {
+                    manager.on_press();
+                } else {
+                    manager.cancel_for_combination();
+                }
+            }
+        }
+        EventType::KeyRelease(key) => {
+            if let Some(ref manager) = *APP_STATE.hotkey_manager.read() {
+                if manager.matches(*key) {
+                    manager.on_release();
+                }
+            }
+        }
+        _ => {}
+    }
 }
 
 /// Register global hotkeys (now using rdev for modifier key support)

@@ -63,7 +63,9 @@ base64 = "0.22"
 rodio = { version = "0.20", default-features = false }
 
 # Keyboard listener (for modifier key detection)
-rdev = "0.5"
+# On Linux, the unstable grab backend reads evdev directly, which works for
+# native Wayland applications such as Ubuntu Chrome (XRecord/listen does not).
+rdev = { version = "0.5", features = ["unstable_grab"] }
 tauri-plugin-single-instance = "2"
 
 # Platform-specific
