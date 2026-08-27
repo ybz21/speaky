@@ -1,6 +1,8 @@
 use log::{debug, error, info};
 #[cfg(target_os = "linux")]
 use once_cell::sync::OnceCell;
+#[cfg(target_os = "linux")]
+use std::io::Write;
 use tauri::AppHandle;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
@@ -53,10 +55,26 @@ pub fn paste_text(app: &AppHandle, text: &str) -> Result<(), PasteError> {
     };
     info!("Pasting text: {}", preview);
 
-    // Write to clipboard using Tauri plugin
-    app.clipboard()
-        .write_text(text)
-        .map_err(|e| PasteError::ClipboardWriteFailed(e.to_string()))?;
+    // Native Wayland clients cannot reliably read the X11 selection.  The
+    // clipboard manager plugin uses X11 when GNOME's data-control protocol is
+    // unavailable, so prefer wl-copy on Wayland.  It creates a proper
+    // Wayland data offer and keeps serving the selection after this call.
+    #[cfg(target_os = "linux")]
+    let clipboard_written = if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        write_wayland_clipboard(text).unwrap_or(false)
+    } else {
+        false
+    };
+
+    #[cfg(not(target_os = "linux"))]
+    let clipboard_written = false;
+
+    if !clipboard_written {
+        // Write to clipboard using Tauri plugin (X11 and non-Linux fallback).
+        app.clipboard()
+            .write_text(text)
+            .map_err(|e| PasteError::ClipboardWriteFailed(e.to_string()))?;
+    }
 
     debug!("Text written to clipboard");
 
@@ -65,8 +83,11 @@ pub fn paste_text(app: &AppHandle, text: &str) -> Result<(), PasteError> {
     // desktop app to inject Ctrl+V after the user grants access.
     #[cfg(target_os = "linux")]
     if std::env::var_os("WAYLAND_DISPLAY").is_some() {
-        if portal_paste().is_ok() {
-            return Ok(());
+        match portal_paste() {
+            Ok(()) => return Ok(()),
+            Err(error) => {
+                error!("GNOME RemoteDesktop paste failed: {}", error);
+            }
         }
         // wtype is useful on compositors that expose virtual-keyboard; GNOME
         // currently does not, so keep it as a best-effort fallback.
@@ -86,6 +107,42 @@ pub fn paste_text(app: &AppHandle, text: &str) -> Result<(), PasteError> {
 
     debug!("Paste simulation completed");
     Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn write_wayland_clipboard(text: &str) -> Result<bool, String> {
+    use std::process::{Command, Stdio};
+
+    let mut child = match Command::new("wl-copy")
+        .args(["--type", "text/plain;charset=utf-8"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(error) => {
+            debug!("wl-copy not available: {}", error);
+            return Ok(false);
+        }
+    };
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(text.as_bytes())
+            .map_err(|error| format!("failed to write wl-copy input: {}", error))?;
+    }
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("failed to wait for wl-copy: {}", error))?;
+    if output.status.success() {
+        info!("Text written through the native Wayland clipboard");
+        Ok(true)
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        debug!("wl-copy failed: {}", stderr.trim());
+        Ok(false)
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -144,7 +201,7 @@ fn portal_paste() -> Result<(), PasteError> {
 #[cfg(target_os = "linux")]
 async fn portal_send_paste(state: &mut Option<PortalState>) -> Result<(), String> {
     use ashpd::desktop::remote_desktop::{
-        DeviceType, KeyState, NotifyKeyboardKeycodeOptions, RemoteDesktop, SelectDevicesOptions,
+        DeviceType, KeyState, NotifyKeyboardKeysymOptions, RemoteDesktop, SelectDevicesOptions,
     };
     use ashpd::desktop::PersistMode;
     use enumflags2::BitFlags;
@@ -178,43 +235,47 @@ async fn portal_send_paste(state: &mut Option<PortalState>) -> Result<(), String
     }
 
     let portal = state.as_ref().expect("portal state initialized");
+    // NotifyKeyboardKeysym takes X11 keysym values, not Linux evdev
+    // keycodes.  Using evdev values (29/47) appears to succeed on D-Bus but
+    // produces unrelated keys in GNOME/Chrome.  Ctrl_L and lowercase `v`
+    // are stable across keyboard layouts and Wayland clients.
     portal
         .proxy
-        .notify_keyboard_keycode(
+        .notify_keyboard_keysym(
             &portal.session,
-            29,
+            0xffe3,
             KeyState::Pressed,
-            NotifyKeyboardKeycodeOptions::default(),
+            NotifyKeyboardKeysymOptions::default(),
         )
         .await
         .map_err(|error| error.to_string())?;
     portal
         .proxy
-        .notify_keyboard_keycode(
+        .notify_keyboard_keysym(
             &portal.session,
-            47,
+            0x76,
             KeyState::Pressed,
-            NotifyKeyboardKeycodeOptions::default(),
+            NotifyKeyboardKeysymOptions::default(),
         )
         .await
         .map_err(|error| error.to_string())?;
     portal
         .proxy
-        .notify_keyboard_keycode(
+        .notify_keyboard_keysym(
             &portal.session,
-            47,
+            0x76,
             KeyState::Released,
-            NotifyKeyboardKeycodeOptions::default(),
+            NotifyKeyboardKeysymOptions::default(),
         )
         .await
         .map_err(|error| error.to_string())?;
     portal
         .proxy
-        .notify_keyboard_keycode(
+        .notify_keyboard_keysym(
             &portal.session,
-            29,
+            0xffe3,
             KeyState::Released,
-            NotifyKeyboardKeycodeOptions::default(),
+            NotifyKeyboardKeysymOptions::default(),
         )
         .await
         .map_err(|error| error.to_string())?;

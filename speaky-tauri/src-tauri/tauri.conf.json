@@ -58,7 +58,8 @@
         "bundleMediaFramework": true
       },
       "deb": {
-        "desktopTemplate": "../../resources/speaky.desktop.hbs"
+        "desktopTemplate": "../../resources/speaky.desktop.hbs",
+        "depends": ["wl-clipboard"]
       },
       "rpm": {
         "desktopTemplate": "../../resources/speaky.desktop.hbs"
