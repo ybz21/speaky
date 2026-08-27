@@ -193,6 +193,14 @@ pub fn run() {
                 error!("Failed to install desktop integration: {}", error);
             }
 
+            // Create the virtual paste keyboard before rdev begins watching
+            // for hot-plugged input devices. This prevents a udev ACL race
+            // from terminating the hotkey listener after the first paste.
+            #[cfg(target_os = "linux")]
+            if let Err(error) = input::prepare_paste_input() {
+                error!("Failed to prepare Wayland paste input: {}", error);
+            }
+
             // Register hotkeys
             let app_handle = app.handle().clone();
             hotkey::register_hotkeys(app_handle)?;
