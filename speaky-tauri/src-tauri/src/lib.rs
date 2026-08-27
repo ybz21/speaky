@@ -149,9 +149,11 @@ pub fn run() {
         ))
         // Prevent auto-start and a manual launch from creating duplicate
         // tray icons and competing settings windows.
-        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            if argv.iter().any(|arg| arg == "--show-settings") {
+                if let Err(error) = show_settings_window(app) {
+                    error!("Failed to show settings from desktop launcher: {}", error);
+                }
             }
         }))
         .setup(|app| {
@@ -207,7 +209,9 @@ pub fn run() {
 
             // Useful for desktop launchers and automated smoke checks without
             // changing the normal hidden-at-start behavior.
-            if std::env::var_os("SPEAKY_OPEN_SETTINGS").is_some() {
+            if std::env::var_os("SPEAKY_OPEN_SETTINGS").is_some()
+                || std::env::args().any(|arg| arg == "--show-settings")
+            {
                 show_settings_window(app.handle())?;
             }
             if std::env::var_os("SPEAKY_OPEN_DIAGNOSTICS").is_some() {

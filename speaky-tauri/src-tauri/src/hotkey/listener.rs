@@ -1,5 +1,5 @@
 use base64::Engine;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use parking_lot::Mutex;
 #[cfg(target_os = "linux")]
 use rdev::grab;
@@ -1015,22 +1015,40 @@ pub fn start_keyboard_listener(app: AppHandle) {
             // XRecord listener, it receives keys from native Wayland clients
             // (including the Ubuntu Chrome package) while returning every
             // event unchanged so the focused app still receives it.
-            let callback = move |event: Event| {
-                process_key_event(&event);
-                Some(event)
-            };
-            if let Err(error) = grab(callback) {
-                error!("Keyboard evdev listener error: {:?}", error);
-                if std::env::var_os("WAYLAND_DISPLAY").is_some() {
-                    // Reading /dev/input requires membership in the input
-                    // group.  A normal desktop launch may not have that
-                    // group yet; GNOME's portal provides the same press and
-                    // release events without elevated device permissions.
-                    start_portal_keyboard_listener(app.clone(), hotkey_str.clone());
-                } else {
-                    let fallback = move |event: Event| process_key_event(&event);
-                    if let Err(fallback_error) = listen(fallback) {
-                        error!("Keyboard X11 fallback listener error: {:?}", fallback_error);
+            let wayland = std::env::var_os("WAYLAND_DISPLAY").is_some();
+            let mut retry_count = 0_u32;
+            let mut portal_started = false;
+            loop {
+                let callback = |event: Event| {
+                    process_key_event(&event);
+                    Some(event)
+                };
+                match grab(callback) {
+                    Ok(()) => break,
+                    Err(error) if wayland => {
+                        retry_count = retry_count.saturating_add(1);
+                        warn!(
+                            "Keyboard evdev listener interrupted ({:?}); retrying after device permissions settle",
+                            error
+                        );
+                        // New /dev/input nodes are visible before udev/logind
+                        // applies the active-user ACL. rdev opens immediately
+                        // and exits on EACCES, so retry once the ACL has had a
+                        // chance to settle. This also recovers after keyboard,
+                        // headset and virtual-device hot-plug events.
+                        if retry_count >= 10 && !portal_started {
+                            portal_started = true;
+                            start_portal_keyboard_listener(app.clone(), hotkey_str.clone());
+                        }
+                        std::thread::sleep(Duration::from_millis(750));
+                    }
+                    Err(error) => {
+                        error!("Keyboard evdev listener error: {:?}", error);
+                        let fallback = move |event: Event| process_key_event(&event);
+                        if let Err(fallback_error) = listen(fallback) {
+                            error!("Keyboard X11 fallback listener error: {:?}", fallback_error);
+                        }
+                        break;
                     }
                 }
             }
