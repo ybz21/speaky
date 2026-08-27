@@ -3,7 +3,6 @@ use log::{debug, error, info};
 use parking_lot::Mutex;
 #[cfg(target_os = "linux")]
 use rdev::grab;
-#[cfg(not(target_os = "linux"))]
 use rdev::listen;
 use rdev::{Event, EventType, Key};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
