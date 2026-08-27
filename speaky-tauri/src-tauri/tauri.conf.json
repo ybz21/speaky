@@ -59,7 +59,9 @@
       },
       "deb": {
         "desktopTemplate": "../../resources/speaky.desktop.hbs",
-        "depends": ["wl-clipboard"]
+        "depends": ["wl-clipboard"],
+        "postInstallScript": "../../resources/speaky-postinst.sh",
+        "postRemoveScript": "../../resources/speaky-postrm.sh"
       },
       "rpm": {
         "desktopTemplate": "../../resources/speaky.desktop.hbs"

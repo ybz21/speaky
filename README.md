@@ -126,9 +126,11 @@ Ubuntu/Debian 用户建议安装 `.deb`：
 sudo apt install ./Speaky_1.0.5_amd64.deb
 ```
 
-安装器会自动处理 `wl-clipboard` 依赖。GNOME Wayland 下，Speaky 使用系统
-`GlobalShortcuts` Portal 监听全局按键，普通用户不需要执行 `usermod`、加入
-`input` 组，也不需要以 root 身份运行。首次启动后即可在设置里选择热键。
+安装器会自动处理 `wl-clipboard` 依赖，并安装一条仅授予当前桌面会话的 udev
+访问规则。这样 GNOME Wayland 下普通用户不需要执行 `usermod`、加入 `input`
+组，也不需要以 root 身份运行；安装完成后重新登录（或重启一次）即可让规则
+对所有输入设备生效。卸载 `.deb` 时规则会一并清理。首次启动后即可在设置里
+选择热键。
 
 AppImage 适合不希望安装系统包的用户，但它不会替用户安装发行版依赖；在
 Wayland 下请确认系统已安装 `xdg-desktop-portal` 及对应桌面后端。若当前
