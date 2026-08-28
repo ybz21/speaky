@@ -3,8 +3,14 @@ use cpal::{Device, SampleFormat, Stream, StreamConfig};
 use log::{debug, error, info, warn};
 use parking_lot::Mutex;
 use std::collections::HashSet;
+#[cfg(target_os = "linux")]
+use std::io::Read;
+#[cfg(target_os = "linux")]
+use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+#[cfg(target_os = "linux")]
+use std::thread::JoinHandle;
 use std::time::Duration;
 
 /// Audio format constants
@@ -12,10 +18,321 @@ const SAMPLE_RATE: u32 = 16000;
 const CHANNELS: u16 = 1;
 const SAMPLE_WIDTH: u16 = 2; // 16-bit
 
+/// Rank automatic input candidates. Physical USB microphones are generally
+/// more reliable than ALSA/PipeWire compatibility endpoints, while monitor
+/// and loopback sources should never win automatic microphone selection.
+fn automatic_device_priority(name: &str) -> (bool, bool, bool, String) {
+    let normalized = name.trim().to_lowercase();
+    let monitor = normalized.contains("monitor") || normalized.contains("loopback");
+    let generic = matches!(
+        normalized.as_str(),
+        "default" | "pipewire" | "pulse" | "sysdefault"
+    );
+    let usb = normalized.contains("usb");
+    (monitor, generic, !usb, normalized)
+}
+
+fn device_name_matches(candidate: &str, detected: &str) -> bool {
+    let candidate = candidate.trim().to_lowercase();
+    let detected = detected.trim().to_lowercase();
+    candidate == detected
+        || (candidate.len() >= 6 && detected.contains(&candidate))
+        || (detected.len() >= 6 && candidate.contains(&detected))
+}
+
+#[cfg(target_os = "linux")]
+#[derive(Clone, Debug)]
+struct PipeWireSource {
+    stable_name: String,
+    display_name: String,
+    target: String,
+    aliases: Vec<String>,
+}
+
+#[cfg(target_os = "linux")]
+fn pipewire_command(program: &str) -> Command {
+    let mut command = Command::new(program);
+    // Desktop launchers normally provide these. Keeping the conventional
+    // per-user paths as a fallback also makes diagnostics and packaged-app
+    // launches work when an intermediate launcher sanitizes the environment.
+    if std::env::var_os("XDG_RUNTIME_DIR").is_none() {
+        if let Ok(output) = Command::new("id").arg("-u").output() {
+            let uid = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !uid.is_empty() {
+                let runtime = format!("/run/user/{uid}");
+                command.env("XDG_RUNTIME_DIR", &runtime);
+                if std::env::var_os("DBUS_SESSION_BUS_ADDRESS").is_none() {
+                    command.env(
+                        "DBUS_SESSION_BUS_ADDRESS",
+                        format!("unix:path={runtime}/bus"),
+                    );
+                }
+            }
+        }
+    }
+    command
+}
+
+#[cfg(target_os = "linux")]
+fn pipewire_sources() -> Vec<PipeWireSource> {
+    let mut output = None;
+    for attempt in 0..3 {
+        match pipewire_command("pw-dump").output() {
+            Ok(candidate) if candidate.status.success() => {
+                output = Some(candidate.stdout);
+                break;
+            }
+            _ if attempt < 2 => std::thread::sleep(Duration::from_millis(75)),
+            _ => {}
+        }
+    }
+    let Some(output) = output else {
+        return Vec::new();
+    };
+    let Ok(objects) = serde_json::from_slice::<Vec<serde_json::Value>>(&output) else {
+        return Vec::new();
+    };
+
+    let mut sources = Vec::new();
+    let mut seen_targets = HashSet::new();
+    for object in objects {
+        let Some(properties) = object
+            .pointer("/info/props")
+            .and_then(|value| value.as_object())
+        else {
+            continue;
+        };
+        let property = |name: &str| {
+            properties
+                .get(name)
+                .and_then(|value| value.as_str())
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+        };
+        if property("media.class").as_deref() != Some("Audio/Source") {
+            continue;
+        }
+        let Some(target) = property("node.name") else {
+            continue;
+        };
+        let description = property("node.description");
+        let nick = property("node.nick");
+        let card_name = property("api.alsa.card.name").or_else(|| property("alsa.card_name"));
+        let mut aliases = [
+            card_name.clone(),
+            nick.clone(),
+            description.clone(),
+            Some(target.clone()),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+        aliases.dedup();
+        if aliases.iter().any(|name| {
+            let name = name.to_lowercase();
+            name.contains("monitor") || name.contains("loopback")
+        }) {
+            continue;
+        }
+        if !seen_targets.insert(target.clone()) {
+            continue;
+        }
+        let stable_name = card_name
+            .or_else(|| nick.clone())
+            .or_else(|| description.clone())
+            .unwrap_or_else(|| target.clone());
+        let display_name = description.or(nick).unwrap_or_else(|| stable_name.clone());
+        sources.push(PipeWireSource {
+            stable_name,
+            display_name,
+            target,
+            aliases,
+        });
+    }
+    sources
+}
+
+#[cfg(target_os = "linux")]
+fn pipewire_default_properties() -> Vec<String> {
+    for attempt in 0..3 {
+        match pipewire_command("wpctl")
+            .args(["inspect", "@DEFAULT_AUDIO_SOURCE@"])
+            .output()
+        {
+            Ok(output) if output.status.success() => {
+                let text = String::from_utf8_lossy(&output.stdout);
+                let mut values = Vec::new();
+                for property in [
+                    "api.alsa.card.name",
+                    "alsa.card_name",
+                    "node.nick",
+                    "node.description",
+                    "node.name",
+                ] {
+                    let prefix = format!("{} =", property);
+                    if let Some(value) = text.lines().find_map(|line| {
+                        let line = line.trim().trim_start_matches('*').trim();
+                        line.strip_prefix(&prefix)
+                            .map(|value| value.trim().trim_matches('"').to_string())
+                    }) {
+                        if !value.is_empty() {
+                            values.push(value);
+                        }
+                    }
+                }
+                if !values.is_empty() {
+                    return values;
+                }
+            }
+            _ => {}
+        }
+        if attempt < 2 {
+            std::thread::sleep(Duration::from_millis(75));
+        }
+    }
+    Vec::new()
+}
+
+/// Resolve the desktop's current default capture source. PipeWire exposes a
+/// friendly node description and the underlying ALSA card name; CPAL uses the
+/// latter, so prefer it when available and fall back to CPAL elsewhere.
+pub fn detected_system_default_input_name() -> Option<String> {
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(name) = pipewire_default_properties().into_iter().next() {
+            return Some(name);
+        }
+    }
+
+    cpal::default_host()
+        .default_input_device()
+        .and_then(|device| device.name().ok())
+}
+
 /// Thread-safe wrapper for cpal Stream
 /// cpal::Stream doesn't implement Send/Sync, so we need to protect it with a Mutex
 /// and only allow access through our controlled methods
-struct StreamHandle(Option<Stream>);
+#[cfg(target_os = "linux")]
+struct PipeWireCapture {
+    child: Child,
+    reader: Option<JoinHandle<()>>,
+}
+
+struct StreamHandle {
+    cpal: Option<Stream>,
+    #[cfg(target_os = "linux")]
+    pipewire: Option<PipeWireCapture>,
+}
+
+#[cfg(target_os = "linux")]
+fn start_pipewire_capture(
+    configured_name: Option<&str>,
+    gain: f64,
+    frames: Arc<Mutex<Vec<i16>>>,
+    is_recording: Arc<AtomicBool>,
+    audio_level_callback: Arc<Mutex<Option<Box<dyn Fn(f32) + Send + Sync>>>>,
+    audio_data_callback: Arc<Mutex<Option<Box<dyn Fn(&[u8]) + Send + Sync>>>>,
+) -> Result<(PipeWireCapture, String), String> {
+    let sources = pipewire_sources();
+    let default_properties = pipewire_default_properties();
+    let selected = if let Some(configured_name) = configured_name {
+        sources.iter().find(|source| {
+            source
+                .aliases
+                .iter()
+                .any(|alias| device_name_matches(alias, configured_name))
+        })
+    } else {
+        sources.iter().find(|source| {
+            source.aliases.iter().any(|alias| {
+                default_properties
+                    .iter()
+                    .any(|detected| device_name_matches(alias, detected))
+            })
+        })
+    };
+
+    if configured_name.is_some() && selected.is_none() {
+        return Err(format!(
+            "Configured PipeWire audio device '{}' is unavailable",
+            configured_name.unwrap_or_default()
+        ));
+    }
+
+    let target = selected
+        .map(|source| source.target.as_str())
+        .unwrap_or("@DEFAULT_AUDIO_SOURCE@");
+    let display_name = selected
+        .map(|source| source.display_name.clone())
+        .or_else(|| default_properties.first().cloned())
+        .unwrap_or_else(|| "system default".to_string());
+    let mut child = pipewire_command("pw-record")
+        .args([
+            "--target",
+            target,
+            "--format",
+            "s16",
+            "--rate",
+            "16000",
+            "--channels",
+            "1",
+            "--raw",
+            "-",
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|error| format!("Failed to start PipeWire recorder: {error}"))?;
+    let mut stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "PipeWire recorder has no audio output".to_string())?;
+    let reader = std::thread::spawn(move || {
+        let mut buffer = [0u8; 4096];
+        let mut pending = Vec::with_capacity(4097);
+        while is_recording.load(Ordering::SeqCst) {
+            let read = match stdout.read(&mut buffer) {
+                Ok(0) | Err(_) => break,
+                Ok(read) => read,
+            };
+            pending.extend_from_slice(&buffer[..read]);
+            let complete = pending.len() / 2 * 2;
+            if complete == 0 {
+                continue;
+            }
+            let mut processed = Vec::with_capacity(complete / 2);
+            for sample in pending[..complete].chunks_exact(2) {
+                let value = i16::from_le_bytes([sample[0], sample[1]]) as f64;
+                processed.push((value * gain).clamp(-32768.0, 32767.0) as i16);
+            }
+            pending.drain(..complete);
+
+            let sum: i64 = processed.iter().map(|sample| (*sample as i64).abs()).sum();
+            let level = (sum as f32 / processed.len() as f32 / 32768.0).min(1.0);
+            if let Some(ref callback) = *audio_level_callback.lock() {
+                callback(level);
+            }
+            if let Some(ref callback) = *audio_data_callback.lock() {
+                let mut pcm = Vec::with_capacity(processed.len() * 2);
+                for sample in &processed {
+                    pcm.extend_from_slice(&sample.to_le_bytes());
+                }
+                callback(&pcm);
+            }
+            frames.lock().extend_from_slice(&processed);
+        }
+    });
+
+    Ok((
+        PipeWireCapture {
+            child,
+            reader: Some(reader),
+        },
+        display_name,
+    ))
+}
 
 /// Streaming area resampler. Each 16 kHz output sample is the weighted mean
 /// of the source interval it represents. This provides a small anti-aliasing
@@ -64,6 +381,8 @@ impl AreaResampler {
 /// Audio recorder using cpal for cross-platform support
 pub struct AudioRecorder {
     device: Option<Device>,
+    configured_device_index: Option<u32>,
+    configured_device_name: Option<String>,
     stream: Mutex<StreamHandle>,
     frames: Arc<Mutex<Vec<i16>>>,
     is_recording: Arc<AtomicBool>,
@@ -95,38 +414,75 @@ impl AudioRecorder {
     ) -> Result<Self, String> {
         let host = cpal::default_host();
 
+        #[cfg(target_os = "linux")]
+        let pipewire_available = !pipewire_sources().is_empty();
+        #[cfg(not(target_os = "linux"))]
+        let pipewire_available = false;
+
         // Device enumeration can change while a USB microphone is being
         // reconnected. Keep a valid configured device when possible, but do
-        // not leave the recorder unusable when the saved index is stale.
-        let mut enumerated = host
-            .input_devices()
-            .map(|devices| devices.collect::<Vec<_>>())
-            .unwrap_or_default();
-        let named = device_name.and_then(|name| {
+        // not leave the recorder unusable when the saved index is stale. On
+        // Linux, do not enumerate ALSA at all when PipeWire is available:
+        // some ALSA drivers keep the enumerated USB PCM open, which prevents
+        // the desktop audio server from sharing it with other applications.
+        let mut enumerated = if pipewire_available {
+            Vec::new()
+        } else {
+            host.input_devices()
+                .map(|devices| devices.collect::<Vec<_>>())
+                .unwrap_or_default()
+        };
+        let configured_device_name = device_name
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .map(str::to_string);
+        let named = configured_device_name.as_deref().and_then(|name| {
             enumerated
                 .iter()
                 .find(|device| device.name().ok().as_deref() == Some(name))
                 .cloned()
         });
-        let device = if named.is_some() {
-            named
+        let device = if pipewire_available {
+            None
+        } else if let Some(device) = named {
+            Some(device)
+        } else if let Some(name) = configured_device_name.as_deref() {
+            warn!(
+                "Configured audio device '{}' is currently unavailable; keeping it selected for reconnect",
+                name
+            );
+            None
         } else if let Some(index) = device_index {
             let selected = enumerated.get(index as usize).cloned();
             if selected.is_none() {
                 warn!(
-                    "Configured audio device index {} is unavailable; falling back to the default input",
+                    "Configured audio device index {} is currently unavailable",
                     index
                 );
             }
             selected
-                .or_else(|| host.default_input_device())
-                .or_else(|| enumerated.pop())
         } else {
-            host.default_input_device().or_else(|| enumerated.pop())
+            if let Some(default) = host.default_input_device() {
+                enumerated.push(default);
+            }
+            let system_default = detected_system_default_input_name();
+            enumerated.sort_by_key(|device| {
+                let name = device.name().unwrap_or_default();
+                let differs_from_system = system_default
+                    .as_deref()
+                    .is_none_or(|detected| !device_name_matches(&name, detected));
+                (differs_from_system, automatic_device_priority(&name))
+            });
+            enumerated.into_iter().next()
         };
 
         let clamped_gain = gain.clamp(0.1, 5.0);
-        if device.is_none() {
+        if pipewire_available {
+            info!(
+                "Using PipeWire desktop audio capture with gain {}",
+                clamped_gain
+            );
+        } else if device.is_none() {
             warn!("No audio input device found, recording may not work");
         } else if let Ok(device_name) = device.as_ref().unwrap().name() {
             info!(
@@ -137,7 +493,13 @@ impl AudioRecorder {
 
         Ok(Self {
             device,
-            stream: Mutex::new(StreamHandle(None)),
+            configured_device_index: device_index,
+            configured_device_name,
+            stream: Mutex::new(StreamHandle {
+                cpal: None,
+                #[cfg(target_os = "linux")]
+                pipewire: None,
+            }),
             // Pre-allocate with capacity to reduce reallocations during recording
             frames: Arc::new(Mutex::new(Vec::with_capacity(SAMPLE_RATE as usize * 60))), // 1 minute max
             is_recording: Arc::new(AtomicBool::new(false)),
@@ -152,13 +514,36 @@ impl AudioRecorder {
     /// # Returns
     /// Vector of tuples containing (device_index, device_name)
     pub fn get_devices() -> Vec<(u32, String)> {
+        #[cfg(target_os = "linux")]
+        {
+            let sources = pipewire_sources();
+            if !sources.is_empty() {
+                let devices = sources
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, source)| (index as u32, source.stable_name))
+                    .collect::<Vec<_>>();
+                debug!("Found {} PipeWire audio input devices", devices.len());
+                return devices;
+            }
+        }
+
         let host = cpal::default_host();
         let mut devices = Vec::new();
+        let mut seen_names = HashSet::new();
 
         if let Ok(input_devices) = host.input_devices() {
             for (i, device) in input_devices.enumerate() {
                 let name = device.name().unwrap_or_else(|_| format!("Device {}", i));
-                devices.push((i as u32, name));
+                let normalized = name.trim().to_lowercase();
+                let generic = matches!(
+                    normalized.as_str(),
+                    "default" | "pipewire" | "pulse" | "sysdefault"
+                );
+                let loopback = normalized.contains("monitor") || normalized.contains("loopback");
+                if !generic && !loopback && seen_names.insert(normalized) {
+                    devices.push((i as u32, name));
+                }
             }
         }
 
@@ -209,30 +594,89 @@ impl AudioRecorder {
         let audio_data_callback = Arc::clone(&self.audio_data_callback);
         let gain = self.gain;
 
-        // Prefer the configured/default device, but always keep every current
-        // input device as a fallback. Device indices are not stable across
-        // PipeWire/ALSA restarts or USB reconnects, so restricting an
-        // explicitly configured index to one candidate can permanently make
-        // recording fail after the device list changes.
-        let mut candidates = Vec::new();
-        if let Some(device) = self.device.take() {
-            candidates.push(device);
-        }
-        if let Ok(devices) = cpal::default_host().input_devices() {
-            candidates.extend(devices);
+        // On Linux, PipeWire is the desktop audio device layer used by apps
+        // such as browsers and meeting clients. Recording through it permits
+        // concurrent microphone use and keeps USB devices discoverable even
+        // while another application has an active capture stream.
+        #[cfg(target_os = "linux")]
+        {
+            match start_pipewire_capture(
+                self.configured_device_name.as_deref(),
+                gain,
+                Arc::clone(&frames),
+                Arc::clone(&is_recording),
+                Arc::clone(&audio_level_callback),
+                Arc::clone(&audio_data_callback),
+            ) {
+                Ok((mut capture, device_name)) => {
+                    // PipeWire may need a few scheduling cycles before the
+                    // first audio buffer arrives, especially while another
+                    // conferencing app is capturing. A live pw-record child
+                    // already means the target was accepted; do not reject a
+                    // valid microphone merely because its first frame is a
+                    // little later than Speaky's UI startup.
+                    std::thread::sleep(Duration::from_millis(80));
+                    let exited = capture.child.try_wait().ok().flatten().is_some();
+                    if !exited {
+                        info!(
+                            "Recording started successfully on PipeWire source '{}'",
+                            device_name
+                        );
+                        self.stream.lock().pipewire = Some(capture);
+                        return Ok(());
+                    }
+                    let _ = capture.child.kill();
+                    let _ = capture.child.wait();
+                    if let Some(reader) = capture.reader.take() {
+                        let _ = reader.join();
+                    }
+                    self.frames.lock().clear();
+                    warn!(
+                        "PipeWire source '{}' exited during startup; trying native fallback",
+                        device_name
+                    );
+                }
+                Err(error) => warn!("PipeWire capture unavailable: {}", error),
+            }
         }
 
-        // On Linux, PipeWire/ALSA may expose a virtual "default" endpoint
-        // before the physical USB microphone. Try named devices first so a
-        // stale default cannot block the streaming session.
-        let preferred_name = candidates
-            .first()
-            .and_then(|device| device.name().ok())
+        // An explicit selection is strict and is resolved by its stable name
+        // on every recording. Automatic mode instead probes all current input
+        // devices in reliability order until one actually produces frames.
+        let host = cpal::default_host();
+        let enumerated = host
+            .input_devices()
+            .map(|devices| devices.collect::<Vec<_>>())
             .unwrap_or_default();
-        candidates.sort_by_key(|device| {
-            let name = device.name().unwrap_or_default();
-            (name != preferred_name, name.eq_ignore_ascii_case("default"))
-        });
+        let mut candidates = if let Some(configured_name) = self.configured_device_name.as_deref() {
+            enumerated
+                .into_iter()
+                .filter(|device| device.name().ok().as_deref() == Some(configured_name))
+                .collect::<Vec<_>>()
+        } else if let Some(configured_index) = self.configured_device_index {
+            enumerated
+                .into_iter()
+                .nth(configured_index as usize)
+                .into_iter()
+                .collect::<Vec<_>>()
+        } else {
+            let mut automatic_candidates = enumerated;
+            if let Some(device) = self.device.take() {
+                automatic_candidates.push(device);
+            }
+            if let Some(default) = host.default_input_device() {
+                automatic_candidates.push(default);
+            }
+            let system_default = detected_system_default_input_name();
+            automatic_candidates.sort_by_key(|device| {
+                let name = device.name().unwrap_or_default();
+                let differs_from_system = system_default
+                    .as_deref()
+                    .is_none_or(|detected| !device_name_matches(&name, detected));
+                (differs_from_system, automatic_device_priority(&name))
+            });
+            automatic_candidates
+        };
         // The same ALSA/PipeWire endpoint can be returned twice (once as the
         // configured handle and once during enumeration). Remove duplicates
         // before trying fallbacks so a short candidate list cannot crowd out
@@ -245,7 +689,13 @@ impl AudioRecorder {
 
         if candidates.is_empty() {
             self.is_recording.store(false, Ordering::SeqCst);
-            return Err("No audio input device available".to_string());
+            return Err(if let Some(name) = self.configured_device_name.as_deref() {
+                format!("Configured audio device '{}' is unavailable", name)
+            } else if let Some(index) = self.configured_device_index {
+                format!("Configured audio device index {} is unavailable", index)
+            } else {
+                "No audio input device available".to_string()
+            });
         }
 
         let mut last_error = None;
@@ -340,7 +790,7 @@ impl AudioRecorder {
 
             info!("Recording started successfully on '{}'", device_name);
             self.device = Some(device);
-            self.stream.lock().0 = Some(stream);
+            self.stream.lock().cpal = Some(stream);
             return Ok(());
         }
 
@@ -368,7 +818,16 @@ impl AudioRecorder {
 
         self.is_recording.store(false, Ordering::SeqCst);
 
-        if let Some(stream) = self.stream.lock().0.take() {
+        #[cfg(target_os = "linux")]
+        if let Some(mut capture) = self.stream.lock().pipewire.take() {
+            let _ = capture.child.kill();
+            let _ = capture.child.wait();
+            if let Some(reader) = capture.reader.take() {
+                let _ = reader.join();
+            }
+        }
+
+        if let Some(stream) = self.stream.lock().cpal.take() {
             drop(stream);
         }
 
@@ -534,13 +993,34 @@ where
 impl Drop for AudioRecorder {
     fn drop(&mut self) {
         self.is_recording.store(false, Ordering::SeqCst);
-        self.stream.lock().0.take();
+        #[cfg(target_os = "linux")]
+        if let Some(mut capture) = self.stream.lock().pipewire.take() {
+            let _ = capture.child.kill();
+            let _ = capture.child.wait();
+            if let Some(reader) = capture.reader.take() {
+                let _ = reader.join();
+            }
+        }
+        self.stream.lock().cpal.take();
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::AreaResampler;
+    use super::{automatic_device_priority, AreaResampler};
+
+    #[test]
+    fn automatic_selection_prefers_physical_usb_microphones() {
+        let mut names = [
+            "default",
+            "pipewire",
+            "Monitor of Output",
+            "AB13X USB Audio",
+        ];
+        names.sort_by_key(|name| automatic_device_priority(name));
+        assert_eq!(names[0], "AB13X USB Audio");
+        assert_eq!(names[3], "Monitor of Output");
+    }
 
     #[test]
     fn resamples_48khz_to_16khz_without_changing_a_constant_signal() {

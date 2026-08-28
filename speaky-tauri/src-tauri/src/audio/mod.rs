@@ -1,3 +1,3 @@
 mod recorder;
 
-pub use recorder::AudioRecorder;
+pub use recorder::{detected_system_default_input_name, AudioRecorder};

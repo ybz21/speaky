@@ -28,6 +28,13 @@ export interface AppInfoEvent {
   icon: string | null;
 }
 
+export interface AudioDeviceInfo {
+  index: number;
+  name: string;
+  is_default: boolean;
+  unavailable?: boolean;
+}
+
 // IPC Commands
 export async function startRecording(): Promise<void> {
   return invoke("start_recording");
@@ -37,7 +44,7 @@ export async function stopRecording(): Promise<void> {
   return invoke("stop_recording");
 }
 
-export async function getAudioDevices(): Promise<Array<{ index: number; name: string }>> {
+export async function getAudioDevices(): Promise<AudioDeviceInfo[]> {
   return invoke("get_audio_devices");
 }
 

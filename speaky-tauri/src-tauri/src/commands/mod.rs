@@ -4,7 +4,7 @@ use tauri::{command, AppHandle, Manager};
 use tauri_plugin_autostart::ManagerExt as AutostartExt;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
-use crate::audio::AudioRecorder;
+use crate::audio::{detected_system_default_input_name, AudioRecorder};
 use crate::config::Config;
 use crate::engines;
 use crate::hotkey;
@@ -190,13 +190,26 @@ pub fn stop_recording(app: AppHandle) -> Result<(), String> {
 pub struct AudioDeviceInfo {
     index: u32,
     name: String,
+    is_default: bool,
 }
 
 #[command]
 pub fn get_audio_devices() -> Vec<AudioDeviceInfo> {
+    let system_default = detected_system_default_input_name();
     AudioRecorder::get_devices()
         .into_iter()
-        .map(|(index, name)| AudioDeviceInfo { index, name })
+        .map(|(index, name)| {
+            let is_default = system_default.as_deref().is_some_and(|detected| {
+                let name = name.to_lowercase();
+                let detected = detected.to_lowercase();
+                name == detected || name.contains(&detected) || detected.contains(&name)
+            });
+            AudioDeviceInfo {
+                index,
+                name,
+                is_default,
+            }
+        })
         .collect()
 }
 

@@ -15,6 +15,7 @@
     cancelHotkeyCapture,
     getAudioDevices,
     startHotkeyCapture,
+    type AudioDeviceInfo,
   } from "../utils/tauri";
   import logoUrl from "../../../../resources/icon.svg?url";
 
@@ -28,7 +29,9 @@
   let hotkeyCaptureMessage = "";
   let captureTimer: ReturnType<typeof setTimeout> | undefined;
   let captureListeners: UnlistenFn[] = [];
-  let audioDevices: Array<{ index: number; name: string }> = [];
+  let hotkeyRecorder: HTMLButtonElement;
+  let audioDevices: AudioDeviceInfo[] = [];
+  $: detectedAudioDevice = audioDevices.find((device) => device.is_default);
   let showRecognitionApiKey = false;
   let showPolishApiKey = false;
 
@@ -48,10 +51,7 @@
     try {
       captureListeners = await Promise.all([
         listen<{ hotkey: string }>("hotkey-captured", ({ payload }) => {
-          setLocalHotkey(payload.hotkey);
-          capturingHotkey = false;
-          hotkeyCaptureMessage = "";
-          clearCaptureTimer();
+          finishHotkeyCapture(payload.hotkey);
         }),
         listen("hotkey-capture-error", () => {
           hotkeyCaptureMessage = $t("settings.hotkeyUnsupported");
@@ -75,6 +75,22 @@
     locale.setLocale(localConfig.appearance.ui_language);
     try {
       audioDevices = await getAudioDevices();
+      const configuredDeviceName = localConfig.core.asr.audio_device_name;
+      if (configuredDeviceName) {
+        let configuredDevice = audioDevices.find(
+          (device) => device.name === configuredDeviceName,
+        );
+        if (!configuredDevice) {
+          configuredDevice = {
+            index: 4294967295,
+            name: configuredDeviceName,
+            is_default: false,
+            unavailable: true,
+          };
+          audioDevices = [...audioDevices, configuredDevice];
+        }
+        localConfig.core.asr.audio_device = configuredDevice.index;
+      }
     } catch (error) {
       console.error("Failed to load audio devices:", error);
       audioDevices = [];
@@ -153,6 +169,84 @@
     };
   }
 
+  function finishHotkeyCapture(hotkey: string) {
+    setLocalHotkey(hotkey);
+    capturingHotkey = false;
+    hotkeyCaptureMessage = "";
+    clearCaptureTimer();
+    void cancelHotkeyCapture();
+  }
+
+  function hotkeyFromKeyboardEvent(event: KeyboardEvent): string | null {
+    const byCode: Record<string, string> = {
+      ControlLeft: "ctrl_l",
+      ControlRight: "ctrl_r",
+      AltLeft: "alt_l",
+      AltRight: "alt_r",
+      ShiftLeft: "shift_l",
+      ShiftRight: "shift_r",
+      MetaLeft: "cmd_l",
+      MetaRight: "cmd_r",
+      Space: "space",
+      Tab: "tab",
+      CapsLock: "caps_lock",
+      ScrollLock: "scroll_lock",
+      NumLock: "num_lock",
+      PrintScreen: "print_screen",
+      Pause: "pause",
+      Insert: "insert",
+      Backquote: "backquote",
+      Escape: "escape",
+      Enter: "enter",
+      Backspace: "backspace",
+      Delete: "delete",
+      Home: "home",
+      End: "end",
+      PageUp: "page_up",
+      PageDown: "page_down",
+      ArrowUp: "arrow_up",
+      ArrowDown: "arrow_down",
+      ArrowLeft: "arrow_left",
+      ArrowRight: "arrow_right",
+      Minus: "minus",
+      Equal: "equal",
+      BracketLeft: "left_bracket",
+      BracketRight: "right_bracket",
+      Semicolon: "semicolon",
+      Quote: "quote",
+      Backslash: "backslash",
+      IntlBackslash: "intl_backslash",
+      Comma: "comma",
+      Period: "dot",
+      Slash: "slash",
+      NumpadEnter: "numpad_enter",
+      NumpadSubtract: "numpad_minus",
+      NumpadAdd: "numpad_plus",
+      NumpadMultiply: "numpad_multiply",
+      NumpadDivide: "numpad_divide",
+      NumpadDecimal: "numpad_delete",
+    };
+    if (byCode[event.code]) return byCode[event.code];
+    if (/^Key[A-Z]$/.test(event.code)) return event.code.slice(3).toLowerCase();
+    if (/^Digit[0-9]$/.test(event.code)) return event.code.slice(5);
+    if (/^Numpad[0-9]$/.test(event.code)) return `numpad_${event.code.slice(6)}`;
+    if (/^F(?:[1-9]|1[0-2])$/.test(event.code)) return event.code.toLowerCase();
+    if (event.key === "Fn" || event.code === "Fn") return "fn";
+    return null;
+  }
+
+  function handleHotkeyKeydown(event: KeyboardEvent) {
+    if (!capturingHotkey || event.repeat) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const hotkey = hotkeyFromKeyboardEvent(event);
+    if (hotkey) {
+      finishHotkeyCapture(hotkey);
+    } else {
+      hotkeyCaptureMessage = $t("settings.hotkeyUnsupported");
+    }
+  }
+
   async function toggleHotkeyCapture() {
     if (!settingsLoaded) return;
     hotkeyCaptureMessage = "";
@@ -166,6 +260,8 @@
     try {
       await startHotkeyCapture();
       capturingHotkey = true;
+      await tick();
+      hotkeyRecorder?.focus();
       captureTimer = setTimeout(async () => {
         capturingHotkey = false;
         hotkeyCaptureMessage = $t("settings.hotkeyTimeout");
@@ -271,6 +367,8 @@
   }
 </script>
 
+<svelte:window on:keydown={handleHotkeyKeydown} />
+
 <div class="settings-dialog">
   <header>
     <div class="brand">
@@ -310,6 +408,7 @@
                 class:capturing={capturingHotkey}
                 aria-pressed={capturingHotkey}
                 disabled={!settingsLoaded}
+                bind:this={hotkeyRecorder}
                 on:click={toggleHotkeyCapture}
               >
                 <kbd>{capturingHotkey ? "…" : displayHotkey(localConfig.core.asr.hotkey)}</kbd>
@@ -364,9 +463,17 @@
             </span>
             <div class="device-control">
               <select bind:value={localConfig.core.asr.audio_device}>
-                <option value="">{$t("settings.microphoneDefault")}</option>
+                <option value="">
+                  {detectedAudioDevice
+                    ? $t("settings.microphoneAutomaticCurrent", {
+                        name: detectedAudioDevice.name,
+                      })
+                    : $t("settings.microphoneDefault")}
+                </option>
                 {#each audioDevices as device}
-                  <option value={device.index}>{device.name}</option>
+                  <option value={device.index}>
+                    {device.name}{device.unavailable ? ` (${$t("settings.microphoneUnavailable")})` : ""}
+                  </option>
                 {/each}
               </select>
               <button type="button" class="refresh-button" on:click={refreshAudioDevices}>
