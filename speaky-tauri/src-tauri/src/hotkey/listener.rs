@@ -612,14 +612,26 @@ fn deliver_recognition_result(
             // window managers even when it is marked non-focusable.
             // Restore the exact window that was active at key-down.
             let target_window_id = APP_STATE.last_focused_app.read().window_id.clone();
-            if let Some(window_id) = target_window_id.as_deref() {
-                match crate::window_info::focus_window(window_id) {
-                    Ok(()) => {
-                        info!("Restored target window focus before paste");
-                        std::thread::sleep(Duration::from_millis(100));
-                    }
-                    Err(error) => {
-                        error!("Failed to restore target window focus: {}", error);
+            // Native Wayland applications (notably Chrome launched with
+            // --ozone-platform=wayland) are not addressable through xdotool.
+            // Calling windowactivate with the stale X11 root window can move
+            // focus away from Chrome immediately before the virtual keyboard
+            // sends Ctrl+V. Keep the original compositor focus on Wayland;
+            // the non-focusable overlay does not take it in the first place.
+            #[cfg(target_os = "linux")]
+            let should_restore_focus = std::env::var_os("WAYLAND_DISPLAY").is_none();
+            #[cfg(not(target_os = "linux"))]
+            let should_restore_focus = true;
+            if should_restore_focus {
+                if let Some(window_id) = target_window_id.as_deref() {
+                    match crate::window_info::focus_window(window_id) {
+                        Ok(()) => {
+                            info!("Restored target window focus before paste");
+                            std::thread::sleep(Duration::from_millis(100));
+                        }
+                        Err(error) => {
+                            error!("Failed to restore target window focus: {}", error);
+                        }
                     }
                 }
             }

@@ -154,6 +154,104 @@ fn pipewire_sources() -> Vec<PipeWireSource> {
 }
 
 #[cfg(target_os = "linux")]
+fn ensure_pipewire_capture_profile(device_name: &str) -> bool {
+    let Ok(output) = pipewire_command("pw-dump").output() else {
+        return false;
+    };
+    let Ok(objects) = serde_json::from_slice::<Vec<serde_json::Value>>(&output.stdout) else {
+        return false;
+    };
+    let normalized = device_name.to_lowercase();
+    let mut device_id = None;
+    for object in objects {
+        let Some(properties) = object
+            .pointer("/info/props")
+            .and_then(|value| value.as_object())
+        else {
+            continue;
+        };
+        let media_class = properties
+            .get("media.class")
+            .and_then(|value| value.as_str());
+        if media_class != Some("Audio/Device") {
+            continue;
+        }
+        let aliases = [
+            properties.get("api.alsa.card.name"),
+            properties.get("alsa.card_name"),
+            properties.get("device.nick"),
+            properties.get("device.description"),
+        ];
+        if aliases
+            .iter()
+            .flatten()
+            .filter_map(|value| value.as_str())
+            .any(|value| {
+                let value = value.to_lowercase();
+                value == normalized || value.contains(&normalized) || normalized.contains(&value)
+            })
+        {
+            device_id = object.get("id").and_then(|value| value.as_u64());
+            break;
+        }
+    }
+    let Some(device_id) = device_id else {
+        return false;
+    };
+
+    let Ok(output) = pipewire_command("pw-cli")
+        .args(["enum-params", &device_id.to_string(), "EnumProfile"])
+        .output()
+    else {
+        return false;
+    };
+    let text = String::from_utf8_lossy(&output.stdout);
+    let mut profile_index = None;
+    let mut current_index = None;
+    let mut has_source = false;
+    for line in text.lines() {
+        if line.trim_start().starts_with("Object:") {
+            if has_source {
+                profile_index = current_index;
+                break;
+            }
+            current_index = None;
+            has_source = false;
+        }
+        if line.contains("Profile:index") {
+            current_index = None;
+        } else if current_index.is_none() && line.trim().starts_with("Int ") {
+            current_index = line.trim()[4..].trim().parse::<u32>().ok();
+        }
+        if line.contains("String \"Audio/Source\"") {
+            has_source = true;
+        }
+    }
+    let Some(profile_index) =
+        profile_index.or_else(|| if has_source { current_index } else { None })
+    else {
+        return false;
+    };
+    let status = pipewire_command("wpctl")
+        .args([
+            "set-profile",
+            &device_id.to_string(),
+            &profile_index.to_string(),
+        ])
+        .status();
+    if matches!(status, Ok(status) if status.success()) {
+        info!(
+            "Activated PipeWire capture profile {} for '{}'",
+            profile_index, device_name
+        );
+        std::thread::sleep(Duration::from_millis(250));
+        true
+    } else {
+        false
+    }
+}
+
+#[cfg(target_os = "linux")]
 fn pipewire_default_properties() -> Vec<String> {
     for attempt in 0..3 {
         match pipewire_command("wpctl")
@@ -162,6 +260,17 @@ fn pipewire_default_properties() -> Vec<String> {
         {
             Ok(output) if output.status.success() => {
                 let text = String::from_utf8_lossy(&output.stdout);
+                // wpctl may return a sink here while WirePlumber is still
+                // rebuilding capture nodes after a reboot. Never advertise a
+                // playback card as the default microphone.
+                if !text.lines().any(|line| {
+                    line.trim().trim_start_matches('*').trim() == "media.class = \"Audio/Source\""
+                }) {
+                    if attempt < 2 {
+                        std::thread::sleep(Duration::from_millis(75));
+                    }
+                    continue;
+                }
                 let mut values = Vec::new();
                 for property in [
                     "api.alsa.card.name",
@@ -244,13 +353,19 @@ fn start_pipewire_capture(
                 .any(|alias| device_name_matches(alias, configured_name))
         })
     } else {
-        sources.iter().find(|source| {
-            source.aliases.iter().any(|alias| {
-                default_properties
-                    .iter()
-                    .any(|detected| device_name_matches(alias, detected))
+        sources
+            .iter()
+            .find(|source| {
+                source.aliases.iter().any(|alias| {
+                    default_properties
+                        .iter()
+                        .any(|detected| device_name_matches(alias, detected))
+                })
             })
-        })
+            // If the desktop has not assigned a default source yet, behave
+            // like meeting apps: pick the first real capture source rather
+            // than attempting to open the default playback endpoint.
+            .or_else(|| sources.first())
     };
 
     if configured_name.is_some() && selected.is_none() {
@@ -413,6 +528,21 @@ impl AudioRecorder {
         gain: f64,
     ) -> Result<Self, String> {
         let host = cpal::default_host();
+
+        #[cfg(target_os = "linux")]
+        if let Some(name) = device_name {
+            if pipewire_sources().iter().all(|source| {
+                !source
+                    .aliases
+                    .iter()
+                    .any(|alias| device_name_matches(alias, name))
+            }) {
+                // WirePlumber can leave a USB card in an output-only profile
+                // after reboot. Explicitly activate its capture profile so
+                // the same device appears to Speaky and other desktop apps.
+                ensure_pipewire_capture_profile(name);
+            }
+        }
 
         #[cfg(target_os = "linux")]
         let pipewire_available = !pipewire_sources().is_empty();
