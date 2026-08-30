@@ -237,6 +237,7 @@
      idle surface in CSS instead of hiding the window and remapping it later. */
   .floating-window.inactive {
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
   }
 

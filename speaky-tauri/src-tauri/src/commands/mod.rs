@@ -284,6 +284,16 @@ pub fn show_window(app: AppHandle) -> Result<(), String> {
 /// Hide main window
 #[command]
 pub fn hide_window(app: AppHandle) -> Result<(), String> {
+    // Conceal the mapped overlay through the UI state. Keeping the native
+    // surface mapped avoids a Wayland focus jump on the next recording.
+    {
+        let mut ui = APP_STATE.ui.write();
+        ui.phase = "idle".to_string();
+        ui.audio_level = 0.0;
+        ui.partial_result.clear();
+        ui.final_result.clear();
+        ui.error_message.clear();
+    }
     if let Some(window) = app.get_webview_window("main") {
         // Keep the native surface mapped. Hiding and showing a Wayland
         // window can activate it and steal the user's text cursor.
