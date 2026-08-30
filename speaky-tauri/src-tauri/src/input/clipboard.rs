@@ -163,7 +163,13 @@ fn simulate_x11_window_paste(window_id: &str) -> Result<(), PasteError> {
     use std::process::Command;
 
     let output = Command::new("xdotool")
-        .args(["key", "--window", window_id, "--clearmodifiers", "ctrl+v"])
+        .args([
+            "key",
+            "--window",
+            window_id,
+            "--clearmodifiers",
+            "ctrl+shift+v",
+        ])
         .output()
         .map_err(|error| PasteError::ToolNotAvailable(error.to_string()))?;
 
@@ -578,7 +584,7 @@ fn simulate_paste() -> Result<(), PasteError> {
     // which makes paste appear successful in logs but not in the browser.
     if std::env::var_os("WAYLAND_DISPLAY").is_none() {
         let result = Command::new("xdotool")
-            .args(["key", "--clearmodifiers", "ctrl+v"])
+            .args(["key", "--clearmodifiers", "ctrl+shift+v"])
             .output();
 
         match result {
