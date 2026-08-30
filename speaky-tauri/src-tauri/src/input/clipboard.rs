@@ -38,7 +38,8 @@ impl std::error::Error for PasteError {}
 /// Write text to clipboard and simulate paste
 ///
 /// This function writes the provided text to the system clipboard and then
-/// simulates the appropriate keyboard shortcut (Ctrl+V or Cmd+V) to paste
+/// simulates the appropriate keyboard shortcut (Ctrl+Shift+V on Wayland,
+/// Ctrl+V or Cmd+V elsewhere) to paste
 /// the text into the currently focused application.
 ///
 /// # Arguments
@@ -95,8 +96,9 @@ pub fn paste_text_to_window(
     #[cfg(target_os = "linux")]
     if std::env::var_os("WAYLAND_DISPLAY").is_some() {
         // uinput events enter the compositor through the same path as a real
-        // keyboard. This works for both native Wayland and XWayland clients
-        // and avoids false-success responses from desktop portal injection.
+        // keyboard. Ctrl+Shift+V is intentional: browser xterm terminals
+        // reserve plain Ctrl+V as a control character and handle paste on
+        // Ctrl+Shift+V. Normal browser inputs accept this shortcut as well.
         std::thread::sleep(std::time::Duration::from_millis(80));
         match uinput_paste() {
             Ok(()) => {
@@ -248,6 +250,7 @@ fn get_uinput_keyboard() -> Result<
     let keyboard = UINPUT_KEYBOARD.get_or_try_init(|| {
         let mut keys = AttributeSet::<KeyCode>::new();
         keys.insert(KeyCode::KEY_LEFTCTRL);
+        keys.insert(KeyCode::KEY_LEFTSHIFT);
         keys.insert(KeyCode::KEY_V);
         let device = VirtualDevice::builder()
             .and_then(|builder| builder.with_keys(&keys))
@@ -298,17 +301,23 @@ fn uinput_paste() -> Result<(), PasteError> {
     let key_event = |key: KeyCode, value| InputEvent::new(EventType::KEY.0, key.code(), value);
 
     keyboard
-        .emit(&[key_event(KeyCode::KEY_LEFTCTRL, 1)])
+        .emit(&[
+            key_event(KeyCode::KEY_LEFTCTRL, 1),
+            key_event(KeyCode::KEY_LEFTSHIFT, 1),
+        ])
         .map_err(|error| PasteError::SimulationFailed(error.to_string()))?;
     std::thread::sleep(std::time::Duration::from_millis(10));
     let press_result = keyboard.emit(&[key_event(KeyCode::KEY_V, 1)]);
     std::thread::sleep(std::time::Duration::from_millis(20));
     let release_v_result = keyboard.emit(&[key_event(KeyCode::KEY_V, 0)]);
-    let release_ctrl_result = keyboard.emit(&[key_event(KeyCode::KEY_LEFTCTRL, 0)]);
+    let release_modifiers_result = keyboard.emit(&[
+        key_event(KeyCode::KEY_LEFTSHIFT, 0),
+        key_event(KeyCode::KEY_LEFTCTRL, 0),
+    ]);
 
     press_result
         .and(release_v_result)
-        .and(release_ctrl_result)
+        .and(release_modifiers_result)
         .map_err(|error| PasteError::SimulationFailed(error.to_string()))?;
     Ok(())
 }
@@ -391,8 +400,9 @@ async fn portal_send_paste(state: &mut Option<PortalState>) -> Result<(), String
     let portal = state.as_ref().expect("portal state initialized");
     // NotifyKeyboardKeysym takes X11 keysym values, not Linux evdev
     // keycodes.  Using evdev values (29/47) appears to succeed on D-Bus but
-    // produces unrelated keys in GNOME/Chrome.  Ctrl_L and lowercase `v`
-    // are stable across keyboard layouts and Wayland clients.
+    // produces unrelated keys in GNOME/Chrome. Ctrl+Shift+V is intentional:
+    // browser xterm terminals reserve plain Ctrl+V as a control character.
+    // These keysyms are stable across keyboard layouts and Wayland clients.
     portal
         .proxy
         .notify_keyboard_keysym(
@@ -407,6 +417,16 @@ async fn portal_send_paste(state: &mut Option<PortalState>) -> Result<(), String
         .proxy
         .notify_keyboard_keysym(
             &portal.session,
+            0xffe1,
+            KeyState::Pressed,
+            NotifyKeyboardKeysymOptions::default(),
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+    portal
+        .proxy
+        .notify_keyboard_keysym(
+            &portal.session,
             0x76,
             KeyState::Pressed,
             NotifyKeyboardKeysymOptions::default(),
@@ -418,6 +438,16 @@ async fn portal_send_paste(state: &mut Option<PortalState>) -> Result<(), String
         .notify_keyboard_keysym(
             &portal.session,
             0x76,
+            KeyState::Released,
+            NotifyKeyboardKeysymOptions::default(),
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+    portal
+        .proxy
+        .notify_keyboard_keysym(
+            &portal.session,
+            0xffe1,
             KeyState::Released,
             NotifyKeyboardKeysymOptions::default(),
         )
