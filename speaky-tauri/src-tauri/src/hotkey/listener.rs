@@ -263,7 +263,9 @@ impl HotkeyManager {
             // Apply the non-interactive flags immediately before *and* after
             // mapping so the overlay can never become the keyboard target.
             let _ = window.set_focusable(false);
-            let _ = window.show();
+            // The window is mapped once during setup. Avoid show()/hide()
+            // cycles here because Mutter may activate a newly mapped window
+            // and move the text cursor away from Chrome or ChatGPT.
             let _ = window.set_focusable(false);
             let _ = window.set_ignore_cursor_events(true);
             // Mutter applies the configured initial centering when a hidden
@@ -661,8 +663,16 @@ fn deliver_recognition_result(
 
             // Keep the final result visible long enough to be readable.
             std::thread::sleep(Duration::from_secs(2));
+            {
+                let mut ui = APP_STATE.ui.write();
+                ui.phase = "idle".to_string();
+                ui.audio_level = 0.0;
+                ui.partial_result.clear();
+                ui.final_result.clear();
+            }
             if let Some(window) = app_handle.get_webview_window("main") {
-                let _ = window.hide();
+                let _ = window.set_focusable(false);
+                let _ = window.set_ignore_cursor_events(true);
             }
         }
         Err(e) => {
@@ -703,7 +713,8 @@ fn fail_and_hide(app_handle: &AppHandle, message: &str) {
         };
         if should_hide {
             if let Some(window) = app.get_webview_window("main") {
-                let _ = window.hide();
+                let _ = window.set_focusable(false);
+                let _ = window.set_ignore_cursor_events(true);
             }
         }
     });

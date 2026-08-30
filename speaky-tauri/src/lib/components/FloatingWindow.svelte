@@ -175,7 +175,7 @@
   });
 </script>
 
-<div class="floating-window">
+<div class="floating-window" class:inactive={$appState.recordingState === "idle"}>
   <div
     class="container"
     style="
@@ -231,6 +231,13 @@
     height: 88px;
     padding: 4px;
     box-sizing: border-box;
+  }
+
+  /* The native window stays mapped to preserve Wayland focus. Conceal its
+     idle surface in CSS instead of hiding the window and remapping it later. */
+  .floating-window.inactive {
+    opacity: 0;
+    pointer-events: none;
   }
 
   /* Container: fills window minus padding, with gradient background */

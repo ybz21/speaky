@@ -163,6 +163,13 @@ pub fn run() {
             // application that should receive the recognized text.
             if let Some(window) = app.get_webview_window("main") {
                 window.set_focusable(false)?;
+                // Map the overlay exactly once while it is still idle. On
+                // GNOME/Wayland repeatedly showing a hidden window can
+                // activate it even when it is non-focusable; keeping the
+                // surface mapped avoids that focus transition later.
+                window.show()?;
+                window.set_focusable(false)?;
+                window.set_ignore_cursor_events(true)?;
             }
 
             // Initialize audio recorder
