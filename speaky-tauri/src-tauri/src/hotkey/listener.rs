@@ -258,7 +258,14 @@ impl HotkeyManager {
         // original target focused is what makes the later paste land in the
         // user's editor instead of in Speaky itself.
         if let Some(window) = app_handle.get_webview_window("main") {
+            // GTK/Mutter can still activate a hidden window while it is being
+            // mapped, even when the Tauri config contains `focus: false`.
+            // Apply the non-interactive flags immediately before *and* after
+            // mapping so the overlay can never become the keyboard target.
+            let _ = window.set_focusable(false);
             let _ = window.show();
+            let _ = window.set_focusable(false);
+            let _ = window.set_ignore_cursor_events(true);
             // Mutter applies the configured initial centering when a hidden
             // window is mapped for the first time, overriding any position
             // set beforehand. Move it immediately after mapping instead.

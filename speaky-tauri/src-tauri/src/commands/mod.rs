@@ -268,8 +268,15 @@ pub fn cancel_hotkey_capture() {
 #[command]
 pub fn show_window(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("main") {
+        // This command is also used by the development UI. Showing the
+        // status overlay must not move focus away from Chrome, ChatGPT, or
+        // whichever editor the user was typing in.
+        window.set_focusable(false).map_err(|e| e.to_string())?;
         window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())?;
+        window.set_focusable(false).map_err(|e| e.to_string())?;
+        window
+            .set_ignore_cursor_events(true)
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }

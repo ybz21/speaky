@@ -67,12 +67,18 @@ fn get_linux_window_info() -> Option<WindowInfo> {
         .output()
         .ok()?;
 
-    let (wm_class, wm_instance) = if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        parse_wm_class(&stdout)
-    } else {
-        (String::new(), String::new())
-    };
+    // A Wayland session may leave an old X11 id in _NET_ACTIVE_WINDOW. Do
+    // not treat that stale id as a real target: returning `Unknown` with an
+    // invalid window id both loses the app icon and makes the later paste
+    // attempt target the wrong client.
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let (wm_class, wm_instance) = parse_wm_class(&stdout);
+    if wm_class.is_empty() && wm_instance.is_empty() {
+        return None;
+    }
 
     // Get window name
     let output = Command::new("xprop")
